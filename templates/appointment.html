@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Schedule Appointment</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('appointment') }}" class="needs-validation" novalidate>
+                        <div class="row g-3">
+                            <!-- Student Selection -->
+                            <div class="col-md-12">
+                                <label for="student_id" class="form-label">Student <span class="text-danger">*</span></label>
+                                <select class="form-select" id="student_id" name="student_id" required>
+                                    <option value="">Choose student...</option>
+                                    {% for student in students %}
+                                    <option value="{{ student.id }}">{{ student.name }} - {{ student.programme }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="invalid-feedback">
+                                    Please select a student.
+                                </div>
+                            </div>
+
+                            <!-- Counsellor Selection -->
+                            <div class="col-md-12">
+                                <label for="counselor_id" class="form-label">Counsellor <span class="text-danger">*</span></label>
+        <select class="form-select" id="counselor_id" name="counselor_id" required>
+                                    {% if Counsellors|length == 1 %}
+                                        <option value="{{ Counsellors[0].id }}" selected>{{ Counsellors[0].name }}</option>
+                                    {% else %}
+                                    <option value="">Choose counsellor...</option>
+                                    {% for counsellor in Counsellors %}
+                                    <option value="{{ counsellor.id }}">{{ counsellor.name }}</option>
+                                    {% endfor %}
+                                    {% endif %}
+                                </select>
+                                <div class="invalid-feedback">
+                                    Please select a counsellor.
+                                </div>
+                            </div>
+
+                            <!-- Appointment Date -->
+                            <div class="col-md-6">
+                                <label for="date" class="form-label">Date <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="date" name="date" required>
+                                <div class="invalid-feedback">
+                                    Please select a date.
+                                </div>
+                            </div>
+
+                            <!-- Appointment Time -->
+                            <div class="col-md-6">
+                                <label for="time" class="form-label">Time <span class="text-danger">*</span></label>
+                                <input type="time" class="form-control" id="time" name="time" required>
+                                <div class="invalid-feedback">
+                                    Please select a time.
+                                </div>
+                            </div>
+
+                            <!-- Purpose -->
+                            <div class="col-12">
+                                <label for="purpose" class="form-label">Purpose of Appointment <span class="text-danger">*</span></label>
+                                <textarea class="form-control" id="purpose" name="purpose" rows="3" required
+                                          placeholder="Please describe the reason for this appointment..."></textarea>
+                                <div class="invalid-feedback">
+                                    Please provide the purpose of the appointment.
+                                </div>
+                            </div>
+
+                            <!-- Submit Buttons -->
+                            <div class="col-12 mt-4">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-calendar-check"></i> Schedule Appointment
+                                </button>
+                                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-x-circle"></i> Cancel
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Appointment Guidelines -->
+            <div class="card mt-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">Appointment Guidelines</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-clock"></i> Available Hours</h6>
+                            <ul class="list-unstyled">
+                                <li>Monday - Friday: 8:00 AM - 5:00 PM</li>
+                                <li>Lunch Break: 12:00 PM - 1:00 PM</li>
+                                <li>session Duration: 1 hour</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-exclamation-circle"></i> Important Notes</h6>
+                            <ul class="list-unstyled">
+                                <li>Please arrive 10 minutes early</li>
+                                <li>Bring student ID card</li>
+                                <li>24-hour cancellation notice required</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Form validation
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms).forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+                form.classList.add('was-validated')
+            }, false)
+        })
+    })()
+
+    // Set minimum date to today
+    document.getElementById('date').min = new Date().toISOString().split('T')[0]
+
+    // Validate appointment time (8 AM - 5 PM, excluding lunch hour)
+    document.getElementById('time').addEventListener('change', function(e) {
+        const time = e.target.value
+        const hour = parseInt(time.split(':')[0])
+        if (hour < 8 || hour >= 17 || (hour === 12)) {
+            alert('Please select a time between 8:00 AM and 5:00 PM (excluding 12:00 PM - 1:00 PM)')
+            e.target.value = ''
+        }
+    })
+</script>
+{% endblock %}

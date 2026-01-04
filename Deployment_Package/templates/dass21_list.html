@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}DASS-21 Records - AAMUSTED Counselling System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">DASS-21 Assessment Records</h1>
+        <div>
+            <a href="{{ url_for('dass21') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> New DASS-21 Entry
+            </a>
+        </div>
+    </div>
+    
+    <!-- Search Bar -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <input type="text" class="form-control" id="searchInput" placeholder="Search by student name...">
+        </div>
+    </div>
+
+    <!-- DASS-21 Records Table -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover" id="dass21Table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Student</th>
+                            <th>Depression</th>
+                            <th>Anxiety</th>
+                            <th>Stress</th>
+                            <th>Final Depression</th>
+                            <th>Final Anxiety</th>
+                            <th>Final Stress</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for dass21 in dass21_records %}
+                        <tr>
+                            <td>{{ dass21.created_at.split('.')[0] if dass21.created_at else 'N/A' }}</td>
+                            <td>
+                                <strong>{{ dass21.student_name or 'N/A' }}</strong><br>
+                                <small class="text-muted">ID: {{ dass21.professional_id }}</small>
+                                {% if dass21.programme %}
+                                <br><small class="text-muted">{{ dass21.programme }}</small>
+                                {% endif %}
+                            </td>
+                            <td>{{ dass21.depression_score or '0' }}</td>
+                            <td>{{ dass21.anxiety_score or '0' }}</td>
+                            <td>{{ dass21.stress_score or '0' }}</td>
+                            <td>{{ "%.1f"|format(dass21.final_depression) }}</td>
+                            <td>{{ "%.1f"|format(dass21.final_anxiety) }}</td>
+                            <td>{{ "%.1f"|format(dass21.final_stress) }}</td>
+                            <td>
+                                <a href="{{ url_for('print_dass21', dass21_id=dass21.id) }}" 
+                                   target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-printer"></i> Print
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted">No DASS-21 records found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const table = document.getElementById('dass21Table');
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+        
+        for (let row of rows) {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(searchTerm) ? '' : 'none';
+        }
+    });
+</script>
+{% endblock %}
+

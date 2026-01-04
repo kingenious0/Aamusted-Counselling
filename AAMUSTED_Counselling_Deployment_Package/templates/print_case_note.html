@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Case Note - {{ case.student_name }}</title>
+    <style>
+        @media print {
+            @page {
+                size: A4;
+                margin: 2cm;
+            }
+            .no-print {
+                display: none;
+            }
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 21cm;
+            margin: 0 auto;
+            padding: 2cm;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2em;
+            border-bottom: 2px solid #333;
+            padding-bottom: 1em;
+        }
+
+        .logo {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 0.5em;
+        }
+
+        .title {
+            font-size: 1.2em;
+            margin: 1em 0;
+        }
+
+        .info-section {
+            margin: 1.5em 0;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1em;
+            margin-bottom: 1.5em;
+        }
+
+        .info-item {
+            margin-bottom: 0.5em;
+        }
+
+        .label {
+            font-weight: bold;
+            margin-right: 0.5em;
+        }
+
+        .content-section {
+            margin: 1.5em 0;
+        }
+
+        .section-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 0.5em;
+            border-bottom: 1px solid #666;
+            padding-bottom: 0.3em;
+        }
+
+        .section-content {
+            margin-bottom: 1.5em;
+            padding: 1em;
+            background: #f9f9f9;
+            border-radius: 5px;
+            white-space: pre-wrap;
+        }
+
+        .footer {
+            margin-top: 2em;
+            text-align: center;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .signature-section {
+            margin-top: 3em;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2em;
+        }
+
+        .signature-line {
+            border-top: 1px solid #333;
+            padding-top: 0.5em;
+            margin-top: 3em;
+        }
+
+        .no-print {
+            text-align: center;
+            margin-bottom: 1em;
+        }
+
+        .btn {
+            padding: 0.5em 1em;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print">
+        <button onclick="window.print()" class="btn">Print</button>
+        <a href="{{ url_for('case_notes_list') }}" class="btn" style="background: #6c757d;">Back to List</a>
+    </div>
+
+    <div class="header">
+        <div class="logo">AAMUSTED COUNSELLING SYSTEM</div>
+        <div class="title">Case Management Note</div>
+    </div>
+
+    <div class="info-section">
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="label">Student Name:</span>
+                {{ case.student_name or 'N/A' }}
+            </div>
+            <div class="info-item">
+                <span class="label">Student ID:</span>
+                {{ case.professional_id or 'N/A' }}
+            </div>
+            <div class="info-item">
+                <span class="label">Index Number:</span>
+                {{ case.index_number or 'N/A' }}
+            </div>
+            <div class="info-item">
+                <span class="label">Programme:</span>
+                {{ case.programme or 'N/A' }}
+            </div>
+            <div class="info-item">
+                <span class="label">Session Date:</span>
+                {{ case.session_date.split('.')[0] if case.session_date else 'N/A' }}
+            </div>
+            <div class="info-item">
+                <span class="label">Case Note Date:</span>
+                {{ case.created_at.split('.')[0] if case.created_at else 'N/A' }}
+            </div>
+        </div>
+    </div>
+
+    <div class="content-section">
+        <div class="section-title">Client Appearance & Behavior</div>
+        <div class="section-content">{{ case.client_appearance or 'Not specified' }}</div>
+    </div>
+
+    <div class="content-section">
+        <div class="section-title">Problems/Concerns</div>
+        <div class="section-content">{{ case.problems or 'Not specified' }}</div>
+    </div>
+
+    <div class="content-section">
+        <div class="section-title">Interventions Used</div>
+        <div class="section-content">{{ case.interventions or 'Not specified' }}</div>
+    </div>
+
+    <div class="content-section">
+        <div class="section-title">Recommendations</div>
+        <div class="section-content">{{ case.recommendations or 'Not specified' }}</div>
+    </div>
+
+    {% if case.next_visit_date %}
+    <div class="info-section">
+        <div class="info-item">
+            <span class="label">Next Visit Date:</span>
+            {{ case.next_visit_date }}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="signature-section">
+        <div class="signature-line">
+            <div class="label">Counsellor Signature:</div>
+            <div style="margin-top: 2em;">{{ case.counsellor_signature or '_________________' }}</div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Generated on {{ case.created_at.split('.')[0] if case.created_at else 'N/A' }}</p>
+    </div>
+</body>
+</html>
+

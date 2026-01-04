@@ -1,0 +1,184 @@
+═══════════════════════════════════════════════════════════════════════
+    AAMUSTED COUNSELLING SYSTEM - SETUP CHECKLIST FOR NEW PC
+═══════════════════════════════════════════════════════════════════════
+
+📋 BEFORE YOU START:
+
+□ You have copied the ENTIRE "Counselling System -Remade" folder to her PC
+□ You know where you copied it (e.g., C:\AAMUSTED Counselling\)
+□ You have administrator access on her PC
+
+═══════════════════════════════════════════════════════════════════════
+
+🚀 QUICK SETUP (EASIEST METHOD):
+
+1. □ Copy entire folder to her PC (e.g., Desktop or C:\AAMUSTED Counselling\)
+
+2. □ Open the folder in File Explorer
+
+3. □ Find file: FIRST_TIME_SETUP.bat
+
+4. □ Right-click on it
+
+5. □ Select "Run as administrator"
+
+6. □ Follow the prompts and wait for completion
+
+7. □ Browser will open automatically to http://localhost:5000
+
+8. □ Log in with password: Counsellor123
+
+9. ✓ DONE! System is now running and will auto-start on boot
+
+═══════════════════════════════════════════════════════════════════════
+
+📝 MANUAL SETUP (IF AUTOMATIC FAILS):
+
+STEP 1: Install Python (if not already installed)
+□ Download from: https://www.python.org/downloads/
+□ Run installer
+□ ⚠️ CHECK "Add Python to PATH" during installation
+□ Complete installation
+
+STEP 2: Install Dependencies
+□ Open Command Prompt as Administrator (Win + X)
+□ Navigate to folder: cd "C:\AAMUSTED Counselling"
+□ Run: pip install -r requirements.txt
+□ Wait for completion (2-5 minutes)
+
+STEP 3: Reset Password
+□ In same Command Prompt, run: python reset_password.py
+□ Verify you see: "✓ Password reset successful!"
+
+STEP 4: Install Auto-Start Service
+□ In File Explorer, find: SETUP_AUTO_START.bat
+□ Right-click → "Run as administrator"
+□ Wait for completion
+□ Verify you see: "SUCCESS! The counselling system is now running."
+
+STEP 5: Test the System
+□ Open web browser
+□ Go to: http://localhost:5000
+□ Enter password: Counsellor123
+□ Verify dashboard loads
+
+═══════════════════════════════════════════════════════════════════════
+
+✅ VERIFICATION CHECKLIST:
+
+After setup, verify everything works:
+
+□ Service is installed
+   Command: sc query AAMUSTEDCounsellingService
+   Expected: Shows service information
+
+□ Service is running
+   Command: sc query AAMUSTEDCounsellingService
+   Expected: "STATE: 4 RUNNING"
+
+□ Can access system in browser
+   URL: http://localhost:5000
+   Expected: Login page appears
+
+□ Can log in
+   Password: Counsellor123
+   Expected: Dashboard loads successfully
+
+□ No CMD window visible
+   Expected: Service runs silently in background
+
+□ After reboot test (optional)
+   Action: Restart the PC
+   Expected: Service starts automatically, can access http://localhost:5000
+
+═══════════════════════════════════════════════════════════════════════
+
+🔧 TROUBLESHOOTING:
+
+Problem: "Python is not recognized"
+Solution: Install Python and make sure to check "Add Python to PATH"
+
+Problem: "Access denied" when installing service
+Solution: Must right-click and "Run as administrator"
+
+Problem: Service won't start
+Solution: Check if port 5000 is already in use
+   Command: netstat -ano | findstr :5000
+
+Problem: Can't access http://localhost:5000
+Solution: Check if service is running
+   Command: sc query AAMUSTEDCounsellingService
+   If not running: net start AAMUSTEDCounsellingService
+
+Problem: Password doesn't work
+Solution: Run password reset again
+   Command: python reset_password.py
+
+═══════════════════════════════════════════════════════════════════════
+
+📱 QUICK REFERENCE (KEEP THIS HANDY):
+
+🌐 Access System:
+   http://localhost:5000
+
+🔑 Password:
+   Counsellor123
+   (Capital C, double L)
+
+▶️ Start Service:
+   net start AAMUSTEDCounsellingService
+
+🛑 Stop Service:
+   net stop AAMUSTEDCounsellingService
+
+✅ Check Status:
+   sc query AAMUSTEDCounsellingService
+
+📁 Project Location:
+   (wherever you copied the folder)
+
+📋 View Logs:
+   Open folder: service_logs\
+   Check latest file for errors
+
+═══════════════════════════════════════════════════════════════════════
+
+📦 FILES NEEDED (Must be in the folder):
+
+✓ FIRST_TIME_SETUP.bat - Main setup script
+✓ SETUP_AUTO_START.bat - Service installer
+✓ REMOVE_AUTO_START.bat - Service uninstaller
+✓ reset_password.py - Password reset tool
+✓ windows_service.py - Service implementation
+✓ app.py - Main application
+✓ requirements.txt - Dependencies list
+✓ templates\ - HTML templates folder
+✓ static\ - CSS/images folder
+✓ All other .py files
+
+═══════════════════════════════════════════════════════════════════════
+
+💡 TIPS:
+
+• The system runs completely in the background (no visible window)
+• It starts automatically when Windows boots
+• Access it anytime at http://localhost:5000
+• Service logs are in the "service_logs" folder
+• To uninstall: Right-click REMOVE_AUTO_START.bat → Run as administrator
+
+═══════════════════════════════════════════════════════════════════════
+
+📞 SUPPORT:
+
+If you encounter issues:
+1. Check service_logs\ folder for error messages
+2. Run: python check_service.py
+3. Check Windows Event Viewer → Application logs
+
+═══════════════════════════════════════════════════════════════════════
+
+Last Updated: 2025-11-30
+Default Password: Counsellor123
+Access URL: http://localhost:5000
+
+═══════════════════════════════════════════════════════════════════════

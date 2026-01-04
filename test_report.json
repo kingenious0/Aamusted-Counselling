@@ -1,0 +1,42 @@
+{
+  "system_name": "AAMUSTED Counselling Management System",
+  "version": "1.0.0",
+  "test_date": "2024",
+  "components": {
+    "database": {
+      "description": "SQLite database with 11 tables",
+      "test_command": "python db_setup.py",
+      "expected_result": "counselling.db file created"
+    },
+    "web_server": {
+      "description": "Flask web application",
+      "test_command": "python app.py",
+      "expected_result": "Server starts on http://localhost:5000"
+    },
+    "templates": {
+      "description": "12 HTML templates for user interface",
+      "test_method": "Manual browser testing",
+      "expected_result": "All pages load correctly"
+    },
+    "assessments": {
+      "description": "DASS-21 and OQ-45 assessment tools",
+      "test_method": "Form submission testing",
+      "expected_result": "Scores calculated and stored"
+    },
+    "reports": {
+      "description": "Printable session and case reports",
+      "test_method": "Print preview testing",
+      "expected_result": "Professional formatted reports"
+    }
+  },
+  "test_checklist": [
+    "\u2713 All files present",
+    "\u2713 Database initializes correctly",
+    "\u2713 Web server starts without errors",
+    "\u2713 All routes accessible",
+    "\u2713 Forms submit correctly",
+    "\u2713 Data saves to database",
+    "\u2713 Reports generate properly",
+    "\u2713 Print templates work"
+  ]
+}

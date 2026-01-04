@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Print Report - {{ report['title'] }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 print-hide">
+        <h2 class="mb-0">Print Preview</h2>
+        <button class="btn btn-primary" onclick="window.print()">
+            <i class="bi bi-printer me-1"></i> Print Report
+        </button>
+    </div>
+    
+    <div class="card border-0 shadow print-no-shadow">
+        <div class="card-body p-5">
+            <div class="report-content">
+                <!-- Header -->
+                <div class="text-center mb-5">
+                    {% if url_for('static', filename='img/aamusted system_logo.png') %}
+                    <div class="mb-3">
+                        <img src="{{ url_for('static', filename='img/aamusted system_logo.png') }}" 
+                             alt="AAMUSTED Logo" 
+                             style="max-width: 250px; height: auto;">
+                    </div>
+                    {% endif %}
+                    <h1 class="mb-3" style="color: #0d6efd;">{{ report.get('title', 'Counselling Activity Report') if report else 'Counselling Activity Report' }}</h1>
+                    <p class="text-muted mb-2">
+                        <strong>Report Type:</strong> {{ report.get('report_type', 'General') if report else 'General' }}
+                    </p>
+                    <p class="text-muted mb-0">
+                        <strong>Generated:</strong> {{ report.get('date_generated', 'N/A') if report else 'N/A' }}
+                    </p>
+                    {% if now %}
+                    <p class="text-muted mt-2">
+                        <small>Printed on: {{ now.strftime('%B %d, %Y at %I:%M %p') }}</small>
+                    </p>
+                    {% endif %}
+                </div>
+                
+                <hr class="my-4">
+                
+                <!-- Confidentiality Notice -->
+                <div class="alert alert-warning text-center mb-4" style="background-color: #fff3cd; border-left: 4px solid #ffc107;">
+                    <strong><i class="bi bi-shield-lock me-2"></i>CONFIDENTIAL - INTERNAL USE ONLY</strong>
+                </div>
+                
+                <!-- Executive Summary -->
+                {% if report and report.get('summary') %}
+                <div class="mb-5">
+                    <h3 class="mb-3" style="color: #0d6efd; border-bottom: 2px solid #0d6efd; padding-bottom: 10px;">
+                        Executive Summary
+                    </h3>
+                    <div class="p-4 bg-light rounded" style="line-height: 1.8;">
+                        {{ report.get('summary', '') | safe | nl2br }}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Full Content (if available) -->
+                {% if report and report.get('content') %}
+                <div class="mb-5">
+                    <h3 class="mb-3" style="color: #0d6efd; border-bottom: 2px solid #0d6efd; padding-bottom: 10px;">
+                        Full Report Details
+                    </h3>
+                    <div class="p-4" style="line-height: 1.8;">
+                        {{ report.get('content', '') | safe }}
+                    </div>
+                </div>
+                {% else %}
+                <div class="mb-5">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Note:</strong> The full structured report with detailed statistics, tables, and analysis is available in the downloadable Word document format. 
+                        {% if report and report.get('file_path') %}
+                        <a href="{{ url_for('download_report_file', report_id=report.get('id')) }}" class="alert-link">
+                        Download the DOCX file
+                    </a> for complete details.
+                    {% else %}
+                    Please check the Reports page to download the complete report.
+                    {% endif %}
+                    </div>
+                    
+                    <!-- At least show report metadata -->
+                    <div class="mt-4">
+                        <h4 class="mb-3" style="color: #0d6efd;">Report Information</h4>
+                        <table class="table table-bordered">
+                            <tr>
+                                <th width="30%">Report ID:</th>
+                                <td>{{ report.get('id', 'N/A') if report else 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Title:</th>
+                                <td>{{ report.get('title', 'Untitled Report') if report else 'Untitled Report' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Type:</th>
+                                <td>{{ report.get('report_type', 'N/A') if report else 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Generated:</th>
+                                <td>{{ report.get('date_generated', 'N/A') if report else 'N/A' }}</td>
+                            </tr>
+                            {% if report and report.get('file_path') %}
+                            <tr>
+                                <th>File:</th>
+                                <td><a href="{{ url_for('download_report_file', report_id=report.get('id')) }}">Download Report File</a></td>
+                            </tr>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Footer -->
+                <hr class="my-5">
+                <div class="text-center text-muted small">
+                    <p class="mb-1">This report was automatically generated by the AAMUSTED Counselling Management System</p>
+                    <p class="mb-0">For questions or additional information, please contact the Guidance & Counselling Centre</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .print-hide {
+        display: none !important;
+    }
+    
+    .print-no-shadow {
+        box-shadow: none !important;
+        border: none !important;
+    }
+    
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    .btn {
+        display: none !important;
+    }
+    
+    body {
+        background: white !important;
+    }
+    
+    .report-content {
+        color: #000 !important;
+    }
+    
+    .alert {
+        border: 1px solid #ccc !important;
+    }
+}
+
+@media screen {
+    .report-content {
+        max-width: 210mm;
+        margin: 0 auto;
+        background: white;
+        padding: 20px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    window.onafterprint = function() {
+        // Optional: Actions after printing
+        console.log('Print complete');
+    };
+</script>
+{% endblock %}

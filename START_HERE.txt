@@ -1,0 +1,62 @@
+═══════════════════════════════════════════════════════════════════════
+         AAMUSTED COUNSELLING SYSTEM - START HERE!
+═══════════════════════════════════════════════════════════════════════
+
+👋 WELCOME!
+
+This is the AAMUSTED Guidance & Counselling Centre Management System.
+
+═══════════════════════════════════════════════════════════════════════
+
+🚀 FIRST TIME SETUP (NEW PC):
+
+If this is the FIRST TIME installing on this PC:
+
+   1. Right-click on: FIRST_TIME_SETUP.bat
+   2. Select "Run as administrator"
+   3. Follow the prompts
+   4. Done!
+
+   The system will:
+   ✓ Install all requirements
+   ✓ Set up auto-start on boot
+   ✓ Run in the background (no visible window)
+   ✓ Open in your browser automatically
+
+═══════════════════════════════════════════════════════════════════════
+
+🌐 ACCESSING THE SYSTEM:
+
+Once installed:
+
+   1. Open any web browser
+   2. Go to: http://localhost:5000
+   3. Enter password: Counsellor123
+      (Capital C, double L)
+
+═══════════════════════════════════════════════════════════════════════
+
+📁 IMPORTANT FILES:
+
+   FIRST_TIME_SETUP.bat     - Run this FIRST on a new PC
+   SETUP_CHECKLIST.txt      - Step-by-step checklist
+   DEPLOYMENT_FOR_OTHER_PC.md - Complete deployment guide
+   AUTO_START_INSTRUCTIONS.md - Service management guide
+   
+   SETUP_AUTO_START.bat     - Install auto-start service
+   REMOVE_AUTO_START.bat    - Uninstall service
+   reset_password.py        - Reset password to default
+
+═══════════════════════════════════════════════════════════════════════
+
+❓ NEED HELP?
+
+   Read: SETUP_CHECKLIST.txt
+   Or:   DEPLOYMENT_FOR_OTHER_PC.md
+
+═══════════════════════════════════════════════════════════════════════
+
+🔑 DEFAULT PASSWORD: Counsellor123
+🌐 ACCESS URL: http://localhost:5000
+
+═══════════════════════════════════════════════════════════════════════

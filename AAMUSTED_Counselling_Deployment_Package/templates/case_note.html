@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="card-title mb-0">Case Management Note</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('case_note') }}" class="needs-validation" novalidate>
+                        <!-- session Selection -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <label for="session_id" class="form-label">Select session <span class="text-danger">*</span></label>
+                                <select class="form-select" id="session_id" name="session_id" required>
+                                    <option value="">Choose session...</option>
+                                    {% for s in sessions %}
+                                    <option value="{{ s.id }}">
+                                        {{ s.created_at.split('.')[0] }} - {{ s.student_name }} ({{ s.professional_id }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="invalid-feedback">
+                                    Please select a session.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Case Management Details -->
+                        <div class="row g-3">
+                            <!-- Client Appearance -->
+                            <div class="col-12">
+                                <label for="client_appearance" class="form-label">Client Appearance & Behavior <span class="text-danger">*</span></label>
+                                <textarea class="form-control" id="client_appearance" name="client_appearance" rows="3" required
+                                          placeholder="Describe client's appearance, behavior, and mental state..."></textarea>
+                                <div class="invalid-feedback">
+                                    Please describe the client's appearance and behavior.
+                                </div>
+                            </div>
+
+                            <!-- Problems/Concerns -->
+                            <div class="col-12">
+                                <label for="problems" class="form-label">Problems/Concerns <span class="text-danger">*</span></label>
+                                <textarea class="form-control" id="problems" name="problems" rows="3" required
+                                          placeholder="List main problems and concerns discussed..."></textarea>
+                                <div class="invalid-feedback">
+                                    Please list the problems and concerns.
+                                </div>
+                            </div>
+
+                            <!-- Interventions -->
+                            <div class="col-12">
+                                <label for="interventions" class="form-label">Interventions Used <span class="text-danger">*</span></label>
+                                <textarea class="form-control" id="interventions" name="interventions" rows="3" required
+                                          placeholder="Describe counselling interventions, techniques, and strategies used..."></textarea>
+                                <div class="invalid-feedback">
+                                    Please describe the interventions used.
+                                </div>
+                            </div>
+
+                            <!-- Recommendations -->
+                            <div class="col-12">
+                                <label for="recommendations" class="form-label">Recommendations <span class="text-danger">*</span></label>
+                                <textarea class="form-control" id="recommendations" name="recommendations" rows="3" required
+                                          placeholder="Provide recommendations and action plans..."></textarea>
+                                <div class="invalid-feedback">
+                                    Please provide recommendations.
+                                </div>
+                            </div>
+
+                            <!-- Next Visit Date -->
+                            <div class="col-md-6">
+                                <label for="next_visit_date" class="form-label">Next Visit Date</label>
+                                <input type="date" class="form-control" id="next_visit_date" name="next_visit_date"
+                                       min="{{ now.strftime('%Y-%m-%d') }}">
+                                <div class="form-text">
+                                    Leave blank if no follow-up is scheduled.
+                                </div>
+                            </div>
+                            <!-- Counsellor Signature -->
+                            <div class="col-md-6">
+                                <label for="counsellor_signature" class="form-label">Name and Signature of Counsellor</label>
+                                <input type="text" class="form-control" id="counsellor_signature" name="counsellor_signature">
+                                <div class="form-text">
+                                    Enter counsellor's name and signature.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-warning">
+                                    <i class="bi bi-save"></i> Save Case Note
+                                </button>
+                                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-x-circle"></i> Cancel
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Case Note Guidelines -->
+            <div class="card mt-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">Case Note Guidelines</h5>
+                </div>
+                <div class="card-body">
+                    <div class="accordion" id="guidelinesAccordion">
+                        <!-- Appearance Section -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#appearanceGuidelines">
+                                    Client Appearance & Behavior
+                                </button>
+                            </h2>
+                            <div id="appearanceGuidelines" class="accordion-collapse collapse" data-bs-parent="#guidelinesAccordion">
+                                <div class="accordion-body">
+                                    <ul>
+                                        <li>Dress and grooming</li>
+                                        <li>Mood and affect</li>
+                                        <li>Eye contact and body language</li>
+                                        <li>Speech patterns and tone</li>
+                                        <li>Level of engagement</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Problems Section -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#problemsGuidelines">
+                                    Problems/Concerns
+                                </button>
+                            </h2>
+                            <div id="problemsGuidelines" class="accordion-collapse collapse" data-bs-parent="#guidelinesAccordion">
+                                <div class="accordion-body">
+                                    <ul>
+                                        <li>Primary concerns</li>
+                                        <li>Related issues</li>
+                                        <li>Impact on daily life</li>
+                                        <li>Duration and severity</li>
+                                        <li>Contributing factors</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Interventions Section -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#interventionsGuidelines">
+                                    Interventions
+                                </button>
+                            </h2>
+                            <div id="interventionsGuidelines" class="accordion-collapse collapse" data-bs-parent="#guidelinesAccordion">
+                                <div class="accordion-body">
+                                    <ul>
+                                        <li>Counselling techniques used</li>
+                                        <li>Coping strategies discussed</li>
+                                        <li>Resources provided</li>
+                                        <li>Skills practiced</li>
+                                        <li>Homework assigned</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recommendations Section -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#recommendationsGuidelines">
+                                    Recommendations
+                                </button>
+                            </h2>
+                            <div id="recommendationsGuidelines" class="accordion-collapse collapse" data-bs-parent="#guidelinesAccordion">
+                                <div class="accordion-body">
+                                    <ul>
+                                        <li>Action steps for client</li>
+                                        <li>Referral suggestions</li>
+                                        <li>Follow-up plans</li>
+                                        <li>Goals for next session</li>
+                                        <li>Support resources</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Form validation
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms).forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+                form.classList.add('was-validated')
+            }, false)
+        })
+    })()
+
+    // Set minimum date for next visit to today
+    document.getElementById('next_visit_date').min = new Date().toISOString().split('T')[0]
+
+    // Auto-expand textareas
+    document.querySelectorAll('textarea').forEach(function(textarea) {
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto'
+            this.style.height = (this.scrollHeight) + 'px'
+        })
+    })
+</script>
+{% endblock %}

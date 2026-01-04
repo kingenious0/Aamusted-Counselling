@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Create Session - AAMUSTED Counseling System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <h2 class="mb-4">Create New Counseling Session</h2>
+            
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-info">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('create_session') }}">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Session Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="appointment_id">Select Appointment</label>
+                                    <select class="form-control" id="appointment_id" name="appointment_id" required>
+                                        <option value="">Choose an appointment...</option>
+                                        {% for appointment in appointments %}
+                                            <option value="{{ appointment.id }}">
+                                                {{ appointment.student_name or 'N/A' }} 
+                                                {% if appointment.counsellor_name %} - {{ appointment.counsellor_name }}{% endif %}
+                                                - {{ appointment.date }} {{ appointment.time }}
+                                                ({{ appointment.status }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <small class="form-text text-muted">
+                                        Showing scheduled and completed appointments. Completed appointments can still have sessions added.
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="session_type">Session Type</label>
+                                    <select class="form-control" id="session_type" name="session_type" required>
+                                        <option value="">Select type...</option>
+                                        <option value="Individual">Individual Counseling</option>
+                                        <option value="Group">Group Counseling</option>
+                                        <option value="Crisis">Crisis Intervention</option>
+                                        <option value="Academic">Academic Support</option>
+                                        <option value="Career">Career Guidance</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group mb-3">
+                                    <label for="notes">Session Notes</label>
+                                    <textarea class="form-control" id="notes" name="notes" rows="4" 
+                                              placeholder="Enter session notes and observations..." required></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="duration">Duration (minutes)</label>
+                                    <input type="number" class="form-control" id="duration" name="duration" 
+                                           min="15" max="180" value="60" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="outcome">Session Outcome</label>
+                                    <select class="form-control" id="outcome" name="outcome" required>
+                                        <option value="">Select outcome...</option>
+                                        <option value="Successful">Successful</option>
+                                        <option value="Partially Successful">Partially Successful</option>
+                                        <option value="Needs Follow-up">Needs Follow-up</option>
+                                        <option value="Referred">Referred</option>
+                                        <option value="No Show">No Show</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group mb-3">
+                                    <label for="interventions">Interventions Used</label>
+                                    <textarea class="form-control" id="interventions" name="interventions" 
+                                              rows="3" placeholder="Describe interventions and techniques used..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg">Create Session</button>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-lg ms-2">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

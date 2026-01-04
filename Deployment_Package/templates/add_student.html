@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">{% if student %}Edit Student{% else %}Add New Student{% endif %}</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('add_student') }}">
+                        {% if student %}
+                        <input type="hidden" name="edit_id" value="{{ student.id }}">
+                        {% endif %}
+                        <div class="row g-3">
+                            <!-- Student Name -->
+                            <div class="col-md-6">
+                                <label for="name" class="form-label">Full Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="name" name="name" required value="{{ student.name if student }}">
+                            </div>
+
+                            <!-- Age -->
+                            <div class="col-md-3">
+                                <label for="age" class="form-label">Age</label>
+                                <input type="number" class="form-control" id="age" name="age" min="16" max="100" value="{{ student.age if student }}">
+                            </div>
+
+                            <!-- Gender -->
+                            <div class="col-md-3">
+                                <label for="gender" class="form-label">Gender</label>
+                                <select class="form-select" id="gender" name="gender">
+                                    <option value="">Choose...</option>
+                                    <option value="Male" {% if student and student.gender == 'Male' %}selected{% endif %}>Male</option>
+                                    <option value="Female" {% if student and student.gender == 'Female' %}selected{% endif %}>Female</option>
+                                    <option value="Other" {% if student and student.gender == 'Other' %}selected{% endif %}>Other</option>
+                                </select>
+                            </div>
+
+                            <!-- Index Number -->
+                            <div class="col-md-6">
+                                <label for="index_number" class="form-label">Index Number <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="index_number" name="index_number" required
+                                       placeholder="e.g., 0123456789" value="{{ student.index_number if student }}">
+                            </div>
+
+                            <!-- Department -->
+                            <div class="col-md-6">
+                                <label for="department" class="form-label">Department <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="department" name="department" required
+                                       placeholder="e.g., Computer Science" value="{{ student.department if student }}">
+                            </div>
+
+                            <!-- Programme -->
+                            <div class="col-md-6">
+                                <label for="programme" class="form-label">Programme <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="programme" name="programme" required
+                                       placeholder="e.g., BSc Computer Science" value="{{ student.programme if student }}">
+                            </div>
+
+                            <!-- Contact Information -->
+                            <div class="col-md-6">
+                                <label for="contact" class="form-label">Contact Information</label>
+                                <input type="text" class="form-control" id="contact" name="contact"
+                                       placeholder="Phone number or email" value="{{ student.contact if student }}">
+                            </div>
+
+                            <!-- Parent Contact -->
+                            <div class="col-md-6">
+                                <label for="parent_contact" class="form-label">Parent's Contact</label>
+                                <input type="text" class="form-control" id="parent_contact" name="parent_contact"
+                                       placeholder="Parent/guardian phone number" value="{{ student.parent_contact if student }}">
+                            </div>
+
+                            <!-- Hall of Residence -->
+                            <div class="col-md-6">
+                                <label for="hall_of_residence" class="form-label">Hall of Residence</label>
+                                <input type="text" class="form-control" id="hall_of_residence" name="hall_of_residence"
+                                       placeholder="e.g., University Hall" value="{{ student.hall_of_residence if student }}">
+                            </div>
+
+                            <!-- Submit Button -->
+                            <div class="col-12 mt-4">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-person-plus"></i> {% if student %}Update Student{% else %}Add Student{% endif %}
+                                </button>
+                                <a href="{{ url_for('students') }}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-x-circle"></i> Cancel
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Quick Tips Card -->
+            <div class="card mt-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">Quick Tips</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">
+                            <i class="bi bi-info-circle text-info"></i>
+                            Fields marked with <span class="text-danger">*</span> are required.
+                        </li>
+                        <li class="list-group-item">
+                            <i class="bi bi-info-circle text-info"></i>
+                            Use the student's official name as it appears in school records.
+                        </li>
+                        <li class="list-group-item">
+                            <i class="bi bi-info-circle text-info"></i>
+                            For contact information, prefer to use the student's personal phone number.
+                        </li>
+                        <li class="list-group-item">
+                            <i class="bi bi-info-circle text-info"></i>
+                            After adding a student, you can schedule appointments or start counselling session.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Form validation
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms).forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+                form.classList.add('was-validated')
+            }, false)
+        })
+    })()
+</script>
+{% endblock %}

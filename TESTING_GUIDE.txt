@@ -1,0 +1,59 @@
+
+STEP 1: Environment Setup
+-------------------------
+1. Install Python 3.8+ from python.org
+2. Open Command Prompt/Terminal
+3. Navigate to project folder
+4. Run: pip install -r requirements.txt
+
+STEP 2: Database Test
+-------------------
+1. Run: python db_setup.py
+2. Verify: counselling.db file is created
+3. Check: No error messages appear
+
+STEP 3: Application Test
+----------------------
+1. Run: python app.py
+2. Wait: "Running on http://localhost:5000" message
+3. Open: Browser to http://localhost:5000
+4. Verify: Dashboard loads with no errors
+
+STEP 4: Feature Testing
+-----------------------
+1. Add Student: Use 'Add Student' form
+2. Book Appointment: Use 'Appointment' form
+3. Record session: Use 'session' form
+4. Test Assessments: Use DASS-21 and OQ forms
+5. Print Reports: Use print buttons
+
+STEP 5: Data Validation
+-----------------------
+1. Check: Data persists after restart
+2. Verify: All forms submit successfully
+3. Test: Search and filter functions
+4. Validate: Assessment scoring works
+
+STEP 6: Build Test
+------------------
+1. Run: python build_exe.py
+2. Wait: Build completes successfully
+3. Test: Run AAMUSTED_Counseling_System.exe
+4. Verify: Same functionality as Python version
+
+QUICK TEST COMMANDS:
+-------------------
+python test_system.py      # Run comprehensive tests
+python validate_structure.py  # Check file structure
+python db_setup.py         # Test database
+python app.py             # Test web server
+
+EXPECTED RESULTS:
+---------------
+- All forms load without errors
+- Data saves correctly
+- Reports print properly
+- No console errors
+- All routes accessible
+- Database queries work
+- Assessment calculations accurate

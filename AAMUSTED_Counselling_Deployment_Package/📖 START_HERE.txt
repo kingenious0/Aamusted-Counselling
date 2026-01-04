@@ -1,0 +1,85 @@
+═══════════════════════════════════════════════════════════════════════
+    AAMUSTED COUNSELLING SYSTEM - DEPLOYMENT PACKAGE
+═══════════════════════════════════════════════════════════════════════
+
+🚀 QUICK SETUP (3 STEPS):
+
+   1. Extract this folder to her PC (e.g., C:\AAMUSTED Counselling\)
+
+   2. Right-click: FIRST_TIME_SETUP.bat
+      Select "Run as administrator"
+
+   3. Wait for setup to complete (2-5 minutes)
+      Browser opens automatically → http://localhost:5000
+      Password: Counsellor123
+
+   ✅ DONE! System runs automatically forever.
+
+═══════════════════════════════════════════════════════════════════════
+
+🔑 LOGIN INFO:
+
+   URL: http://localhost:5000
+   Password: Counsellor123 (Capital C, double L)
+
+═══════════════════════════════════════════════════════════════════════
+
+✅ AFTER SETUP:
+
+   The system will:
+   ✓ Run in background (no visible CMD window)
+   ✓ Start automatically when PC boots
+   ✓ Never need manual starting
+   ✓ Auto-restart if it crashes
+
+   Just open browser → http://localhost:5000 anytime!
+
+═══════════════════════════════════════════════════════════════════════
+
+📋 IF PYTHON IS NOT INSTALLED:
+
+   The setup will tell you. Then:
+   1. Go to: https://www.python.org/downloads/
+   2. Download Python 3.11 or newer
+   3. Run installer - CHECK "Add Python to PATH"
+   4. Run FIRST_TIME_SETUP.bat again
+
+═══════════════════════════════════════════════════════════════════════
+
+🔧 TROUBLESHOOTING:
+
+   Problem: "Access denied"
+   → Must right-click and "Run as administrator"
+
+   Problem: Can't access http://localhost:5000
+   → Check if service is running:
+     sc query AAMUSTEDCounsellingService
+
+   Problem: Password doesn't work
+   → Run: python reset_password.py
+
+═══════════════════════════════════════════════════════════════════════
+
+📁 PACKAGE CONTENTS:
+
+   ✓ app.py - Main application
+   ✓ windows_service.py - Background service
+   ✓ reset_password.py - Password reset tool
+   ✓ db_setup.py - Database setup
+   ✓ requirements.txt - Dependencies
+   ✓ templates\ - HTML files
+   ✓ static\ - CSS/images
+   ✓ counseling.db - Database
+
+   Setup Scripts:
+   ⭐ FIRST_TIME_SETUP.bat - Main installer
+   ✓ SETUP_AUTO_START.bat - Service installer
+   ✓ REMOVE_AUTO_START.bat - Service uninstaller
+
+═══════════════════════════════════════════════════════════════════════
+
+💡 THAT'S IT!
+
+Just extract, right-click FIRST_TIME_SETUP.bat → Run as administrator
+
+═══════════════════════════════════════════════════════════════════════
