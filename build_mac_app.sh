@@ -7,6 +7,9 @@ echo "==================================================="
 # Ensure we are in the right directory
 cd "$(dirname "$0")"
 
+# Fix for "ProxyError: Cannot connect to proxy" on some Mac systems
+export no_proxy='*'
+
 echo "1. Installing Dependencies..."
 pip3 install -r requirements.txt
 pip3 install pyinstaller
