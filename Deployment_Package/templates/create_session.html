@@ -4,16 +4,22 @@
 
 {% block content %}
 <div class="container-fluid">
+    <div class="mb-3">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm rounded-pill text-uppercase fw-bold"
+            style="font-size: 0.75rem; letter-spacing: 0.05em;">
+            <i class="bi bi-arrow-left me-2"></i>Go Back
+        </a>
+    </div>
     <div class="row">
         <div class="col-md-12">
             <h2 class="mb-4">Create New Counseling Session</h2>
-            
+
             {% with messages = get_flashed_messages() %}
-                {% if messages %}
-                    {% for message in messages %}
-                        <div class="alert alert-info">{{ message }}</div>
-                    {% endfor %}
-                {% endif %}
+            {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-info">{{ message }}</div>
+            {% endfor %}
+            {% endif %}
             {% endwith %}
 
             <form method="POST" action="{{ url_for('create_session') }}">
@@ -22,23 +28,49 @@
                         <h5 class="mb-0">Session Details</h5>
                     </div>
                     <div class="card-body">
+
+                        <!-- Intake Context Info Block (Dynamic) -->
+                        <div id="intake-context" class="alert alert-light border mb-4" style="display:none;">
+                            <h6 class="alert-heading fw-bold"><i class="bi bi-info-circle me-2"></i>Intake Handover
+                                Details</h6>
+                            <hr>
+                            <div class="row small">
+                                <div class="col-md-4 mb-2">
+                                    <span class="text-muted">Urgency:</span>
+                                    <span id="ctx-urgency" class="fw-bold ms-1 badge bg-secondary">Normal</span>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <span class="text-muted">Referral:</span>
+                                    <span id="ctx-referral" class="fw-bold ms-1">Self</span>
+                                </div>
+                                <div class="col-12 mt-2">
+                                    <span class="text-muted d-block mb-1">Purpose/Notes:</span>
+                                    <div id="ctx-purpose" class="p-2 bg-white border rounded text-dark"></div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group mb-3">
                                     <label for="appointment_id">Select Appointment</label>
-                                    <select class="form-control" id="appointment_id" name="appointment_id" required>
+                                    <select class="form-control" id="appointment_id" name="appointment_id" required
+                                        onchange="updateContext(this)">
                                         <option value="">Choose an appointment...</option>
                                         {% for appointment in appointments %}
-                                            <option value="{{ appointment.id }}">
-                                                {{ appointment.student_name or 'N/A' }} 
-                                                {% if appointment.counsellor_name %} - {{ appointment.counsellor_name }}{% endif %}
-                                                - {{ appointment.date }} {{ appointment.time }}
-                                                ({{ appointment.status }})
-                                            </option>
+                                        <option value="{{ appointment.id }}"
+                                            data-urgency="{{ appointment.urgency or 'Normal' }}"
+                                            data-referral="{{ appointment.referral_source or 'Self' }}"
+                                            data-purpose="{{ appointment.purpose }}" {% if selected_appt_id and
+                                            selected_appt_id|string==appointment.id|string %}selected{% endif %}>
+                                            {{ appointment.student_name or 'N/A' }}
+                                            - {{ appointment.date }} {{ appointment.time }}
+                                            ({{ appointment.status }})
+                                        </option>
                                         {% endfor %}
                                     </select>
                                     <small class="form-text text-muted">
-                                        Showing scheduled and completed appointments. Completed appointments can still have sessions added.
+                                        Showing active/handovers. Select to see intake details.
                                     </small>
                                 </div>
                             </div>
@@ -61,8 +93,8 @@
                             <div class="col-md-12">
                                 <div class="form-group mb-3">
                                     <label for="notes">Session Notes</label>
-                                    <textarea class="form-control" id="notes" name="notes" rows="4" 
-                                              placeholder="Enter session notes and observations..." required></textarea>
+                                    <textarea class="form-control" id="notes" name="notes" rows="4"
+                                        placeholder="Enter session notes and observations..." required></textarea>
                                 </div>
                             </div>
                         </div>
@@ -71,8 +103,8 @@
                             <div class="col-md-6">
                                 <div class="form-group mb-3">
                                     <label for="duration">Duration (minutes)</label>
-                                    <input type="number" class="form-control" id="duration" name="duration" 
-                                           min="15" max="180" value="60" required>
+                                    <input type="number" class="form-control" id="duration" name="duration" min="15"
+                                        max="180" value="60" required>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -94,8 +126,8 @@
                             <div class="col-md-12">
                                 <div class="form-group mb-3">
                                     <label for="interventions">Interventions Used</label>
-                                    <textarea class="form-control" id="interventions" name="interventions" 
-                                              rows="3" placeholder="Describe interventions and techniques used..."></textarea>
+                                    <textarea class="form-control" id="interventions" name="interventions" rows="3"
+                                        placeholder="Describe interventions and techniques used..."></textarea>
                                 </div>
                             </div>
                         </div>
@@ -110,4 +142,39 @@
         </div>
     </div>
 </div>
+
+<script>
+    function updateContext(selectElement) {
+        const contextDiv = document.getElementById('intake-context');
+        const selectedOption = selectElement.options[selectElement.selectedIndex];
+
+        if (!selectedOption.value) {
+            contextDiv.style.display = 'none';
+            return;
+        }
+
+        const urgency = selectedOption.getAttribute('data-urgency');
+        const referral = selectedOption.getAttribute('data-referral');
+        const purpose = selectedOption.getAttribute('data-purpose');
+
+        document.getElementById('ctx-urgency').textContent = urgency;
+        document.getElementById('ctx-referral').textContent = referral;
+        document.getElementById('ctx-purpose').textContent = purpose;
+
+        // Color badge for urgency
+        const bad = document.getElementById('ctx-urgency');
+        bad.className = 'fw-bold ms-1 badge ' +
+            (urgency === 'Crisis' ? 'bg-danger' : (urgency === 'Urgent' ? 'bg-warning text-dark' : 'bg-info text-dark'));
+
+        contextDiv.style.display = 'block';
+    }
+
+    // Run on load if something is pre-selected
+    document.addEventListener('DOMContentLoaded', function () {
+        const select = document.getElementById('appointment_id');
+        if (select.value) {
+            updateContext(select);
+        }
+    });
+</script>
 {% endblock %}

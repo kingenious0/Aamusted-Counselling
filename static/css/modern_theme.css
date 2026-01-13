@@ -1,0 +1,213 @@
+/* Modern Mental Health Theme */
+:root {
+    /* Color Palette - Soothing & Professional */
+    --sage-50: #f6fbf9;
+    --sage-100: #eaf6f2;
+    --sage-200: #d1ebe3;
+    --sage-500: #57a695;
+    --sage-600: #428879;
+    --sage-700: #366d61;
+    --sage-900: #2d4f48;
+
+    --brand-primary: var(--sage-600);
+    --brand-secondary: #6366f1;
+    /* Soft Indigo for accents */
+    --brand-bg: #f8fafc;
+
+    --lavender-100: #f3f0ff;
+    --lavender-500: #8b5cf6;
+
+    /* Semantic Status Colors */
+    --status-scheduled: #64748b;
+    --status-checked-in: #0ea5e9;
+    --status-waiting: #fde047;
+    /* Warm yellow */
+    --status-urgent: #f59e0b;
+    --status-crisis: #ef4444;
+    --status-session: #8b5cf6;
+    /* Lavender for active session */
+    --status-completed: #10b981;
+
+    /* Glassmorphism */
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.5);
+    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+}
+
+body {
+    background-color: var(--sage-50);
+    color: #1e293b;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Glass Card */
+.card-glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: 16px;
+}
+
+/* Sidebar Styling */
+.sidebar-glass {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(16px);
+    border-right: 1px solid rgba(226, 232, 240, 0.6);
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 260px;
+    z-index: 1030;
+    padding-top: 1.5rem;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* Hide scrollbar for cleaner look but allow scroll */
+    scrollbar-width: thin;
+    scrollbar-color: var(--sage-200) transparent;
+}
+
+/* Collapsed Sidebar State */
+.sidebar-collapsed {
+    width: 80px;
+}
+
+.sidebar-collapsed .nav-link span,
+.sidebar-collapsed .dropdown-toggle div,
+.sidebar-collapsed .sidebar-header-text,
+.sidebar-collapsed .nav-category-header {
+    display: none !important;
+}
+
+.sidebar-collapsed .nav-link {
+    display: flex;
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.sidebar-collapsed .nav-link i {
+    margin-right: 0 !important;
+    font-size: 1.25rem;
+}
+
+.sidebar-collapsed .logo-container {
+    padding: 0 !important;
+    justify-content: center !important;
+}
+
+.sidebar-collapsed .logo-container i {
+    font-size: 1.5rem !important;
+}
+
+.main-content {
+    margin-left: 260px;
+    padding: 2rem;
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.main-content.expanded {
+    margin-left: 80px;
+}
+
+/* Custom Scrollbar */
+.sidebar-glass::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar-glass::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-glass::-webkit-scrollbar-thumb {
+    background-color: var(--sage-200);
+    border-radius: 20px;
+}
+
+/* Status Badges */
+.badge-status {
+    padding: 0.35em 0.8em;
+    border-radius: 999px;
+    font-weight: 600;
+    letter-spacing: 0.025em;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+}
+
+.badge-status.scheduled {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+}
+
+.badge-status.checked-in {
+    background: #e0f2fe;
+    color: #0284c7;
+    border: 1px solid #bae6fd;
+}
+
+.badge-status.sent {
+    background: #fff7ed;
+    color: #ea580c;
+    border: 1px solid #ffedd5;
+}
+
+.badge-status.in-session {
+    background: #f3f0ff;
+    color: #7c3aed;
+    border: 1px solid #ddd6fe;
+    border-left: 3px solid #7c3aed;
+}
+
+.badge-status.completed {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+/* Timeline */
+.timeline-item {
+    position: relative;
+    padding-left: 2rem;
+    padding-bottom: 1.5rem;
+    border-left: 2px solid #e2e8f0;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -0.4rem;
+    top: 0;
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 50%;
+    background: var(--brand-primary);
+    border: 2px solid white;
+}
+
+.timeline-item:last-child {
+    border-left: none;
+}
+
+/* Micro-interactions */
+.btn-hover-lift {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.row-hover:hover {
+    background-color: white;
+    transform: scale(1.005);
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    z-index: 10;
+    position: relative;
+    border-radius: 8px;
+}

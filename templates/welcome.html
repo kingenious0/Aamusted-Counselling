@@ -1,188 +1,369 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AAMUSTED Counselling System - Login</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --primary-gradient: linear-gradient(135deg, #800000, #5c0000);
+            --gold-gradient: linear-gradient(45deg, #FFD700, #FDB931);
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
 
-        body.welcome-page {
-            background: linear-gradient(135deg, #800000, #B8860B);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
+        body {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            position: relative;
+            /* background-image removed for offline compatibility */
             min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
             color: white;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            overflow-x: hidden;
         }
 
-        .container {
-            text-align: center;
-            padding: 2rem;
-            max-width: 400px;
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(128, 0, 0, 0.85), rgba(15, 23, 42, 0.9));
+            z-index: 0;
         }
 
-        .splash-logo {
-            max-height: 60vh;
-            max-width: 90%;
-            margin-bottom: 30px;
-            animation: fadeIn 1s ease-in-out;
-            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+        .main-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 1200px;
+            padding: 2rem;
+            animation: fadeIn 1s ease-out;
         }
 
         @keyframes fadeIn {
             from {
                 opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .login-form {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 2rem;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            animation: slideUp 0.8s ease-out 0.5s both;
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
                 transform: translateY(20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
             }
         }
 
-        .login-form h2 {
+        .header-section {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .system-logo {
+            width: 120px;
+            height: 120px;
+            object-fit: contain;
             margin-bottom: 1.5rem;
+            filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.3));
+            transition: transform 0.5s ease;
+        }
+
+        .system-logo:hover {
+            transform: scale(1.05) rotate(2deg);
+        }
+
+        .welcome-text h1 {
+            font-weight: 800;
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #fff, #e2e8f0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .welcome-text p {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.7);
             font-weight: 300;
+        }
+
+        .role-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .role-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+            box-shadow: var(--glass-shadow);
+        }
+
+        .role-card:hover {
+            transform: translateY(-10px);
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .role-icon {
+            font-size: 3.5rem;
+            margin-bottom: 1.5rem;
+            background: var(--gold-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+
+        .role-card:hover .role-icon {
+            transform: scale(1.1);
+        }
+
+        .role-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
             color: white;
         }
 
-        .form-group {
-            margin-bottom: 1.5rem;
+        .role-desc {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Modal Styles */
+        .modal-content {
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            border-radius: 20px;
+        }
+
+        .modal-header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .form-control {
-            width: 100%;
-            padding: 12px 15px;
-            font-size: 16px;
-            border: none;
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.9);
-            color: #333;
-            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 10px;
+            padding: 12px;
         }
 
         .form-control:focus {
-            outline: none;
-            background: white;
-            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.15);
+            border-color: #FFD700;
+            color: white;
+            box-shadow: 0 0 0 0.25rem rgba(255, 215, 0, 0.25);
         }
 
-        .btn-login {
-            width: 100%;
-            padding: 12px 20px;
-            font-size: 16px;
-            font-weight: 600;
-            background: linear-gradient(45deg, #FFD700, #FFA500);
-            color: #800000;
+        .btn-primary {
+            background: var(--gold-gradient);
             border: none;
-            border-radius: 8px;
-            cursor: pointer;
+            color: #800000;
+            font-weight: 700;
+            padding: 12px 30px;
+            border-radius: 10px;
             transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
         }
 
-        .btn-login:hover {
-            background: linear-gradient(45deg, #FFA500, #FFD700);
+        .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
+            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
+            background: linear-gradient(45deg, #FDB931, #FFD700);
+            color: #5c0000;
         }
 
-        .btn-login:active {
-            transform: translateY(0);
+        .alert-floating {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1050;
+            min-width: 300px;
+            animation: slideInRight 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        .error-message {
-            color: #ffcccc;
-            margin-top: 1rem;
-            padding: 10px;
-            background: rgba(255, 0, 0, 0.2);
-            border-radius: 5px;
-            border: 1px solid rgba(255, 0, 0, 0.3);
-        }
-
-        .system-title {
-            font-size: 24px;
-            font-weight: 300;
-            margin-bottom: 10px;
-            opacity: 0.9;
-        }
-
-        @media (max-width: 480px) {
-            .container {
-                padding: 1rem;
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
             }
-            
-            .login-form {
-                padding: 1.5rem;
-            }
-            
-            .splash-logo {
-                max-height: 40vh;
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
             }
         }
     </style>
 </head>
-<body class="welcome-page">
-    <div class="container">
-        <div class="system-title">AAMUSTED Guidance & Counselling Centre</div>
-        
-        <!-- Logo - gracefully handles missing file -->
-        <img src="{{ url_for('static', filename='aamusted system_logo.png') }}" 
-             alt="AAMUSTED Logo" 
-             class="splash-logo" 
-             onerror="this.style.display='none';">
-        
-        <div class="login-form">
-            <h2>Welcome</h2>
-            <form method="POST" action="{{ url_for('login') }}">
-                <div class="form-group">
-                    <input type="password" name="password" class="form-control" placeholder="Enter Password" required autofocus>
-                    <small style="display: block; margin-top: 8px; color: rgba(255,255,255,0.8); font-size: 12px;">
-                        Default password: <strong>Counsellor123</strong> (Capital C, double L)
-                    </small>
-                </div>
-                <button type="submit" class="btn-login">Login</button>
-                
-                {% with messages = get_flashed_messages() %}
-                    {% if messages %}
-                        <div class="error-message">
-                            {% for message in messages %}
-                                {{ message }}
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                {% endwith %}
-            </form>
+
+<body>
+    <div class="overlay"></div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <div class="alert-floating">
+        {% for message in messages %}
+        <div class="alert alert-danger shadow-lg border-0 d-flex align-items-center mb-2" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-3 fs-4"></i>
+            <div>{{ message }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="main-container">
+        <div class="header-section">
+            <img src="{{ url_for('static', filename='aamusted system_logo.png') }}" class="system-logo"
+                onerror="this.src='https://via.placeholder.com/150/ffffff/000000?text=LOGO'">
+            <div class="welcome-text">
+                <h1>AAMUSTED</h1>
+                <p>Guidance & Counselling Management System</p>
+                <p class="small text-white-50 mt-2">Select your role to access the secure portal</p>
+            </div>
+        </div>
+
+        <div class="role-grid">
+            <!-- Secretary Role -->
+            <div class="role-card" onclick="openLogin('Secretary')">
+                <i class="bi bi-person-lines-fill role-icon"></i>
+                <h3 class="role-title">Secretary</h3>
+                <p class="role-desc">Front desk operations, student intake, and scheduling.</p>
+            </div>
+
+            <!-- Counsellor Role -->
+            <div class="role-card" onclick="openLogin('Counsellor')">
+                <i class="bi bi-heart-pulse-fill role-icon"></i>
+                <h3 class="role-title">Counsellor</h3>
+                <p class="role-desc">Clinical sessions, case management, and referrals.</p>
+            </div>
+
+            <!-- Admin Role -->
+            <div class="role-card" onclick="openLogin('Admin')">
+                <i class="bi bi-shield-lock-fill role-icon"></i>
+                <h3 class="role-title">Administrator</h3>
+                <p class="role-desc">System governance, user management, and settings.</p>
+            </div>
+        </div>
+
+        <div class="text-center mt-5 text-white-50 small">
+            &copy; 2026 AAMUSTED. Secure Clinical System.
         </div>
     </div>
+
+    <!-- Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content text-center p-4">
+                <div class="modal-header border-0 justify-content-center">
+                    <h5 class="modal-title fw-bold fs-4">
+                        Login as <span id="roleDisplay" class="text-warning">User</span>
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <form method="POST" action="{{ url_for('login') }}" id="loginForm">
+                        <!-- Hidden field to store selected username/role to simplify user input -->
+                        <!-- But actually we still need username because multiple people might have same role. -->
+                        <!-- However, user requested: "Select roles then popup to enter password". -->
+                        <!-- Assuming typical setup where role map to specific accounts or we just assume generic accounts for demo? -->
+                        <!-- For safety, let's keep Username field but pre-fill it or focus password if we want to simplify. -->
+                        <!-- Based on user request "Select role... enter password", implying maybe username is implied? -->
+                        <!-- To be safe and compatible with existing backend (username/password), I will Auto-fill the username based on role for the demo flow,
+                             OR show the username field pre-filled. -->
+
+                        <div class="mb-4">
+                            <div class="avatar-circle mx-auto mb-3 bg-light bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center"
+                                style="width: 80px; height: 80px;">
+                                <i class="bi bi-person-circle fs-1 text-white"></i>
+                            </div>
+                            <p class="text-muted small">Please enter your credentials to verify your identity.</p>
+                        </div>
+
+                        <div class="form-floating mb-3 text-start">
+                            <input type="text" class="form-control" name="username" id="usernameInput"
+                                placeholder="Username" required>
+                            <label for="usernameInput" class="text-white">Username</label>
+                        </div>
+
+                        <div class="form-floating mb-4 text-start">
+                            <input type="password" class="form-control" name="password" id="passwordInput"
+                                placeholder="Password" required>
+                            <label for="passwordInput" class="text-white">Password</label>
+                            <i class="bi bi-eye-slash position-absolute top-50 end-0 translate-middle-y me-3"
+                                id="togglePassword" style="cursor: pointer; color: #333;"></i>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 py-3 shadow-lg">
+                            <i class="bi bi-box-arrow-in-right me-2"></i> Authenticate
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+        const roleDisplay = document.getElementById('roleDisplay');
+        const usernameInput = document.getElementById('usernameInput');
+        const passwordInput = document.getElementById('passwordInput');
+
+        function openLogin(role) {
+            roleDisplay.textContent = role;
+
+            // Auto-fill username based on role for demo convenience, users can edit
+            if (role === 'Admin') usernameInput.value = 'admin';
+            if (role === 'Secretary') usernameInput.value = 'secretary';
+            if (role === 'Counsellor') usernameInput.value = 'counsellor';
+
+            loginModal.show();
+
+            // Focus password after a short delay to ensure modal is visible
+            setTimeout(() => {
+                passwordInput.focus();
+            }, 500);
+        }
+
+        // Password Toggle Logic
+        const togglePassword = document.getElementById('togglePassword');
+        togglePassword.addEventListener('click', function () {
+            // Toggle the type attribute
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+
+            // Toggle the eye icon
+            this.classList.toggle('bi-eye');
+            this.classList.toggle('bi-eye-slash');
+        });
+    </script>
 </body>
+
 </html>

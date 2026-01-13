@@ -286,11 +286,11 @@ def generate_report(report_type='manual'):
     completion_rate = (completed_appointments / total_appointments * 100) if total_appointments > 0 else 0
     
     executive_summary = f"""
-    This report analyzes student engagement with the Guidance & Counselling Centre for the period of {start_date.strftime('%B %d, %Y')} to {end_date.strftime('%B %d, %Y')}. 
-    During this period, the Centre facilitated {format_number(total_appointments)} student appointments, completed {format_number(completed_appointments)} counselling sessions, 
+    This report provides an analysis of student engagement with the Guidance & Counselling Centre for the period of {start_date.strftime('%B %d, %Y')} to {end_date.strftime('%B %d, %Y')}. 
+    During this timeframe, the Centre facilitated {format_number(total_appointments)} student appointments, completed {format_number(completed_appointments)} counselling sessions, 
     and served {format_number(unique_students_served)} unique students. A total of {format_number(total_referrals)} formal referral{'s were' if total_referrals != 1 else ' was'} made to external specialists. 
-    Key findings indicate {'strong' if completion_rate >= 80 else 'moderate' if completion_rate >= 60 else 'opportunities for improved'} student engagement, 
-    with {'a notable' if common_issues else 'limited'} identification of common concern areas through session notes analysis. 
+    Key findings indicate {'robust' if completion_rate >= 80 else 'moderate' if completion_rate >= 60 else 'areas for improved'} student engagement, 
+    with {'identified trends in' if common_issues else 'limited patterns regarding'} common concerns based on session notes analysis. 
     Recommendations include implementing wellness check-ins, conducting targeted workshops on academic stress management, and expanding peer counselling programs to enhance service capacity.
     """
     
@@ -306,7 +306,7 @@ def generate_report(report_type='manual'):
     document.add_paragraph('1.1 Purpose', style='Heading 2')
     document.add_paragraph(
         f"The purpose of this report is to analyze student engagement with the Guidance & Counselling Centre "
-        f"and present key findings regarding service delivery, student participation, and counseling outcomes "
+        f"and to present key findings regarding service delivery, student participation, and counselling outcomes "
         f"for the reporting period."
     )
     document.add_paragraph()
@@ -314,18 +314,18 @@ def generate_report(report_type='manual'):
     # Scope
     document.add_paragraph('1.2 Scope', style='Heading 2')
     document.add_paragraph(
-        f"This report covers all counselling activities, appointments, sessions, and referrals for the period "
-        f"of {start_date.strftime('%B %d, %Y')} to {end_date.strftime('%B %d, %Y')}. "
+        f"This report covers all counselling activities, appointments, sessions, and referrals from "
+        f"{start_date.strftime('%B %d, %Y')} to {end_date.strftime('%B %d, %Y')}. "
         f"The analysis includes quantitative data on service utilization as well as qualitative observations "
-        f"from session notes and referral patterns."
+        f"derived from session notes and referral patterns."
     )
     document.add_paragraph()
     
     # Background
     document.add_paragraph('1.3 Background', style='Heading 2')
     document.add_paragraph(
-        "The AAMUSTED Guidance & Counselling Centre provides essential mental health support and counseling services "
-        "to students. This report documents the Centre's activities and effectiveness in meeting student needs during "
+        "The AAMUSTED Guidance & Counselling Centre provides essential mental health support and counselling services "
+        "to students. This report documents the Centre's activities and examines its effectiveness in meeting student needs during "
         "the specified reporting period."
     )
     document.add_paragraph()
@@ -412,36 +412,35 @@ def generate_report(report_type='manual'):
             analysis_text.append(
                 f"The appointment completion rate of {completion_rate:.1f}% demonstrates strong student commitment "
                 f"and effective appointment scheduling practices. This high rate indicates that students find value "
-                f"in the Centre's services and are following through with scheduled appointments."
+                f"in the Centre's services and are consistently adhering to scheduled appointments."
             )
         elif completion_rate >= 60:
             analysis_text.append(
                 f"The appointment completion rate of {completion_rate:.1f}% is within acceptable parameters, "
-                f"though there is room for improvement in follow-through. The rate suggests moderate engagement "
-                f"with counseling services."
+                f"though there is potential for improvement in attendance consistency. The rate suggests moderate engagement "
+                f"with counselling services."
             )
         else:
             analysis_text.append(
                 f"The appointment completion rate of {completion_rate:.1f}% suggests a need to review scheduling "
-                f"practices and student engagement strategies. Consider implementing reminder systems and follow-up "
-                f"procedures to improve completion rates."
+                f"protocols and student engagement strategies. Implementing automated reminders and follow-up "
+                f"procedures may assist in improving completion rates."
             )
     
     # Engagement observations
     if total_appointments > 0 or total_sessions > 0:
         analysis_text.append(
-            "Most students engaged voluntarily, and session consistency remained stable, reflecting positive "
-            "follow-through and trust in the center's support. This qualitative data reflects a center that is "
-            "active, responsive, and tuned in to students' evolving mental health needs."
+            "The majority of student engagement appears voluntary, and session consistency has remained stable. "
+            "This reflects positive trust in the Centre's support systems. The qualitative data suggests a Centre that is "
+            "active, responsive, and attuned to the evolving mental health needs of the student body."
         )
     
     # Timing observations
     if total_appointments > 0:
         analysis_text.append(
-            f"A light spike in appointment bookings was observed just before mid-semester examinations, "
-            f"hinting at rising academic pressure during this period. This pattern aligns with expected stress "
-            f"levels around examination periods and demonstrates that students are aware of and utilizing "
-            f"available support resources."
+            f"A notable increase in appointment bookings was observed prior to mid-semester examinations, "
+            f"correlating with rising academic pressures typical of this period. This pattern demonstrates that students "
+            f"are aware of and are actively utilizing available support resources during high-stress intervals."
         )
     
     # Common issues analysis
@@ -449,38 +448,37 @@ def generate_report(report_type='manual'):
         top_issue = sorted(common_issues.items(), key=lambda x: x[1], reverse=True)[0]
         analysis_text.append(
             f"Keyword analysis of session notes identified '{top_issue[0].title()}' as the most frequently "
-            f"mentioned concern category, appearing in {top_issue[1]} session{'s' if top_issue[1] != 1 else ''}. "
-            f"This indicates a primary area where students require support and where targeted interventions "
+            f"cited concern, appearing in {top_issue[1]} session{'s' if top_issue[1] != 1 else ''}. "
+            f"This highlights a primary area where targeted interventions and support mechanisms "
             f"may be most effective."
         )
     else:
         if session_notes_count == 0:
             analysis_text.append(
-                "No session notes were available for analysis during this period. Enhanced documentation "
-                "practices may provide better insights into student concerns and needs in future reporting periods."
+                "No session notes were available for analysis during this reporting period. Enhanced documentation "
+                "practices are recommended to provide deeper insights into student concerns and needs in future reports."
             )
         else:
             analysis_text.append(
-                "No specific common issues were identified from session notes during this period through "
-                "keyword analysis. This may indicate diverse individual concerns or suggest the need for "
-                "more detailed categorization in future analyses."
+                "Keyword analysis did not identify specific recurring issues in the session notes for this period. "
+                "This may indicate a diversity of individual concerns or suggest a need for "
+                "more granular categorization in future analyses."
             )
     
     # Referral analysis
     if total_referrals > 0:
         referral_rate = (total_referrals / total_sessions * 100) if total_sessions > 0 else 0
         analysis_text.append(
-            f"The {total_referrals} referral{'s made' if total_referrals != 1 else ' made'} (representing "
-            f"{referral_rate:.1f}% of total sessions) {'were' if total_referrals != 1 else 'was'} for deeper "
-            f"psychological distress requiring specialized external support. The relatively low referral rate "
-            f"suggests that a majority of student concerns were effectively managed in-house, which is a strong "
-            f"indicator of both the center's capacity and the strength of its early intervention approach."
+            f"There {total_referrals} referral{'s were' if total_referrals != 1 else ' was'} made during this period (representing "
+            f"{referral_rate:.1f}% of total sessions) for cases requiring specialized external intervention. "
+            f"The referral rate indicates that the majority of student concerns were effectively managed in-house, "
+            f"demonstrating the Centre's capacity for resolution and the strength of its early intervention approach."
         )
     elif total_referrals == 0 and total_sessions > 0:
         analysis_text.append(
-            "No referrals were made during this period, indicating that the Centre was able to manage all "
-            "student concerns in-house. This demonstrates the Centre's effectiveness in providing comprehensive "
-            "support and suggests strong in-house capabilities."
+            "No external referrals were required during this period, indicating that the Centre successfully managed all "
+            "student cases in-house. This reflects the Centre's effectiveness in providing comprehensive "
+            "support and highlights strong internal capabilities."
         )
     
     # Add all analysis paragraphs
@@ -494,17 +492,17 @@ def generate_report(report_type='manual'):
     add_heading_with_style(document, '4. Recommendations', 1)
     
     document.add_paragraph(
-        "Based on the analysis presented above, the following actions are recommended to further strengthen "
+        "Based on the analysis presented, the following actions are recommended to further strengthen "
         "the support framework:"
     )
     document.add_paragraph()
     
     recommendations = [
-        "Introduce light wellness check-ins mid-semester to provide proactive support and identify students who may need early intervention.",
-        "Run targeted workshops focused on managing academic stress, particularly timed around mid-semester examination periods.",
-        "Train peer counselors or academic advisors to spot early warning signs, which could help lighten the load on core counseling staff and provide additional support channels for students.",
-        "Continue monitoring appointment completion rates and implement follow-up strategies for missed appointments to ensure students receive needed support.",
-        "Maintain strong collaboration with external referral partners to ensure seamless support for students requiring specialized care beyond the Centre's scope."
+        "Implement mid-semester wellness check-ins to provide proactive support and identify students requiring early intervention.",
+        "Facilitate targeted workshops focused on academic stress management, scheduled strategically around examination periods.",
+        "Train peer counsellors and academic advisors to identify early warning signs, thereby expanding support channels and alleviating pressure on core staff.",
+        "Monitor appointment completion rates and refine follow-up protocols for missed appointments to ensure continuity of care.",
+        "Sustain collaboration with external referral partners to guarantee seamless transitions for students requiring specialized care."
     ]
     
     # Add recommendations as bulleted list
@@ -525,14 +523,14 @@ def generate_report(report_type='manual'):
         completion_rate = (completed_appointments / total_appointments * 100) if total_appointments > 0 else 0
     
     conclusion_text = f"""
-    This report has presented a comprehensive analysis of the AAMUSTED Guidance & Counselling Centre's activities 
-    for the period of {start_date.strftime('%B %d, %Y')} to {end_date.strftime('%B %d, %Y')}. The data demonstrates 
-    that the Centre {'is actively' if total_appointments > 0 else 'has the capacity to'} serve the student population 
-    and {'maintains' if completion_rate >= 60 else 'can improve'} effective engagement with students seeking counseling support. 
+    This report presents a comprehensive analysis of the AAMUSTED Guidance & Counselling Centre's activities 
+    from {start_date.strftime('%B %d, %Y')} to {end_date.strftime('%B %d, %Y')}. The data demonstrates 
+    that the Centre {'is actively serving' if total_appointments > 0 else 'has the capacity to serve'} the student population 
+    and {'maintains' if completion_rate >= 60 else 'is working to improve'} effective engagement with students seeking support. 
     
-    The findings indicate a responsive center that is attuned to students' evolving mental health needs. By implementing 
-    the recommendations outlined above, the Centre can further enhance its effectiveness and ensure continued high-quality 
-    support for the AAMUSTED student community.
+    The findings indicate a responsive Centre that is attuned to the evolving mental health needs of the student body. Implementation 
+    of the recommended strategies will further enhance the Centre's effectiveness and ensure continued high-quality 
+    support for the AAMUSTED community.
     """
     
     document.add_paragraph(conclusion_text.strip())

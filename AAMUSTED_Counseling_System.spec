@@ -3,12 +3,14 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = [('templates', 'templates'), ('static', 'static')]
 binaries = []
-hiddenimports = ['jinja2.ext', 'sqlite3']
+hiddenimports = ['jinja2.ext', 'sqlite3', 'requests', 'uuid', 'json', 'node_config', 'sync_engine']
 tmp_ret = collect_all('flask')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('jinja2')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('werkzeug')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+tmp_ret = collect_all('requests')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
@@ -21,7 +23,8 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['matplotlib', 'numpy'],
+    excludes=['matplotlib', 'numpy', 'pandas'], # Exclude heavy libs we don't use
+
     noarchive=False,
     optimize=0,
 )
@@ -46,5 +49,4 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['icon.ico'],
 )

@@ -71,7 +71,13 @@ def init_db():
             date DATE NOT NULL,
             time TIME NOT NULL,
             purpose TEXT,
-            status TEXT DEFAULT 'scheduled',
+            status TEXT DEFAULT 'Scheduled', -- Standardized default
+            urgency TEXT,                   -- New: Crisis, Urgent, Normal
+            checked_in_at TIMESTAMP,        -- New: Workflow timestamp
+            sent_to_counsellor_at TIMESTAMP,-- New: Workflow timestamp
+            accepted_at TIMESTAMP,          -- New: Workflow timestamp
+            completed_at TIMESTAMP,         -- New: Workflow timestamp
+            referral_reason TEXT,           -- New: Context for handover
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (student_id) REFERENCES Student(id),
             FOREIGN KEY (Counsellor_id) REFERENCES Counsellor(id)
@@ -176,21 +182,82 @@ def init_db():
             FOREIGN KEY (session_id) REFERENCES session(id)
         );
 
-        -- App Settings table for password hashing
+        -- Users table for RBAC
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            full_name TEXT,
+            role TEXT NOT NULL, -- 'Secretary', 'Counsellor', 'Admin'
+            last_login TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Audit Logs table
+        CREATE TABLE IF NOT EXISTS audit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            action TEXT NOT NULL,
+            details TEXT,
+            ip_address TEXT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+
+        -- App Settings table for session configuration
         CREATE TABLE IF NOT EXISTS app_settings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             setting_name TEXT NOT NULL UNIQUE,
             setting_value TEXT
+        );
+
+        -- Notification table (NEW)
+        CREATE TABLE IF NOT EXISTS Notification (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            message TEXT NOT NULL,
+            type TEXT NOT NULL, -- 'in_app', 'sms', 'system'
+            link TEXT,
+            is_read BOOLEAN DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+
+        -- SMS Queue table (NEW)
+        CREATE TABLE IF NOT EXISTS SMSQueue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            recipient_number TEXT NOT NULL,
+            message TEXT NOT NULL,
+            status TEXT DEFAULT 'pending', -- pending, sent, failed
+            retry_count INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            sent_at TIMESTAMP
         );
     ''')
 
     # Check if 'outcome' column exists in 'session' table, if not, add it
     # Add outcome column to session table if it doesn't exist
     cursor.execute("PRAGMA foreign_keys = OFF;")
-    cursor.execute("PRAGMA table_info(session)")
-    columns = cursor.fetchall()
-    if not any(col[1] == 'outcome' for col in columns):
-        cursor.execute("ALTER TABLE session ADD COLUMN outcome TEXT;")
+    
+    # helper to add column if missing
+    def add_column_if_missing(table, column, col_type):
+        cursor.execute(f"PRAGMA table_info({table})")
+        cols = [info[1] for info in cursor.fetchall()]
+        if column not in cols:
+            print(f"[DB_SETUP] Adding missing column {column} to {table}")
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type};")
+
+    # Session table updates
+    add_column_if_missing('session', 'outcome', 'TEXT')
+
+    # Appointment table updates for Workflow
+    add_column_if_missing('Appointment', 'urgency', 'TEXT')
+    add_column_if_missing('Appointment', 'checked_in_at', 'TIMESTAMP')
+    add_column_if_missing('Appointment', 'sent_to_counsellor_at', 'TIMESTAMP')
+    add_column_if_missing('Appointment', 'accepted_at', 'TIMESTAMP')
+    add_column_if_missing('Appointment', 'completed_at', 'TIMESTAMP')
+    add_column_if_missing('Appointment', 'referral_reason', 'TEXT')
+
     cursor.execute("PRAGMA foreign_keys = ON;")
 
     # Insert predefined counsellors - Only Mrs. Gertrude Effeh Brew
@@ -203,7 +270,21 @@ def init_db():
 
 
 
-    # Insert default password if not already present
+    # Insert default users if not already present
+    cursor.execute("SELECT COUNT(*) FROM users")
+    if cursor.fetchone()[0] == 0:
+        users = [
+            ('admin', generate_password_hash("Admin123"), 'System Administrator', 'Admin'),
+            ('secretary', generate_password_hash("Secretary123"), 'Front Desk Office', 'Secretary'),
+            ('counsellor', generate_password_hash("Counsellor123"), 'Mrs. Gertrude Effeh Brew', 'Counsellor')
+        ]
+        cursor.executemany(
+            "INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)",
+            users
+        )
+        print("[DB_SETUP] Default users created.")
+
+    # Insert default password hash in app_settings (legacy support)
     cursor.execute("SELECT COUNT(*) FROM app_settings WHERE setting_name = 'password_hash'")
     if cursor.fetchone()[0] == 0:
         default_password_hash = generate_password_hash("Counsellor123")

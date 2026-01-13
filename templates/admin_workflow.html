@@ -1,0 +1,176 @@
+{% extends "base_modern.html" %}
+
+{% block title %}Workflow Configuration - Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex align-items-center">
+            <a href="javascript:history.back()" class="btn btn-light border rounded-circle shadow-sm me-3"
+                style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h2 class="fw-bold mb-0 text-dark">Workflow Management</h2>
+                <p class="text-muted mb-0">Configure how appointments move through the system.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Status Pipeline -->
+    <div class="col-lg-8">
+        <div class="card card-glass border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <h5 class="mb-0 fw-bold text-dark">Appointment Status Pipeline</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light bg-opacity-50">
+                            <tr>
+                                <th class="ps-3 border-0 rounded-start">Order</th>
+                                <th class="border-0">Status Name</th>
+                                <th class="border-0">Description</th>
+                                <th class="border-0">State Type</th>
+                                <th class="pe-3 border-0 rounded-end text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="border-top-0">
+                            <tr>
+                                <td class="ps-3 text-muted fw-bold">1</td>
+                                <td><span
+                                        class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-10">Scheduled</span>
+                                </td>
+                                <td class="text-muted small">Initial state when appointment is booked.</td>
+                                <td><span class="badge bg-light text-dark border">Pending</span></td>
+                                <td class="text-end pe-3"><button class="btn btn-sm btn-light border disabled"><i
+                                            class="bi bi-lock"></i></button></td>
+                            </tr>
+                            <tr>
+                                <td class="ps-3 text-muted fw-bold">2</td>
+                                <td><span
+                                        class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-10">Sent
+                                        to Counsellor</span></td>
+                                <td class="text-muted small">Handed over from Secretary to Counsellor.</td>
+                                <td><span
+                                        class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-10">Active</span>
+                                </td>
+                                <td class="text-end pe-3"><button class="btn btn-sm btn-light border disabled"><i
+                                            class="bi bi-lock"></i></button></td>
+                            </tr>
+                            <tr>
+                                <td class="ps-3 text-muted fw-bold">3</td>
+                                <td><span
+                                        class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-10">In
+                                        Session</span></td>
+                                <td class="text-muted small">Meeting is currently taking place.</td>
+                                <td><span
+                                        class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-10">Active</span>
+                                </td>
+                                <td class="text-end pe-3"><button class="btn btn-sm btn-light border disabled"><i
+                                            class="bi bi-lock"></i></button></td>
+                            </tr>
+                            <tr>
+                                <td class="ps-3 text-muted fw-bold">4</td>
+                                <td><span
+                                        class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-10">Completed</span>
+                                </td>
+                                <td class="text-muted small">Session finished and notes filed.</td>
+                                <td><span
+                                        class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-10">Terminal</span>
+                                </td>
+                                <td class="text-end pe-3"><button class="btn btn-sm btn-light border disabled"><i
+                                            class="bi bi-lock"></i></button></td>
+                            </tr>
+                            <tr>
+                                <td class="ps-3 text-muted fw-bold">5</td>
+                                <td><span
+                                        class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-10">Cancelled</span>
+                                </td>
+                                <td class="text-muted small">Appointment did not occur.</td>
+                                <td><span
+                                        class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-10">Terminal</span>
+                                </td>
+                                <td class="text-end pe-3"><button class="btn btn-sm btn-light border disabled"><i
+                                            class="bi bi-lock"></i></button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="col-lg-4">
+        <div class="card card-glass border-0 shadow-sm mb-4">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <h5 class="mb-0 fw-bold text-dark">Settings</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="form-check form-switch mb-4">
+                    <input class="form-check-input" type="checkbox" id="autoHandover" {% if settings.auto_notify
+                        %}checked{% endif %}>
+                    <label class="form-check-label fw-bold small text-uppercase text-muted"
+                        for="autoHandover">Auto-Notify Counsellors</label>
+                    <div class="form-text small mt-1">Send email when status changes to "Sent to Counsellor".</div>
+                </div>
+                <div class="form-check form-switch mb-4">
+                    <input class="form-check-input" type="checkbox" id="lockCompleted" {% if settings.lock_notes
+                        %}checked{% endif %}>
+                    <label class="form-check-label fw-bold small text-uppercase text-muted" for="lockCompleted">Lock
+                        Completed Notes</label>
+                    <div class="form-text small mt-1">Prevent editing case notes after 24h.</div>
+                </div>
+                <div class="d-grid">
+                    <button class="btn btn-primary shadow-sm btn-hover-lift" onclick="saveWorkflowSettings()">
+                        <i class="bi bi-save me-2"></i>Save Configuration
+                    </button>
+                </div>
+                <div id="saveStatus" class="text-center mt-3 small fw-bold"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function saveWorkflowSettings() {
+        const btn = document.querySelector('button[onclick="saveWorkflowSettings()"]');
+        const statusDiv = document.getElementById('saveStatus');
+
+        btn.disabled = true;
+        const originalContent = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+        statusDiv.innerHTML = '';
+
+        try {
+            const response = await fetch('/admin/workflow/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    auto_notify: document.getElementById('autoHandover').checked,
+                    lock_notes: document.getElementById('lockCompleted').checked
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                statusDiv.innerHTML = '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Saved successfully</span>';
+                setTimeout(() => statusDiv.innerHTML = '', 3000);
+            } else {
+                statusDiv.innerHTML = '<span class="text-danger">Error: ' + data.message + '</span>';
+            }
+        } catch (error) {
+            statusDiv.innerHTML = '<span class="text-danger">Network error</span>';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+    }
+</script>
+{% endblock %}

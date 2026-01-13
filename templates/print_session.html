@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Session Report - {{ session.student_name or 'N/A' }}</title>
+    <title>Session Report - {{ session_data.student_name or 'N/A' }}</title>
     <style>
         @media print {
             @page {
@@ -97,7 +98,7 @@
 
             .print-container {
                 background: white;
-                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
                 margin: 2em auto;
                 padding: 2cm;
             }
@@ -120,6 +121,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="print-container">
         <button onclick="window.print()" class="print-button">Print Report</button>
@@ -135,59 +137,59 @@
             <div class="info-grid">
                 <div class="info-item">
                     <span class="label">Student Name:</span>
-                    <span>{{ session.student_name or 'N/A' }}</span>
+                    <span>{{ session_data.student_name or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
                     <span class="label">Index Number:</span>
-                    <span>{{ session.index_number or 'N/A' }}</span>
+                    <span>{{ session_data.index_number or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
                     <span class="label">Programme:</span>
-                    <span>{{ session.programme or 'N/A' }}</span>
+                    <span>{{ session_data.programme or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
                     <span class="label">Department:</span>
-                    <span>{{ session.department or 'N/A' }}</span>
+                    <span>{{ session_data.department or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
                     <span class="label">Date:</span>
-                    <span>{{ session.date or session.created_at or 'N/A' }}</span>
+                    <span>{{ session_data.date or session_data.created_at or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
                     <span class="label">Time:</span>
-                    <span>{{ session.time or 'N/A' }}</span>
+                    <span>{{ session_data.time or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
                     <span class="label">Counsellor:</span>
-                    <span>{{ session.Counsellor_name or 'N/A' }}</span>
+                    <span>{{ session_data.Counsellor_name or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
                     <span class="label">Session Type:</span>
-                    <span>{{ session.session_type or 'N/A' }}</span>
+                    <span>{{ session_data.session_type or 'N/A' }}</span>
                 </div>
             </div>
         </div>
 
-        {% if session.outcome %}
+        {% if session_data.outcome %}
         <div class="content-section">
             <div class="section-title">Session Outcome</div>
-            <p style="white-space: pre-line;">{{ session.outcome }}</p>
+            <p style="white-space: pre-line;">{{ session_data.outcome }}</p>
         </div>
         {% endif %}
-        
+
         <div class="content-section">
             <div class="section-title">Session Notes</div>
-            <p style="white-space: pre-line;">{{ session.notes or 'No notes provided' }}</p>
+            <p style="white-space: pre-line;">{{ session_data.notes or 'No notes provided' }}</p>
         </div>
 
         <div class="signature-section">
             <div class="signature-line">
                 <div>Counsellor's Signature</div>
-                <div>{{ session.Counsellor_name or 'N/A' }}</div>
+                <div>{{ session_data.Counsellor_name or 'N/A' }}</div>
             </div>
             <div class="signature-line">
                 <div>Date</div>
-                <div>{{ session.date or session.created_at or 'N/A' }}</div>
+                <div>{{ session_data.date or session_data.created_at or 'N/A' }}</div>
             </div>
         </div>
 
@@ -204,5 +206,7 @@
         }
     </script>
 </body>
+
 </html>
+
 </html>

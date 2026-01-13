@@ -1,0 +1,83 @@
+{% extends "base_modern.html" %}
+
+{% block title %}Audit Logs - Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex align-items-center">
+            <a href="javascript:history.back()" class="btn btn-light border rounded-circle shadow-sm me-3"
+                style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h2 class="fw-bold mb-0 text-dark">System Audit Trail</h2>
+                <p class="text-muted mb-0">Immutable record of all system mutations and user access.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card card-glass border-0 shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light bg-opacity-50">
+                    <tr>
+                        <th class="ps-4 border-bottom-0 py-3 text-secondary text-uppercase small fw-bold">Timestamp</th>
+                        <th class="border-bottom-0 py-3 text-secondary text-uppercase small fw-bold">User</th>
+                        <th class="border-bottom-0 py-3 text-secondary text-uppercase small fw-bold">Action</th>
+                        <th class="border-bottom-0 py-3 text-secondary text-uppercase small fw-bold">Details</th>
+                        <th class="pe-4 text-end border-bottom-0 py-3 text-secondary text-uppercase small fw-bold">IP
+                            Address</th>
+                    </tr>
+                </thead>
+                <tbody class="border-top-0">
+                    {% for log in logs %}
+                    <tr class="row-hover">
+                        <td class="ps-4 border-bottom border-light">
+                            <i class="bi bi-clock me-2 text-muted"></i>
+                            <span class="text-muted small fw-bold">{{ log.timestamp }}</span>
+                        </td>
+                        <td class="border-bottom border-light">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle rounded-circle bg-primary bg-opacity-10 text-primary me-2 d-flex align-items-center justify-content-center"
+                                    style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                    {{ log.username[0]|upper }}
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark" style="font-size: 0.95rem;">{{ log.full_name }}</div>
+                                    <small class="text-muted" style="font-size: 0.75rem;">@{{ log.username }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="border-bottom border-light">
+                            <span
+                                class="badge rounded-pill 
+                                {% if 'LOGIN' in log.action %}bg-info bg-opacity-10 text-info border border-info border-opacity-10
+                                {% elif 'TRANSITION' in log.action %}bg-warning bg-opacity-10 text-warning border border-warning border-opacity-10
+                                {% elif 'DELETE' in log.action or 'CRITICAL' in log.action %}bg-danger bg-opacity-10 text-danger border border-danger border-opacity-10
+                                {% else %}bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-10{% endif %}">
+                                {{ log.action }}
+                            </span>
+                        </td>
+                        <td class="border-bottom border-light text-muted small">{{ log.details }}</td>
+                        <td class="pe-4 text-end border-bottom border-light">
+                            <code
+                                class="small text-muted bg-light px-2 py-1 rounded border">{{ log.ip_address or '0.0.0.0' }}</code>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox fs-1 d-block mb-3 opacity-25"></i>
+                            No audit logs found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

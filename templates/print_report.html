@@ -1,177 +1,178 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
 
-{% block title %}Print Report - {{ report['title'] }}{% endblock %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Print Report - {{ report['title'] }}</title>
+    <!-- Use Bootstrap CSS for basic layout/utilities if needed, or simple custom CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        @media print {
+            @page {
+                size: A4;
+                margin: 2cm;
+            }
 
-{% block content %}
-<div class="container-fluid py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4 print-hide">
-        <h2 class="mb-0">Print Preview</h2>
-        <button class="btn btn-primary" onclick="window.print()">
-            <i class="bi bi-printer me-1"></i> Print Report
-        </button>
+            .print-hide {
+                display: none !important;
+            }
+
+            body {
+                background: white !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .card {
+                border: none !important;
+                box-shadow: none !important;
+            }
+
+            a {
+                text-decoration: none !important;
+                color: #000 !important;
+            }
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f8f9fa;
+        }
+
+        .report-course-container {
+            max-width: 210mm;
+            margin: 0 auto;
+            background: white;
+            padding: 2cm;
+            min-height: 297mm;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .report-header {
+            border-bottom: 2px solid #0d6efd;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .report-logo {
+            max-width: 120px;
+            margin-bottom: 15px;
+        }
+
+        .report-title {
+            color: #0d6efd;
+            font-weight: 700;
+            font-size: 24px;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .report-meta {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        .section-title {
+            color: #0d6efd;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            margin-top: 30px;
+            text-transform: uppercase;
+            font-size: 1.1rem;
+        }
+
+        .report-content {
+            text-align: justify;
+        }
+    </style>
+</head>
+
+<body class="py-4">
+
+    <!-- Print Controls -->
+    <div class="container mb-4 print-hide">
+        <div class="d-flex justify-content-center gap-3">
+            <button class="btn btn-primary" onclick="window.print()">
+                <i class="bi bi-printer me-2"></i>Print Report
+            </button>
+            <button class="btn btn-outline-secondary" onclick="window.close()">
+                <i class="bi bi-x-circle me-2"></i>Close Window
+            </button>
+        </div>
     </div>
-    
-    <div class="card border-0 shadow print-no-shadow">
-        <div class="card-body p-5">
-            <div class="report-content">
-                <!-- Header -->
-                <div class="text-center mb-5">
-                    {% if url_for('static', filename='img/aamusted system_logo.png') %}
-                    <div class="mb-3">
-                        <img src="{{ url_for('static', filename='img/aamusted system_logo.png') }}" 
-                             alt="AAMUSTED Logo" 
-                             style="max-width: 250px; height: auto;">
+
+    <!-- Report Page -->
+    <div class="report-course-container">
+        <!-- Header -->
+        <div class="report-header">
+            {% if url_for('static', filename='img/aamusted system_logo.png') %}
+            <img src="{{ url_for('static', filename='img/aamusted system_logo.png') }}" class="report-logo" alt="Logo">
+            {% endif %}
+            <div class="h5 fw-bold mb-1">AAMUSTED GUIDANCE & COUNSELLING CENTRE</div>
+            <div class="small text-muted mb-3">Akenten Appiah-Menka University of Skills Training and Entrepreneurial
+                Development</div>
+
+            <h1 class="report-title">{{ report.get('title', 'Counselling Activity Report') }}</h1>
+
+            <div class="report-meta mt-3">
+                <div class="row justify-content-center">
+                    <div class="col-auto">
+                        <strong>Report Type:</strong> {{ report.get('report_type', 'General') }}
                     </div>
-                    {% endif %}
-                    <h1 class="mb-3" style="color: #0d6efd;">{{ report.get('title', 'Counselling Activity Report') if report else 'Counselling Activity Report' }}</h1>
-                    <p class="text-muted mb-2">
-                        <strong>Report Type:</strong> {{ report.get('report_type', 'General') if report else 'General' }}
-                    </p>
-                    <p class="text-muted mb-0">
-                        <strong>Generated:</strong> {{ report.get('date_generated', 'N/A') if report else 'N/A' }}
-                    </p>
-                    {% if now %}
-                    <p class="text-muted mt-2">
-                        <small>Printed on: {{ now.strftime('%B %d, %Y at %I:%M %p') }}</small>
-                    </p>
-                    {% endif %}
-                </div>
-                
-                <hr class="my-4">
-                
-                <!-- Confidentiality Notice -->
-                <div class="alert alert-warning text-center mb-4" style="background-color: #fff3cd; border-left: 4px solid #ffc107;">
-                    <strong><i class="bi bi-shield-lock me-2"></i>CONFIDENTIAL - INTERNAL USE ONLY</strong>
-                </div>
-                
-                <!-- Executive Summary -->
-                {% if report and report.get('summary') %}
-                <div class="mb-5">
-                    <h3 class="mb-3" style="color: #0d6efd; border-bottom: 2px solid #0d6efd; padding-bottom: 10px;">
-                        Executive Summary
-                    </h3>
-                    <div class="p-4 bg-light rounded" style="line-height: 1.8;">
-                        {{ report.get('summary', '') | safe | nl2br }}
+                    <div class="col-auto">
+                        <strong>Generated:</strong> {{ report.get('date_generated', 'N/A') }}
                     </div>
-                </div>
-                {% endif %}
-                
-                <!-- Full Content (if available) -->
-                {% if report and report.get('content') %}
-                <div class="mb-5">
-                    <h3 class="mb-3" style="color: #0d6efd; border-bottom: 2px solid #0d6efd; padding-bottom: 10px;">
-                        Full Report Details
-                    </h3>
-                    <div class="p-4" style="line-height: 1.8;">
-                        {{ report.get('content', '') | safe }}
-                    </div>
-                </div>
-                {% else %}
-                <div class="mb-5">
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle me-2"></i>
-                    <strong>Note:</strong> The full structured report with detailed statistics, tables, and analysis is available in the downloadable Word document format. 
-                        {% if report and report.get('file_path') %}
-                        <a href="{{ url_for('download_report_file', report_id=report.get('id')) }}" class="alert-link">
-                        Download the DOCX file
-                    </a> for complete details.
-                    {% else %}
-                    Please check the Reports page to download the complete report.
-                    {% endif %}
-                    </div>
-                    
-                    <!-- At least show report metadata -->
-                    <div class="mt-4">
-                        <h4 class="mb-3" style="color: #0d6efd;">Report Information</h4>
-                        <table class="table table-bordered">
-                            <tr>
-                                <th width="30%">Report ID:</th>
-                                <td>{{ report.get('id', 'N/A') if report else 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Title:</th>
-                                <td>{{ report.get('title', 'Untitled Report') if report else 'Untitled Report' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Type:</th>
-                                <td>{{ report.get('report_type', 'N/A') if report else 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Generated:</th>
-                                <td>{{ report.get('date_generated', 'N/A') if report else 'N/A' }}</td>
-                            </tr>
-                            {% if report and report.get('file_path') %}
-                            <tr>
-                                <th>File:</th>
-                                <td><a href="{{ url_for('download_report_file', report_id=report.get('id')) }}">Download Report File</a></td>
-                            </tr>
-                            {% endif %}
-                        </table>
-                    </div>
-                </div>
-                {% endif %}
-                
-                <!-- Footer -->
-                <hr class="my-5">
-                <div class="text-center text-muted small">
-                    <p class="mb-1">This report was automatically generated by the AAMUSTED Counselling Management System</p>
-                    <p class="mb-0">For questions or additional information, please contact the Guidance & Counselling Centre</p>
                 </div>
             </div>
         </div>
+
+        <!-- Confidentiality Notice -->
+        <div class="alert alert-warning text-center small mb-4 py-2 border-warning text-warning-emphasis">
+            <strong><i class="bi bi-shield-lock me-1"></i>CONFIDENTIAL DOCUMENT - INTERNAL USE ONLY</strong>
+        </div>
+
+        <!-- Executive Summary -->
+        {% if report and report.get('summary') %}
+        <div class="mb-4">
+            <h3 class="section-title">Executive Summary</h3>
+            <div class="report-content bg-light p-3 rounded">
+                {{ report.get('summary', '') | nl2br | safe }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Full Content -->
+        {% if report and report.get('content') %}
+        <div class="mb-4">
+            <h3 class="section-title">Report Details</h3>
+            <div class="report-content">
+                {{ report.get('content', '') | safe }}
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-light border text-center my-5">
+            <p class="mb-0 text-muted"><em>Full report details are available in the attached document file.</em></p>
+        </div>
+        {% endif %}
+
+        <!-- Footer -->
+        <div class="mt-5 pt-4 border-top text-center text-muted small">
+            <p class="mb-1">Generated by AAMUSTED Counselling Management System</p>
+            <p>{{ now.strftime('%B %d, %Y at %I:%M %p') if now else '' }}</p>
+        </div>
     </div>
-</div>
 
-<style>
-@media print {
-    .print-hide {
-        display: none !important;
-    }
-    
-    .print-no-shadow {
-        box-shadow: none !important;
-        border: none !important;
-    }
-    
-    .card {
-        border: none !important;
-        box-shadow: none !important;
-    }
-    
-    .btn {
-        display: none !important;
-    }
-    
-    body {
-        background: white !important;
-    }
-    
-    .report-content {
-        color: #000 !important;
-    }
-    
-    .alert {
-        border: 1px solid #ccc !important;
-    }
-}
+    <script>
+        // Optional: Auto print on load if desired
+        // window.onload = function() { window.print(); }
+    </script>
+</body>
 
-@media screen {
-    .report-content {
-        max-width: 210mm;
-        margin: 0 auto;
-        background: white;
-        padding: 20px;
-    }
-}
-</style>
-{% endblock %}
-
-{% block scripts %}
-{{ super() }}
-<script>
-    window.onafterprint = function() {
-        // Optional: Actions after printing
-        console.log('Print complete');
-    };
-</script>
-{% endblock %}
+</html>

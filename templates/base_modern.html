@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ settings.system_name or 'AAMUSTED Counselling' }} | Clinical Co-pilot</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap 5 & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+
+    <!-- Custom Modern Theme -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modern_theme.css') }}">
+
+    <style>
+        /* Sidebar active state helper */
+        .nav-link.active {
+            background-color: var(--sage-200);
+            color: var(--sage-900);
+            font-weight: 600;
+            border-right: 4px solid var(--sage-600);
+        }
+
+        .nav-link {
+            transition: all 0.2s;
+            margin-bottom: 0.5rem;
+            border-radius: 0.5rem 0 0 0.5rem;
+            color: #64748b;
+        }
+
+        .nav-link:hover {
+            background-color: var(--sage-100);
+            color: var(--sage-700);
+            transform: translateX(4px);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- SIDEBAR -->
+    <nav class="sidebar-glass d-flex flex-column flex-shrink-0 p-3" id="sidebar">
+        <!-- Header / Logo -->
+        <div class="mb-4">
+            <a href="/" class="d-flex align-items-center link-dark text-decoration-none logo-container ps-2">
+                {% if settings.logo_url %}
+                <img src="{{ settings.logo_url }}" class="me-2"
+                    style="max-height: 40px; max-width: 40px; object-fit: contain;">
+                {% else %}
+                <div class="bg-gradient p-2 rounded-3 me-2" style="background: var(--sage-600); color: white;">
+                    <i class="bi bi-heart-pulse-fill fs-4"></i>
+                </div>
+                {% endif %}
+                <span class="fs-6 fw-bold text-break lh-sm sidebar-header-text" style="color: var(--sage-900);">
+                    {{ settings.system_name or 'Counselling Hub' }}
+                </span>
+            </a>
+        </div>
+
+        <ul class="nav nav-pills flex-column mb-auto">
+            <li class="nav-item">
+                <a href="{{ url_for('dashboard') }}"
+                    class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" title="Dashboard"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-grid-1x2 me-2"></i> <span>Dashboard</span>
+                </a>
+            </li>
+
+            {% if session.get('role') in ['Secretary', 'Admin', 'Counsellor', 'Counselor'] %}
+            <li>
+                <a href="{{ url_for('students') }}"
+                    class="nav-link {% if 'student' in request.endpoint and 'intake' not in request.endpoint %}active{% endif %}"
+                    title="Client Registry" data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-people me-2"></i> <span>Client Registry</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('intake') }}"
+                    class="nav-link {% if 'intake' in request.endpoint %}active{% endif %}" title="New Student Intake"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-person-plus me-2"></i> <span>New Student Intake</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('appointment') }}"
+                    class="nav-link {% if 'appointment' in request.endpoint and 'status' not in request.endpoint %}active{% endif %}"
+                    title="Appointments" data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-calendar-plus me-2"></i> <span>Appointments</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('manage_appointments') }}"
+                    class="nav-link {% if 'manage_appointments' in request.endpoint %}active{% endif %}"
+                    title="Manage Appointments" data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-calendar-check me-2"></i> <span>Manage Appts.</span>
+                </a>
+            </li>
+            {% endif %}
+
+            {% if session.get('role') in ['Counsellor', 'Counselor', 'Admin'] %}
+            <!-- Counsellor Specific Links -->
+            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-2 nav-category-header">Clinical</li>
+            <li>
+                <a href="{{ url_for('my_cases') }}"
+                    class="nav-link {% if 'my_cases' in request.endpoint %}active{% endif %}" title="My Cases"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-journal-medical me-2"></i> <span>My Cases</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('sessions_list') }}"
+                    class="nav-link {% if 'session' in request.endpoint and 'case' not in request.endpoint %}active{% endif %}"
+                    title="Session Log" data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-clock-history me-2"></i> <span>Session Log</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('case_notes_list') }}"
+                    class="nav-link {% if 'case_notes' in request.endpoint %}active{% endif %}" title="Case Notes"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-journal-richtext me-2"></i> <span>Case Notes</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('dass21_list') }}"
+                    class="nav-link {% if 'dass21' in request.endpoint %}active{% endif %}" title="Assessments"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-clipboard-data me-2"></i> <span>Assessments</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('all_referrals') }}"
+                    class="nav-link {% if 'referral' in request.endpoint %}active{% endif %}" title="Referrals"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-arrow-up-right-square me-2"></i> <span>Referrals</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('reports_list') }}"
+                    class="nav-link {% if 'report' in request.endpoint %}active{% endif %}" title="Reports"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-file-earmark-bar-graph me-2"></i> <span>Reports</span>
+                </a>
+            </li>
+            {% endif %}
+
+            {% if session.get('role') == 'Admin' %}
+            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-2 nav-category-header">Governance</li>
+            <li>
+                <a href="{{ url_for('admin_users') }}"
+                    class="nav-link {% if 'users' in request.endpoint %}active{% endif %}" title="Access Control"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-shield-lock me-2"></i> <span>Access Control</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('audit_logs') }}"
+                    class="nav-link {% if 'audit' in request.endpoint %}active{% endif %}" title="Audit Trails"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-activity me-2"></i> <span>Audit Trails</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('admin_workflow') }}"
+                    class="nav-link {% if 'workflow' in request.endpoint %}active{% endif %}" title="Workflow Rules"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-diagram-3 me-2"></i> <span>Workflow Rules</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('admin_settings') }}"
+                    class="nav-link {% if 'settings' in request.endpoint %}active{% endif %}" title="System Settings"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-gear me-2"></i> <span>System Settings</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+
+        <hr class="text-secondary opacity-25 mt-4">
+
+        <!-- User Profile Dropdown -->
+        <div class="dropdown">
+            <a href="#"
+                class="d-flex align-items-center link-dark text-decoration-none dropdown-toggle px-2 py-1 rounded hover-bg"
+                id="dropdownUser2" data-bs-toggle="dropdown" aria-expanded="false">
+                <div class="rounded-circle bg-secondary d-flex justify-content-center align-items-center text-white me-2"
+                    style="width: 32px; height: 32px; min-width: 32px;">
+                    {{ session.get('username', 'U')[0] | upper }}
+                </div>
+                <div>
+                    <div class="small fw-bold text-truncate" style="max-width: 140px;">{{ session.get('full_name',
+                        'User') }}</div>
+                    <div class="small text-muted" style="font-size: 0.75rem;">{{ session.get('role', 'Staff') }}</div>
+                </div>
+            </a>
+            <ul class="dropdown-menu text-small shadow" aria-labelledby="dropdownUser2">
+                <li><a class="dropdown-item" href="#">Profile</a></li>
+                <li>
+                    <hr class="dropdown-divider">
+                </li>
+                <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}">Sign out</a></li>
+            </ul>
+        </div>
+
+        <!-- Collapse Toggle -->
+        <button
+            class="btn btn-sm btn-light border position-absolute bottom-0 end-0 m-3 rounded-circle shadow-sm d-none d-md-flex align-items-center justify-content-center"
+            id="sidebarToggle" style="width: 32px; height: 32px; z-index: 1050;">
+            <i class="bi bi-chevron-left"></i>
+        </button>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+        <!-- Command Palette / Top Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <!-- Search Bar -->
+            <div class="position-relative" style="width: 400px;">
+                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                <input type="text" class="form-control form-control-lg ps-5 border-0 shadow-sm"
+                    style="border-radius: 99px; background: white; font-size: 0.95rem;"
+                    placeholder="Search clients, files, or actions (Cmd+K)...">
+            </div>
+
+            <!-- Notifications / Actions -->
+            <div class="d-flex align-items-center gap-3">
+
+                <!-- Notification Dropdown -->
+                <div class="dropdown">
+                    <button class="btn btn-light rounded-circle position-relative shadow-sm" type="button"
+                        id="notifDropdown" data-bs-toggle="dropdown" aria-expanded="false"
+                        style="width: 42px; height: 42px;">
+                        <i class="bi bi-bell text-secondary"></i>
+                        {% if unread_count and unread_count > 0 %}
+                        <span
+                            class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light">
+                            {{ unread_count }}
+                            <span class="visually-hidden">unread messages</span>
+                        </span>
+                        {% endif %}
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 p-0" aria-labelledby="notifDropdown"
+                        style="width: 350px; max-height: 400px; overflow-y: auto; border-radius: 12px;">
+                        <li class="p-3 border-bottom bg-light rounded-top">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0 fw-bold">Notifications</h6>
+                                <div class="d-flex align-items-center gap-2">
+                                    <small class="text-muted">{{ unread_count }} new</small>
+                                    {% if unread_count > 0 %}
+                                    <button class="btn btn-link p-0 text-decoration-none small"
+                                        style="font-size: 0.75rem;" onclick="markAllNotificationsRead(event)">Mark all
+                                        read</button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </li>
+
+                        {% if notifications %}
+                        {% for n in notifications %}
+                        <li>
+                            <div class="dropdown-item p-3 border-bottom position-relative notification-item {% if not n.is_read %}bg-light{% endif %}"
+                                onclick="window.location.href='{{ n.link or '#' }}'">
+                                <div class="d-flex align-items-start justify-content-between">
+                                    <div class="d-flex align-items-start" style="flex: 1;">
+                                        <div class="bg-primary bg-opacity-10 text-primary rounded-circle p-2 me-3 flex-shrink-0"
+                                            style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                                            <i class="bi bi-info-circle-fill" style="font-size: 0.8rem;"></i>
+                                        </div>
+                                        <div>
+                                            <div class="fw-semibold text-dark mb-1"
+                                                style="font-size: 0.9rem; white-space: normal;">{{ n.message }}</div>
+                                            <div class="text-muted" style="font-size: 0.75rem;">Just now</div>
+                                        </div>
+                                    </div>
+
+                                    {% if not n.is_read %}
+                                    <button class="btn btn-sm btn-link text-secondary p-0 ms-2"
+                                        onclick="markNotificationRead(event, {{ n.id }})" title="Mark as read">
+                                        <i class="bi bi-check2-circle"></i>
+                                    </button>
+                                    <span
+                                        class="position-absolute top-50 start-0 translate-middle-y ms-1 bg-primary rounded-circle unread-dot"
+                                        style="width: 6px; height: 6px;"></span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </li>
+                        {% endfor %}
+                        <li><a class="dropdown-item text-center small text-primary py-3 fw-bold bg-light rounded-bottom"
+                                href="#">View All Notifications</a></li>
+                        {% else %}
+                        <li>
+                            <div class="text-center py-5">
+                                <i class="bi bi-bell-slash text-muted opacity-25 fs-1"></i>
+                                <p class="text-muted small mt-2 mb-0">No new notifications</p>
+                            </div>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+
+                <a href="{{ url_for('logout') }}" class="btn btn-outline-danger border-0 btn-sm rounded-pill px-3">
+                    <i class="bi bi-power me-1"></i> Logout
+                </a>
+            </div>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show shadow-sm border-0 rounded-3"
+            role="alert">
+            <i
+                class="bi {% if category == 'success' %}bi-check-circle-fill{% else %}bi-exclamation-triangle-fill{% endif %} me-2"></i>
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <!-- Content Injection -->
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Init tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+
+        // Sidebar Collapse Logic
+        document.addEventListener('DOMContentLoaded', function () {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.querySelector('.main-content');
+            const toggleBtn = document.getElementById('sidebarToggle');
+            const toggleIcon = toggleBtn.querySelector('i');
+            const isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+
+            // Function to set state
+            function setSidebarState(collapsed) {
+                if (collapsed) {
+                    sidebar.classList.add('sidebar-collapsed');
+                    mainContent.classList.add('expanded');
+                    toggleIcon.classList.remove('bi-chevron-left');
+                    toggleIcon.classList.add('bi-chevron-right');
+                } else {
+                    sidebar.classList.remove('sidebar-collapsed');
+                    mainContent.classList.remove('expanded');
+                    toggleIcon.classList.remove('bi-chevron-right');
+                    toggleIcon.classList.add('bi-chevron-left');
+                }
+                localStorage.setItem('sidebar-collapsed', collapsed);
+            }
+
+            // Initial State
+            setSidebarState(isCollapsed);
+
+            // Toggle Event
+            toggleBtn.addEventListener('click', function () {
+                const currentlyCollapsed = sidebar.classList.contains('sidebar-collapsed');
+                setSidebarState(!currentlyCollapsed);
+            });
+
+            // Check for new notifications to play sound (simple check based on count logic if available, or just play if recent)
+            // For now, let's play a sound if there are unread messages on page load
+            {% if unread_count and unread_count > 0 %}
+            // playNotificationSound();
+            {% endif %}
+        });
+
+        // Notification Sound
+        function playNotificationSound() {
+            // Simple beep sequence
+            const context = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = context.createOscillator();
+            const gainNode = context.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(context.destination);
+
+            oscillator.type = 'sine';
+            oscillator.frequency.value = 800; // Hz
+            gainNode.gain.value = 0.1; // Volume
+
+            oscillator.start();
+            setTimeout(function () {
+                oscillator.stop();
+            }, 100); // 100ms beep
+        }
+
+        // Mark single notification as read
+        function markNotificationRead(event, id) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            fetch(`/notifications/mark_read/${id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Reduce unread count or reload
+                        window.location.reload();
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Mark all as read
+        function markAllNotificationsRead(event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            fetch(`/notifications/mark_all_read`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        window.location.reload();
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

@@ -12,8 +12,10 @@
                     <p class="text-muted mb-0">{{ report['title'] }}</p>
                 </div>
                 <div>
-                    <a href="{{ url_for('reports_list') }}" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-left me-1"></i>Back to Reports
+                    <a href="javascript:history.back()"
+                        class="btn btn-outline-secondary btn-sm rounded-pill text-uppercase fw-bold"
+                        style="font-size: 0.75rem; letter-spacing: 0.05em;">
+                        <i class="bi bi-arrow-left me-2"></i>Go Back
                     </a>
                 </div>
             </div>
@@ -22,7 +24,8 @@
                 <div class="card-header bg-white border-0 py-3">
                     <div class="row">
                         <div class="col-md-6">
-                            <h5 class="mb-0"><i class="bi bi-file-earmark-text me-2"></i>{{ report['title'] or 'Untitled Report' }}</h5>
+                            <h5 class="mb-0"><i class="bi bi-file-earmark-text me-2"></i>{{ report['title'] or 'Untitled
+                                Report' }}</h5>
                         </div>
                         <div class="col-md-6 text-end">
                             <span class="badge bg-info me-2">{{ report['report_type'] or 'N/A' }}</span>
@@ -86,17 +89,20 @@
                         <h6 class="mb-3">Actions</h6>
                         <div class="btn-group" role="group">
                             {% if report['file_path'] %}
-                            <a href="{{ url_for('download_report_file', report_id=report['id']) }}" class="btn btn-success">
+                            <a href="{{ url_for('download_report_file', report_id=report['id']) }}"
+                                class="btn btn-success">
                                 <i class="bi bi-download me-1"></i>Download DOCX
                             </a>
                             {% endif %}
-                            <a href="{{ url_for('print_report', report_id=report['id']) }}" target="_blank" class="btn btn-primary">
+                            <a href="{{ url_for('print_report', report_id=report['id']) }}" target="_blank"
+                                class="btn btn-primary">
                                 <i class="bi bi-printer me-1"></i>Print / View
                             </a>
                         </div>
                         <div class="alert alert-info mt-3 mb-0">
                             <i class="bi bi-info-circle me-2"></i>
-                            <strong>Note:</strong> Full reports are generated as Word documents (.docx). Download the file to view the complete structured report with tables, charts, and detailed analysis.
+                            <strong>Note:</strong> Full reports are generated as Word documents (.docx). Download the
+                            file to view the complete structured report with tables, charts, and detailed analysis.
                         </div>
                     </div>
                 </div>
@@ -106,15 +112,15 @@
 </div>
 
 <style>
-.report-summary,
-.report-content {
-    line-height: 1.8;
-    color: #333;
-}
+    .report-summary,
+    .report-content {
+        line-height: 1.8;
+        color: #333;
+    }
 
-.report-summary p,
-.report-content p {
-    margin-bottom: 1rem;
-}
+    .report-summary p,
+    .report-content p {
+        margin-bottom: 1rem;
+    }
 </style>
 {% endblock %}

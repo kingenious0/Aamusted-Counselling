@@ -1,124 +1,162 @@
-{% extends "base.html" %}
+{% extends "base_modern.html" %}
+
+{% block title %}Register Student - AAMUSTED{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="card-title mb-0">{% if student %}Edit Student{% else %}Add New Student{% endif %}</h5>
-                </div>
-                <div class="card-body">
-                    <form method="POST" action="{{ url_for('add_student') }}">
-                        {% if student %}
-                        <input type="hidden" name="edit_id" value="{{ student.id }}">
-                        {% endif %}
-                        <div class="row g-3">
-                            <!-- Student Name -->
-                            <div class="col-md-6">
-                                <label for="name" class="form-label">Full Name <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="name" name="name" required value="{{ student.name if student }}">
-                            </div>
+<div class="row justify-content-center">
+    <!-- Main Form Section -->
+    <div class="col-lg-8 mb-4">
+        <div class="d-flex align-items-center mb-4">
+            <a href="javascript:history.back()" class="btn btn-light shadow-sm rounded-circle me-3">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h2 class="fw-bold mb-0">{% if student %}Edit Student Record{% else %}Student Registration{% endif %}
+                </h2>
+                <p class="text-muted mb-0">{% if student %}Update existing{% else %}Create new{% endif %} student
+                    profile in the registry.</p>
+            </div>
+        </div>
 
-                            <!-- Age -->
-                            <div class="col-md-3">
-                                <label for="age" class="form-label">Age</label>
-                                <input type="number" class="form-control" id="age" name="age" min="16" max="100" value="{{ student.age if student }}">
-                            </div>
+        <div class="card card-glass border-0 shadow-lg">
+            <div class="card-body p-4 p-md-5">
+                <form method="POST" action="{{ url_for('add_student') }}" class="needs-validation" novalidate>
+                    {% if student %}
+                    <input type="hidden" name="edit_id" value="{{ student.id }}">
+                    {% endif %}
 
-                            <!-- Gender -->
-                            <div class="col-md-3">
-                                <label for="gender" class="form-label">Gender</label>
-                                <select class="form-select" id="gender" name="gender">
-                                    <option value="">Choose...</option>
-                                    <option value="Male" {% if student and student.gender == 'Male' %}selected{% endif %}>Male</option>
-                                    <option value="Female" {% if student and student.gender == 'Female' %}selected{% endif %}>Female</option>
-                                    <option value="Other" {% if student and student.gender == 'Other' %}selected{% endif %}>Other</option>
-                                </select>
-                            </div>
+                    <h5 class="text-primary fw-bold text-uppercase small letter-spacing-1 mb-4">Personal Details</h5>
 
-                            <!-- Index Number -->
-                            <div class="col-md-6">
-                                <label for="index_number" class="form-label">Index Number <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="index_number" name="index_number" required
-                                       placeholder="e.g., 0123456789" value="{{ student.index_number if student }}">
-                            </div>
-
-                            <!-- Department -->
-                            <div class="col-md-6">
-                                <label for="department" class="form-label">Department <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="department" name="department" required
-                                       placeholder="e.g., Computer Science" value="{{ student.department if student }}">
-                            </div>
-
-                            <!-- Programme -->
-                            <div class="col-md-6">
-                                <label for="programme" class="form-label">Programme <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="programme" name="programme" required
-                                       placeholder="e.g., BSc Computer Science" value="{{ student.programme if student }}">
-                            </div>
-
-                            <!-- Contact Information -->
-                            <div class="col-md-6">
-                                <label for="contact" class="form-label">Contact Information</label>
-                                <input type="text" class="form-control" id="contact" name="contact"
-                                       placeholder="Phone number or email" value="{{ student.contact if student }}">
-                            </div>
-
-                            <!-- Parent Contact -->
-                            <div class="col-md-6">
-                                <label for="parent_contact" class="form-label">Parent's Contact</label>
-                                <input type="text" class="form-control" id="parent_contact" name="parent_contact"
-                                       placeholder="Parent/guardian phone number" value="{{ student.parent_contact if student }}">
-                            </div>
-
-                            <!-- Hall of Residence -->
-                            <div class="col-md-6">
-                                <label for="hall_of_residence" class="form-label">Hall of Residence</label>
-                                <input type="text" class="form-control" id="hall_of_residence" name="hall_of_residence"
-                                       placeholder="e.g., University Hall" value="{{ student.hall_of_residence if student }}">
-                            </div>
-
-                            <!-- Submit Button -->
-                            <div class="col-12 mt-4">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-person-plus"></i> {% if student %}Update Student{% else %}Add Student{% endif %}
-                                </button>
-                                <a href="{{ url_for('students') }}" class="btn btn-outline-secondary">
-                                    <i class="bi bi-x-circle"></i> Cancel
-                                </a>
-                            </div>
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-12">
+                            <label for="name" class="form-label text-muted small fw-bold text-uppercase">Full Legal
+                                Name</label>
+                            <input type="text" class="form-control form-control-lg bg-light border-0" id="name"
+                                name="name" required value="{{ student.name if student }}" placeholder="e.g. Ama Osei">
+                            <div class="invalid-feedback">Please provide the student's full name.</div>
                         </div>
-                    </form>
-                </div>
-            </div>
 
-            <!-- Quick Tips Card -->
-            <div class="card mt-4">
-                <div class="card-header bg-info text-white">
-                    <h5 class="card-title mb-0">Quick Tips</h5>
-                </div>
-                <div class="card-body">
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item">
-                            <i class="bi bi-info-circle text-info"></i>
-                            Fields marked with <span class="text-danger">*</span> are required.
-                        </li>
-                        <li class="list-group-item">
-                            <i class="bi bi-info-circle text-info"></i>
-                            Use the student's official name as it appears in school records.
-                        </li>
-                        <li class="list-group-item">
-                            <i class="bi bi-info-circle text-info"></i>
-                            For contact information, prefer to use the student's personal phone number.
-                        </li>
-                        <li class="list-group-item">
-                            <i class="bi bi-info-circle text-info"></i>
-                            After adding a student, you can schedule appointments or start counselling session.
-                        </li>
-                    </ul>
-                </div>
+                        <div class="col-md-6">
+                            <label for="age" class="form-label text-muted small fw-bold text-uppercase">Age</label>
+                            <input type="number" class="form-control bg-light border-0" id="age" name="age" min="16"
+                                max="100" value="{{ student.age if student }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="gender"
+                                class="form-label text-muted small fw-bold text-uppercase">Gender</label>
+                            <select class="form-select bg-light border-0" id="gender" name="gender">
+                                <option value="">Select Gender...</option>
+                                <option value="Male" {% if student and student.gender=='Male' %}selected{% endif %}>Male
+                                </option>
+                                <option value="Female" {% if student and student.gender=='Female' %}selected{% endif %}>
+                                    Female</option>
+                                <option value="Other" {% if student and student.gender=='Other' %}selected{% endif %}>
+                                    Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <hr class="text-muted opacity-10 my-4">
+
+                    <h5 class="text-primary fw-bold text-uppercase small letter-spacing-1 mb-4">Academic Info</h5>
+
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-6">
+                            <label for="index_number" class="form-label text-muted small fw-bold text-uppercase">Index
+                                Number <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-light border-0" id="index_number"
+                                name="index_number" required placeholder="e.g., 5234120392"
+                                value="{{ student.index_number if student }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="hall_of_residence"
+                                class="form-label text-muted small fw-bold text-uppercase">Hall of Residence</label>
+                            <input type="text" class="form-control bg-light border-0" id="hall_of_residence"
+                                name="hall_of_residence" placeholder="e.g. Atwima Hall"
+                                value="{{ student.hall_of_residence if student }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="department"
+                                class="form-label text-muted small fw-bold text-uppercase">Department <span
+                                    class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-light border-0" id="department" name="department"
+                                required placeholder="e.g. IT Education" value="{{ student.department if student }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="programme" class="form-label text-muted small fw-bold text-uppercase">Programme
+                                <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-light border-0" id="programme" name="programme"
+                                required placeholder="e.g. BSc IT" value="{{ student.programme if student }}">
+                        </div>
+                    </div>
+
+                    <hr class="text-muted opacity-10 my-4">
+
+                    <h5 class="text-primary fw-bold text-uppercase small letter-spacing-1 mb-4">Contact Information</h5>
+
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <label for="contact" class="form-label text-muted small fw-bold text-uppercase">Student
+                                Phone/Email</label>
+                            <input type="text" class="form-control bg-light border-0" id="contact" name="contact"
+                                placeholder="024XXXXXXX" value="{{ student.contact if student }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="parent_contact"
+                                class="form-label text-muted small fw-bold text-uppercase">Guardian Contact</label>
+                            <input type="text" class="form-control bg-light border-0" id="parent_contact"
+                                name="parent_contact" placeholder="Parent's Number"
+                                value="{{ student.parent_contact if student }}">
+                        </div>
+                    </div>
+
+                    <div class="mt-5 d-flex gap-3">
+                        <button type="submit" class="btn btn-primary btn-lg px-5 shadow-sm btn-hover-lift">
+                            {% if student %}Save Changes{% else %}Create Student Profile{% endif %}
+                        </button>
+                        <a href="{{ url_for('students') }}" class="btn btn-light btn-lg border">Cancel</a>
+                    </div>
+                </form>
             </div>
+        </div>
+    </div>
+
+    <!-- Sidebar / Guidance -->
+    <div class="col-lg-4">
+        <div class="card bg-primary bg-opacity-10 border-0 mb-4 mt-lg-5">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-square bg-primary text-white rounded-3 me-3 p-2">
+                        <i class="bi bi-shield-check fs-4"></i>
+                    </div>
+                    <h5 class="fw-bold mb-0 text-primary">Data Privacy</h5>
+                </div>
+                <p class="small text-muted mb-0">
+                    All student information entered here is stored securely and is only accessible to authorized
+                    counselling staff.
+                    Ensure accurate contact details for emergency protocols.
+                </p>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 fw-bold">Registration Checklist</div>
+            <ul class="list-group list-group-flush small">
+                <li class="list-group-item border-0 text-muted ps-4">
+                    <i class="bi bi-check2-circle text-success me-2"></i> Verify Index Number format
+                </li>
+                <li class="list-group-item border-0 text-muted ps-4">
+                    <i class="bi bi-check2-circle text-success me-2"></i> Collect next of kin contact
+                </li>
+                <li class="list-group-item border-0 text-muted ps-4">
+                    <i class="bi bi-check2-circle text-success me-2"></i> Confirm current program
+                </li>
+            </ul>
         </div>
     </div>
 </div>
@@ -126,19 +164,19 @@
 
 {% block scripts %}
 <script>
-    // Form validation
+    // Modern Form Logic
     (function () {
-        'use strict'
-        var forms = document.querySelectorAll('.needs-validation')
-        Array.prototype.slice.call(forms).forEach(function (form) {
+        'use strict';
+        const forms = document.querySelectorAll('.needs-validation');
+        Array.from(forms).forEach(function (form) {
             form.addEventListener('submit', function (event) {
                 if (!form.checkValidity()) {
-                    event.preventDefault()
-                    event.stopPropagation()
+                    event.preventDefault();
+                    event.stopPropagation();
                 }
-                form.classList.add('was-validated')
-            }, false)
-        })
-    })()
+                form.classList.add('was-validated');
+            }, false);
+        });
+    })();
 </script>
 {% endblock %}

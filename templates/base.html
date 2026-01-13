@@ -99,8 +99,23 @@
             display: none;
         }
 
+        .sidebar.collapsed .nav-item .text-uppercase {
+            display: none;
+        }
+
+        /* Show a divider instead of text when collapsed */
+        .sidebar.collapsed .nav-item.mt-3 {
+            margin-top: 0.5rem !important;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 0.5rem;
+        }
+
         .sidebar.collapsed .nav-link i {
             margin-right: 0;
+        }
+
+        .sidebar.collapsed .nav-link .bi-chevron-down {
+            display: none;
         }
 
         .sidebar-sticky {
@@ -441,107 +456,141 @@
                                 <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
                             </a>
                         </li>
+
+                        <!-- ROLE: SECRETARY (Front Desk) -->
+                        {% if session.get('role') == 'Secretary' %}
+                        <li class="nav-item mt-3 mb-1">
+                            <span class="text-uppercase small fw-bold text-muted ps-3">Front Desk</span>
+                        </li>
                         <li class="nav-item" data-endpoint="add_student">
                             <a class="nav-link {{ 'active' if request.endpoint == 'add_student' }}"
                                 href="{{ url_for('add_student') }}">
-                                <i class="bi bi-person-plus"></i> <span>Add Student</span>
-                            </a>
-                        </li>
-                        <li class="nav-item" data-endpoint="intake">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'intake' }}"
-                                href="{{ url_for('intake') }}">
-                                <i class="bi bi-file-earmark-text"></i> <span>Intake Form</span>
+                                <i class="bi bi-person-plus"></i> <span style="white-space: normal;">Client
+                                    Registration</span>
                             </a>
                         </li>
                         <li class="nav-item" data-endpoint="appointment">
                             <a class="nav-link {{ 'active' if request.endpoint == 'appointment' }}"
                                 href="{{ url_for('appointment') }}">
-                                <i class="bi bi-calendar-event"></i> <span>New Appointment</span>
+                                <i class="bi bi-calendar-event"></i> <span>Appointment Intake</span>
                             </a>
                         </li>
                         <li class="nav-item" data-endpoint="manage_appointments">
                             <a class="nav-link {{ 'active' if request.endpoint == 'manage_appointments' }}"
                                 href="{{ url_for('manage_appointments') }}">
-                                <i class="bi bi-calendar-check"></i> <span>Manage Appointments</span>
-                            </a>
-                        </li>
-                        <li class="nav-item" data-endpoint="create_session">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'create_session' }}"
-                                href="{{ url_for('create_session') }}">
-                                <i class="bi bi-chat-dots"></i> <span>session</span>
-                            </a>
-                        </li>
-                        <li class="nav-item" data-endpoint="case_note">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'case_note' }}"
-                                href="{{ url_for('case_note') }}">
-                                <i class="bi bi-journal-text"></i> <span>Case Note</span>
-                            </a>
-                        </li>
-                        <li class="nav-item" data-endpoint="case_notes_list">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'case_notes_list' }}"
-                                href="{{ url_for('case_notes_list') }}">
-                                <i class="bi bi-journal-text"></i> <span>Case Notes</span>
-                            </a>
-                        </li>
-                        <li class="nav-item" data-endpoint="dass21">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'dass21' }}"
-                                href="{{ url_for('dass21') }}">
-                                <i class="bi bi-clipboard-heart"></i> <span>DASS-21</span>
-                            </a>
-                        </li>
-                        <li class="nav-item" data-endpoint="dass21_list">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'dass21_list' }}"
-                                href="{{ url_for('dass21_list') }}">
-                                <i class="bi bi-clipboard-heart"></i> <span>DASS-21 Records</span>
-                            </a>
-                        </li>
-                        <li class="nav-item" data-endpoint="sessions_list">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'sessions_list' }}"
-                                href="{{ url_for('sessions_list') }}">
-                                <i class="bi bi-list-check"></i> <span>All sessions</span>
-                            </a>
-                        </li>
-                        <li class="nav-item" data-endpoint="reports_list">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'reports_list' }}"
-                                href="{{ url_for('reports_list') }}">
-                                <i class="bi bi-file-earmark-bar-graph"></i> <span>Reports</span>
-                            </a>
-                        </li>
-                        <li class="nav-item" data-endpoint="statistics">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'statistics' }}" href="/statistics">
-                                <i class="bi bi-bar-chart-line-fill"></i> <span>Statistics</span>
+                                <i class="bi bi-calendar-check"></i> <span>Handover Queue</span>
                             </a>
                         </li>
                         <li class="nav-item" data-endpoint="students">
                             <a class="nav-link {{ 'active' if request.endpoint == 'students' }}"
                                 href="{{ url_for('students') }}">
-                                <i class="bi bi-people"></i> <span>All Students</span>
+                                <i class="bi bi-people"></i> <span>Client Database</span>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        <!-- ROLE: COUNSELLOR (Clinical) -->
+                        {% if session.get('role') == 'Counsellor' %}
+                        <li class="nav-item mt-3 mb-1">
+                            <span class="text-uppercase small fw-bold text-muted ps-3">Clinical Operations</span>
+                        </li>
+                        <li class="nav-item" data-endpoint="create_session">
+                            <a class="nav-link {{ 'active' if request.endpoint == 'create_session' }}"
+                                href="{{ url_for('create_session') }}">
+                                <i class="bi bi-chat-dots"></i> <span>New Session</span>
+                            </a>
+                        </li>
+                        <li class="nav-item" data-endpoint="case_notes_list">
+                            <a class="nav-link {{ 'active' if request.endpoint == 'case_notes_list' }}"
+                                href="{{ url_for('case_notes_list') }}">
+                                <i class="bi bi-journal-text"></i> <span>Case Folder</span>
+                            </a>
+                        </li>
+                        <li class="nav-item" data-endpoint="dass21_list">
+                            <a class="nav-link {{ 'active' if request.endpoint == 'dass21_list' }}"
+                                href="{{ url_for('dass21_list') }}">
+                                <i class="bi bi-clipboard-heart"></i> <span>Assessments (DASS)</span>
                             </a>
                         </li>
                         <li class="nav-item" data-endpoint="referral">
                             <a class="nav-link {{ 'active' if request.endpoint == 'referral' }}"
                                 href="{{ url_for('referral') }}">
-                                <i class="bi bi-arrow-right-circle"></i> <span>New Referral</span>
+                                <i class="bi bi-arrow-right-circle"></i> <span>Outward Referral</span>
                             </a>
                         </li>
-                        <li class="nav-item" data-endpoint="all_referrals">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'all_referrals' }}"
-                                href="{{ url_for('all_referrals') }}">
-                                <i class="bi bi-list-check"></i> <span>All Referrals</span>
+                        <li class="nav-item" data-endpoint="students">
+                            <a class="nav-link {{ 'active' if request.endpoint == 'students' }}"
+                                href="{{ url_for('students') }}">
+                                <i class="bi bi-people"></i> <span>Client Database</span>
                             </a>
                         </li>
-                        <li class="nav-item" data-endpoint="outcome_questionnaire">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'outcome_questionnaire' }}"
-                                href="{{ url_for('outcome_questionnaire') }}">
-                                <i class="bi bi-clipboard-data"></i> <span>Outcome Score</span>
+                        <li class="nav-item" data-endpoint="statistics">
+                            <a class="nav-link {{ 'active' if request.endpoint == 'statistics' }}" href="/statistics">
+                                <i class="bi bi-bar-chart-line"></i> <span>Clinical Metrics</span>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        <!-- ROLE: ADMIN (System Controller) -->
+                        {% if session.get('role') == 'Admin' %}
+                        <li class="nav-item mt-3 mb-1">
+                            <span class="text-uppercase small fw-bold text-muted ps-3">System Administration</span>
+                        </li>
+                        <li class="nav-item" data-endpoint="admin_users">
+                            <a class="nav-link {{ 'active' if request.endpoint and 'admin_users' in request.endpoint }}"
+                                href="{{ url_for('admin_users') }}">
+                                <i class="bi bi-people-fill"></i> <span>User Management</span>
                             </a>
                         </li>
                         <li class="nav-item" data-endpoint="import_csv">
                             <a class="nav-link {{ 'active' if request.endpoint == 'import_csv' }}"
                                 href="{{ url_for('import_csv') }}">
-                                <i class="bi bi-upload"></i> <span>Import CSV</span>
+                                <i class="bi bi-database-up"></i> <span>Data Operations</span>
                             </a>
                         </li>
+                        <li class="nav-item" data-endpoint="audit_logs">
+                            <a class="nav-link {{ 'active' if request.endpoint == 'audit_logs' }}"
+                                href="{{ url_for('audit_logs') }}">
+                                <i class="bi bi-shield-lock"></i> <span>System Security</span>
+                            </a>
+                        </li>
+                        <li class="nav-item" data-endpoint="statistics">
+                            <a class="nav-link {{ 'active' if request.endpoint == 'statistics' }}" href="/statistics">
+                                <i class="bi bi-graph-up-arrow"></i> <span>Global Analytics</span>
+                            </a>
+                        </li>
+
+                        <!-- Admin Access to All Modules -->
+                        <li class="nav-item mt-3 mb-1">
+                            <span class="text-uppercase small fw-bold text-muted ps-3">Platform Modules</span>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link collapsed" href="#modulesSubmenu" data-bs-toggle="collapse"
+                                aria-expanded="false">
+                                <i class="bi bi-grid-3x3-gap"></i> <span>Access Modules</span>
+                                <i class="bi bi-chevron-down ms-auto" style="font-size: 0.8em;"></i>
+                            </a>
+                            <div class="collapse" id="modulesSubmenu">
+                                <ul class="nav flex-column ms-3 bg-light rounded shadow-sm">
+                                    <li class="nav-item">
+                                        <a class="nav-link pt-2 pb-2 small" href="{{ url_for('students') }}">
+                                            <i class="bi bi-people me-2"></i>Client DB
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link pt-2 pb-2 small" href="{{ url_for('manage_appointments') }}">
+                                            <i class="bi bi-calendar-check me-2"></i>Handover
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link pt-2 pb-2 small" href="{{ url_for('create_session') }}">
+                                            <i class="bi bi-chat-dots me-2"></i>Session Tool
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                        {% endif %}
                     </ul>
                 </div>
             </nav>

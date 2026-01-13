@@ -15,7 +15,11 @@
                     <button class="btn btn-outline-success" onclick="exportHistory()">
                         <i class="fas fa-download"></i> Export History (CSV)
                     </button>
-                    <a href="{{ url_for('students') }}" class="btn btn-secondary">Back to Students</a>
+                    <a href="javascript:history.back()"
+                        class="btn btn-outline-secondary btn-sm rounded-pill text-uppercase fw-bold"
+                        style="font-size: 0.75rem; letter-spacing: 0.05em;">
+                        <i class="bi bi-arrow-left me-2"></i>Go Back
+                    </a>
                 </div>
             </div>
 
@@ -37,7 +41,7 @@
                             <p><strong>Contact:</strong> {{ student.contact or 'N/A' }}</p>
                             <p><strong>Hall of Residence:</strong> {{ student.hall_of_residence or 'N/A' }}</p>
                             <p><strong>Date Added:</strong> {{ student.created_at }}</p>
-                            <p><strong>Total session:</strong> {{ session|length }}</p>
+                            <p><strong>Total sessions:</strong> {{ sessions|length }}</p>
                         </div>
                     </div>
                 </div>
@@ -47,7 +51,7 @@
             <ul class="nav nav-tabs" id="studentTabs" role="tablist">
                 <li class="nav-item">
                     <a class="nav-link active" id="session-tab" data-toggle="tab" href="#session" role="tab">
-                        session ({{ session|length }})
+                        sessions ({{ sessions|length }})
                     </a>
                 </li>
                 <li class="nav-item">
@@ -64,83 +68,84 @@
 
             <!-- Tabs Content -->
             <div class="tab-content mt-3" id="studentTabsContent">
-                <!-- session Tab -->
+                <!-- sessions Tab -->
                 <div class="tab-pane fade show active" id="session" role="tabpanel">
-                    {% if session %}
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Counsellor</th>
-                                        <th>session Type</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for s in session %}
-                                    <tr>
-                                        <td>{{ s.date }} {{ s.time }}</td>
-                                        <td>{{ s.Counsellor_name }}</td>
-                                        <td>{{ s.session_type or 'N/A' }}</td>
-                                        <td>
-                                            {% if s.status == 'Completed' %}
-                                                <span class="badge badge-success">Completed</span>
-                                            {% elif s.status == 'Scheduled' %}
-                                                <span class="badge badge-warning">Scheduled</span>
-                                            {% else %}
-                                                <span class="badge badge-secondary">{{ s.status or 'N/A' }}</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <a href="{{ url_for('print_session', session_id=s.id) }}" 
-                                               target="_blank" class="btn btn-sm btn-outline-primary">View Details</a>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
+                    {% if sessions %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Counsellor</th>
+                                    <th>session Type</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for s in sessions %}
+                                <tr>
+                                    <td>{{ s.date }} {{ s.time }}</td>
+                                    <td>{{ s.Counsellor_name }}</td>
+                                    <td>{{ s.session_type or 'N/A' }}</td>
+                                    <td>
+                                        {% if s.status == 'Completed' %}
+                                        <span class="badge badge-success">Completed</span>
+                                        {% elif s.status == 'Scheduled' %}
+                                        <span class="badge badge-warning">Scheduled</span>
+                                        {% else %}
+                                        <span class="badge badge-secondary">{{ s.status or 'N/A' }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('print_session', session_id=s.id) }}" target="_blank"
+                                            class="btn btn-sm btn-outline-primary">View Details</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                     {% else %}
-                        <div class="text-center py-4">
-                            <p class="text-muted">No session recorded for this student.</p>
-                        </div>
+                    <div class="text-center py-4">
+                        <p class="text-muted">No sessions recorded for this student.</p>
+                    </div>
                     {% endif %}
                 </div>
 
                 <!-- Referrals Tab -->
                 <div class="tab-pane fade" id="referrals" role="tabpanel">
                     {% if referrals %}
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Referred By</th>
-                                        <th>Reason</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for referral in referrals %}
-                                    <tr>
-                                        <td>{{ referral.created_at }}</td>
-                                        <td>{{ referral.referred_by }}</td>
-                                        <td>{{ referral.reasons[:100] }}{% if referral.reasons|length > 100 %}...{% endif %}</td>
-                                        <td>
-                                            <a href="{{ url_for('print_referral', id=referral.id) }}" 
-                                               target="_blank" class="btn btn-sm btn-outline-primary">Print</a>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Referred By</th>
+                                    <th>Reason</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for referral in referrals %}
+                                <tr>
+                                    <td>{{ referral.created_at }}</td>
+                                    <td>{{ referral.referred_by }}</td>
+                                    <td>{{ referral.reasons[:100] }}{% if referral.reasons|length > 100 %}...{% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('print_referral', id=referral.id) }}" target="_blank"
+                                            class="btn btn-sm btn-outline-primary">Print</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                     {% else %}
-                        <div class="text-center py-4">
-                            <p class="text-muted">No referrals recorded for this student.</p>
-                        </div>
+                    <div class="text-center py-4">
+                        <p class="text-muted">No referrals recorded for this student.</p>
+                    </div>
                     {% endif %}
                 </div>
 
@@ -148,88 +153,92 @@
                 <div class="tab-pane fade" id="assessments" role="tabpanel">
                     <!-- DASS-21 Scores -->
                     {% if dass21_scores %}
-                        <div class="card mb-4">
-                            <div class="card-header">
-                                <h6 class="card-title mb-0">DASS-21 Scores</h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-sm">
-                                        <thead>
-                                            <tr>
-                                                <th>Date</th>
-                                                <th>Depression</th>
-                                                <th>Anxiety</th>
-                                                <th>Stress</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for score in dass21_scores %}
-                                            <tr>
-                                                <td>{{ score.completion_date }}</td>
-                                                <td>
-                                                    <span class="badge {% if score.depression_score >= 21 %}badge-danger{% elif score.depression_score >= 14 %}badge-warning{% else %}badge-success{% endif %}">
-                                                        {{ score.depression_score }}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <span class="badge {% if score.anxiety_score >= 15 %}badge-danger{% elif score.anxiety_score >= 10 %}badge-warning{% else %}badge-success{% endif %}">
-                                                        {{ score.anxiety_score }}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <span class="badge {% if score.stress_score >= 34 %}badge-danger{% elif score.stress_score >= 26 %}badge-warning{% else %}badge-success{% endif %}">
-                                                        {{ score.stress_score }}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">DASS-21 Scores</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Depression</th>
+                                            <th>Anxiety</th>
+                                            <th>Stress</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for score in dass21_scores %}
+                                        <tr>
+                                            <td>{{ score.completion_date }}</td>
+                                            <td>
+                                                <span
+                                                    class="badge {% if score.depression_score >= 21 %}badge-danger{% elif score.depression_score >= 14 %}badge-warning{% else %}badge-success{% endif %}">
+                                                    {{ score.depression_score }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span
+                                                    class="badge {% if score.anxiety_score >= 15 %}badge-danger{% elif score.anxiety_score >= 10 %}badge-warning{% else %}badge-success{% endif %}">
+                                                    {{ score.anxiety_score }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span
+                                                    class="badge {% if score.stress_score >= 34 %}badge-danger{% elif score.stress_score >= 26 %}badge-warning{% else %}badge-success{% endif %}">
+                                                    {{ score.stress_score }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
+                    </div>
                     {% endif %}
 
                     <!-- OQ-45.2 Scores -->
                     {% if oq_scores %}
-                        <div class="card">
-                            <div class="card-header">
-                                <h6 class="card-title mb-0">OQ-45.2 Scores</h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-sm">
-                                        <thead>
-                                            <tr>
-                                                <th>Date</th>
-                                                <th>Total Score</th>
-                                                <th>session Date</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for score in oq_scores %}
-                                            <tr>
-                                                <td>{{ score.completion_date }}</td>
-                                                <td>
-                                                    <span class="badge {% if score.total_score >= 64 %}badge-danger{% elif score.total_score >= 55 %}badge-warning{% else %}badge-success{% endif %}">
-                                                        {{ score.total_score }}
-                                                    </span>
-                                                </td>
-                                                <td>{{ score.session_date }}</td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">OQ-45.2 Scores</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Total Score</th>
+                                            <th>session Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for score in oq_scores %}
+                                        <tr>
+                                            <td>{{ score.completion_date }}</td>
+                                            <td>
+                                                <span
+                                                    class="badge {% if score.total_score >= 64 %}badge-danger{% elif score.total_score >= 55 %}badge-warning{% else %}badge-success{% endif %}">
+                                                    {{ score.total_score }}
+                                                </span>
+                                            </td>
+                                            <td>{{ score.session_date }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
+                    </div>
                     {% endif %}
 
                     {% if not dass21_scores and not oq_scores %}
-                        <div class="text-center py-4">
-                            <p class="text-muted">No assessments recorded for this student.</p>
-                        </div>
+                    <div class="text-center py-4">
+                        <p class="text-muted">No assessments recorded for this student.</p>
+                    </div>
                     {% endif %}
                 </div>
             </div>
@@ -253,12 +262,12 @@
                 <p><strong>programme:</strong> {{ student.programme or 'N/A' }}</p>
                 <p><strong>Contact:</strong> {{ student.contact or 'N/A' }}</p>
                 <p><strong>Date Added:</strong> {{ student.created_at }}</p>
-                <p><strong>Total session:</strong> {{ session|length }}</p>
+                <p><strong>Total sessions:</strong> {{ sessions|length }}</p>
             </div>
         </div>
-        
-        {% if session %}
-        <h4>session Summary</h4>
+
+        {% if sessions %}
+        <h4>sessions Summary</h4>
         <table class="table table-bordered">
             <thead>
                 <tr>
@@ -269,7 +278,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for s in session %}
+                {% for s in sessions %}
                 <tr>
                     <td>{{ s.date }}</td>
                     <td>{{ s.Counsellor_name }}</td>
@@ -284,17 +293,17 @@
 </div>
 
 <script>
-function printProfile() {
-    const printWindow = window.open('', '_blank');
-    const printContent = document.getElementById('printProfile').innerHTML;
-    
-    printWindow.document.write(
-        '<html>' +
-        '<head>' +
-        '<title>Student Profile - {{ student.name }}</title>' +
-        '<link href="{{ url_for('static', filename='css/bootstrap2.min.css') }}" rel="stylesheet">' +
-        '<script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"><\/script>' +
-        '<script src="{{ url_for('static', filename='js/bootstrap.bundle2.min.js') }}"><\/script>' +
+    function printProfile() {
+        const printWindow = window.open('', '_blank');
+        const printContent = document.getElementById('printProfile').innerHTML;
+
+        printWindow.document.write(
+            '<html>' +
+            '<head>' +
+            '<title>Student Profile - {{ student.name }}</title>' +
+            '<link href="{{ url_for('static', filename='css / bootstrap2.min.css') }}" rel="stylesheet">' +
+        '<script src="{{ url_for('static', filename='js / jquery - 3.6.0.min.js') }}"><\/script>' +
+        '<script src="{{ url_for('static', filename='js / bootstrap.bundle2.min.js') }}"><\/script>' +
         '<style>' +
         'body { padding: 20px; }' +
         '@media print { .btn { display: none; } }' +
@@ -304,43 +313,43 @@ function printProfile() {
         printContent +
         '</body>' +
         '</html>'
-    );
-    
-    printWindow.document.close();
-    printWindow.print();
-}
+        );
 
-function exportHistory() {
-    // Create CSV content
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Type,Date,Details\n";
-    
-    // Add session
-    {% for s in session %}
-    csvContent += "session,{{ s.date }},{{ s.Counsellor_name }} - {{ s.session_type or 'N/A' }}\n";
-    {% endfor %}
-    
-    // Add referrals
-    {% for referral in referrals %}
-    csvContent += "Referral,{{ referral.created_at }},{{ referral.referred_by }} - {{ referral.reasons[:50] }}...\n";
-    {% endfor %}
-    
-    // Create download link
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "{{ student.name }}_history.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
+        printWindow.document.close();
+        printWindow.print();
+    }
 
-// Activate tooltips with vanilla JavaScript
-if (typeof bootstrap !== 'undefined') {
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-}
+    function exportHistory() {
+        // Create CSV content
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Type,Date,Details\n";
+
+        // Add sessions
+        {% for s in sessions %}
+        csvContent += "session,{{ s.date }},{{ s.Counsellor_name }} - {{ s.session_type or 'N/A' }}\n";
+        {% endfor %}
+
+        // Add referrals
+        {% for referral in referrals %}
+        csvContent += "Referral,{{ referral.created_at }},{{ referral.referred_by }} - {{ referral.reasons[:50] }}...\n";
+        {% endfor %}
+
+        // Create download link
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "{{ student.name }}_history.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // Activate tooltips with vanilla JavaScript
+    if (typeof bootstrap !== 'undefined') {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
 </script>
 {% endblock content %}

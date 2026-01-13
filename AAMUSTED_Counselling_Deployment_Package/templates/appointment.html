@@ -13,11 +13,13 @@
                         <div class="row g-3">
                             <!-- Student Selection -->
                             <div class="col-md-12">
-                                <label for="student_id" class="form-label">Student <span class="text-danger">*</span></label>
+                                <label for="student_id" class="form-label">Student <span
+                                        class="text-danger">*</span></label>
                                 <select class="form-select" id="student_id" name="student_id" required>
                                     <option value="">Choose student...</option>
                                     {% for student in students %}
-                                    <option value="{{ student.id }}">{{ student.name }} - {{ student.programme }}</option>
+                                    <option value="{{ student.id }}">{{ student.name }} - {{ student.programme }}
+                                    </option>
                                     {% endfor %}
                                 </select>
                                 <div class="invalid-feedback">
@@ -27,10 +29,11 @@
 
                             <!-- Counsellor Selection -->
                             <div class="col-md-12">
-                                <label for="counselor_id" class="form-label">Counsellor <span class="text-danger">*</span></label>
-        <select class="form-select" id="counselor_id" name="counselor_id" required>
+                                <label for="counselor_id" class="form-label">Counsellor <span
+                                        class="text-danger">*</span></label>
+                                <select class="form-select" id="counselor_id" name="counselor_id" required>
                                     {% if Counsellors|length == 1 %}
-                                        <option value="{{ Counsellors[0].id }}" selected>{{ Counsellors[0].name }}</option>
+                                    <option value="{{ Counsellors[0].id }}" selected>{{ Counsellors[0].name }}</option>
                                     {% else %}
                                     <option value="">Choose counsellor...</option>
                                     {% for counsellor in Counsellors %}
@@ -63,12 +66,37 @@
 
                             <!-- Purpose -->
                             <div class="col-12">
-                                <label for="purpose" class="form-label">Purpose of Appointment <span class="text-danger">*</span></label>
+                                <label for="purpose" class="form-label">Purpose of Appointment <span
+                                        class="text-danger">*</span></label>
                                 <textarea class="form-control" id="purpose" name="purpose" rows="3" required
-                                          placeholder="Please describe the reason for this appointment..."></textarea>
+                                    placeholder="Please describe the reason for this appointment..."></textarea>
                                 <div class="invalid-feedback">
                                     Please provide the purpose of the appointment.
                                 </div>
+                            </div>
+
+                            <!-- Urgency Level -->
+                            <div class="col-md-6">
+                                <label for="urgency" class="form-label">Urgency Level <span
+                                        class="text-danger">*</span></label>
+                                <select class="form-select" id="urgency" name="urgency" required>
+                                    <option value="Normal">Normal (Routine)</option>
+                                    <option value="Urgent">Urgent (Within 24h)</option>
+                                    <option value="Crisis">CRISIS (Immediate)</option>
+                                </select>
+                            </div>
+
+                            <!-- Referral Source -->
+                            <div class="col-md-6">
+                                <label for="referral_source" class="form-label">Referral Source</label>
+                                <select class="form-select" id="referral_source" name="referral_source">
+                                    <option value="Self">Self-Referral</option>
+                                    <option value="Lecturer">Lecturer / Academic Staff</option>
+                                    <option value="Parent">Parent / Guardian</option>
+                                    <option value="Admin">Administration</option>
+                                    <option value="Medical">Medical Facility</option>
+                                    <option value="Other">Other</option>
+                                </select>
                             </div>
 
                             <!-- Submit Buttons -->
@@ -137,7 +165,7 @@
     document.getElementById('date').min = new Date().toISOString().split('T')[0]
 
     // Validate appointment time (8 AM - 5 PM, excluding lunch hour)
-    document.getElementById('time').addEventListener('change', function(e) {
+    document.getElementById('time').addEventListener('change', function (e) {
         const time = e.target.value
         const hour = parseInt(time.split(':')[0])
         if (hour < 8 || hour >= 17 || (hour === 12)) {

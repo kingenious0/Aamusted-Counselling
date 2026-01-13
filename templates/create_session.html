@@ -1,113 +1,217 @@
-{% extends "base.html" %}
+{% extends "base_modern.html" %}
 
-{% block title %}Create Session - AAMUSTED Counseling System{% endblock %}
+{% block title %}Create Session - Clinical Records{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-12">
-            <h2 class="mb-4">Create New Counseling Session</h2>
-            
-            {% with messages = get_flashed_messages() %}
-                {% if messages %}
-                    {% for message in messages %}
-                        <div class="alert alert-info">{{ message }}</div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-
-            <form method="POST" action="{{ url_for('create_session') }}">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">Session Details</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group mb-3">
-                                    <label for="appointment_id">Select Appointment</label>
-                                    <select class="form-control" id="appointment_id" name="appointment_id" required>
-                                        <option value="">Choose an appointment...</option>
-                                        {% for appointment in appointments %}
-                                            <option value="{{ appointment.id }}">
-                                                {{ appointment.student_name or 'N/A' }} 
-                                                {% if appointment.counsellor_name %} - {{ appointment.counsellor_name }}{% endif %}
-                                                - {{ appointment.date }} {{ appointment.time }}
-                                                ({{ appointment.status }})
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                    <small class="form-text text-muted">
-                                        Showing scheduled and completed appointments. Completed appointments can still have sessions added.
-                                    </small>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group mb-3">
-                                    <label for="session_type">Session Type</label>
-                                    <select class="form-control" id="session_type" name="session_type" required>
-                                        <option value="">Select type...</option>
-                                        <option value="Individual">Individual Counseling</option>
-                                        <option value="Group">Group Counseling</option>
-                                        <option value="Crisis">Crisis Intervention</option>
-                                        <option value="Academic">Academic Support</option>
-                                        <option value="Career">Career Guidance</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="form-group mb-3">
-                                    <label for="notes">Session Notes</label>
-                                    <textarea class="form-control" id="notes" name="notes" rows="4" 
-                                              placeholder="Enter session notes and observations..." required></textarea>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group mb-3">
-                                    <label for="duration">Duration (minutes)</label>
-                                    <input type="number" class="form-control" id="duration" name="duration" 
-                                           min="15" max="180" value="60" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group mb-3">
-                                    <label for="outcome">Session Outcome</label>
-                                    <select class="form-control" id="outcome" name="outcome" required>
-                                        <option value="">Select outcome...</option>
-                                        <option value="Successful">Successful</option>
-                                        <option value="Partially Successful">Partially Successful</option>
-                                        <option value="Needs Follow-up">Needs Follow-up</option>
-                                        <option value="Referred">Referred</option>
-                                        <option value="No Show">No Show</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="form-group mb-3">
-                                    <label for="interventions">Interventions Used</label>
-                                    <textarea class="form-control" id="interventions" name="interventions" 
-                                              rows="3" placeholder="Describe interventions and techniques used..."></textarea>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="text-center mt-4">
-                    <button type="submit" class="btn btn-primary btn-lg">Create Session</button>
-                    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-lg ms-2">Cancel</a>
-                </div>
-            </form>
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex align-items-center">
+            <a href="javascript:history.back()" class="btn btn-light border rounded-circle shadow-sm me-3"
+                style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h2 class="fw-bold mb-0 text-dark">New Session Log</h2>
+                <p class="text-muted mb-0">Record clinical notes and outcomes for a scheduled session.</p>
+            </div>
         </div>
     </div>
 </div>
+
+<form method="POST" action="{{ url_for('create_session') }}">
+    <div class="row g-4">
+        <!-- LEFT COLUMN: Session Details Form -->
+        <div class="col-lg-8">
+            <div class="card card-glass border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 pt-4 px-4">
+                    <h5 class="fw-bold mb-0 text-dark">Session Documentation</h5>
+                </div>
+                <div class="card-body p-4">
+
+                    <!-- Appointment Selection -->
+                    <div class="mb-4">
+                        <label for="appointment_id"
+                            class="form-label text-uppercase small text-secondary fw-bold">Select Scheduled Appointment
+                            <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-lg bg-light border-0" id="appointment_id"
+                            name="appointment_id" required onchange="updateContext(this)">
+                            <option value="">Choose an appointment...</option>
+                            {% for appointment in appointments %}
+                            <option value="{{ appointment.id }}" data-urgency="{{ appointment.urgency or 'Normal' }}"
+                                data-referral="{{ appointment.referral_source or 'Self' }}"
+                                data-purpose="{{ appointment.purpose }}" {% if selected_appt_id and
+                                selected_appt_id|string==appointment.id|string %}selected{% endif %}>
+                                {{ appointment.student_name or 'N/A' }}
+                                - {{ appointment.date }} @ {{ appointment.time }}
+                                ({{ appointment.status }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text mt-2"><i class="bi bi-info-circle me-1"></i> Selecting an appointment will
+                            load intake details.</div>
+                    </div>
+
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-6">
+                            <label for="session_type"
+                                class="form-label text-uppercase small text-secondary fw-bold">Session Type <span
+                                    class="text-danger">*</span></label>
+                            <select class="form-select bg-light border-0" id="session_type" name="session_type"
+                                required>
+                                <option value="">Select type...</option>
+                                <option value="Individual">Individual Counseling</option>
+                                <option value="Group">Group Counseling</option>
+                                <option value="Crisis">Crisis Intervention</option>
+                                <option value="Academic">Academic Support</option>
+                                <option value="Career">Career Guidance</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="duration"
+                                class="form-label text-uppercase small text-secondary fw-bold">Duration (Minutes) <span
+                                    class="text-danger">*</span></label>
+                            <input type="number" class="form-control bg-light border-0" id="duration" name="duration"
+                                min="15" max="180" value="60" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="notes" class="form-label text-uppercase small text-secondary fw-bold">Clinical Notes
+                            <span class="text-danger">*</span></label>
+                        <textarea class="form-control bg-light border-0" id="notes" name="notes" rows="6"
+                            placeholder="Enter session notes, client demeanor, and key discussion points..."
+                            required></textarea>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="interventions"
+                            class="form-label text-uppercase small text-secondary fw-bold">Interventions &
+                            Techniques</label>
+                        <textarea class="form-control bg-light border-0" id="interventions" name="interventions"
+                            rows="3"
+                            placeholder="Describe therapeutic interventions used (e.g., CBT, Active Listening)..."></textarea>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="outcome" class="form-label text-uppercase small text-secondary fw-bold">Outcome &
+                            Next Steps <span class="text-danger">*</span></label>
+                        <select class="form-select bg-light border-0" id="outcome" name="outcome" required>
+                            <option value="">Select outcome...</option>
+                            <option value="Successful">Successful - Goals Met</option>
+                            <option value="Partially Successful">Partially Successful</option>
+                            <option value="Needs Follow-up">Needs Follow-up Session</option>
+                            <option value="Referred">Referred to Specialist</option>
+                            <option value="No Show">Client No Show</option>
+                        </select>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-light border px-4">Cancel</a>
+                        <button type="submit" class="btn btn-primary px-5 shadow-sm btn-hover-lift">
+                            <i class="bi bi-save me-2"></i> Save Session Record
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Intake Context (Dynamic) -->
+        <div class="col-lg-4">
+            <div id="intake-context" class="card card-glass border-0 shadow-sm sticky-top"
+                style="top: 20px; display: none;">
+                <div class="card-header bg-primary bg-opacity-10 border-0 pt-4 px-4">
+                    <div class="d-flex align-items-center mb-1">
+                        <div class="bg-primary text-white p-2 rounded-circle me-3">
+                            <i class="bi bi-file-earmark-person-fill"></i>
+                        </div>
+                        <div>
+                            <p class="text-uppercase small fw-bold text-primary mb-0">Intake Card</p>
+                            <h6 class="fw-bold mb-0 text-dark">Client Context</h6>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <div class="mb-4">
+                        <small class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Urgency
+                            Level</small>
+                        <div class="mt-1">
+                            <span id="ctx-urgency" class="badge bg-secondary p-2 px-3 rounded-pill">-</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <small class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Referral
+                            Source</small>
+                        <div class="mt-1">
+                            <h6 id="ctx-referral" class="text-dark mb-0">-</h6>
+                        </div>
+                    </div>
+
+                    <div>
+                        <small class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Intake Purpose /
+                            Notes</small>
+                        <div id="ctx-purpose"
+                            class="mt-2 p-3 bg-light rounded-3 text-secondary border small fst-italic">
+                            -
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Default State if no context -->
+            <div id="no-context" class="card border-0 bg-transparent text-center p-5">
+                <div class="text-muted opacity-50">
+                    <i class="bi bi-arrow-up-circle fs-1 mb-2"></i>
+                    <p>Select an appointment on the left to view intake details here.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function updateContext(selectElement) {
+        const contextDiv = document.getElementById('intake-context');
+        const noContextDiv = document.getElementById('no-context');
+        const selectedOption = selectElement.options[selectElement.selectedIndex];
+
+        if (!selectedOption.value) {
+            contextDiv.style.display = 'none';
+            noContextDiv.style.display = 'block';
+            return;
+        }
+
+        const urgency = selectedOption.getAttribute('data-urgency');
+        const referral = selectedOption.getAttribute('data-referral');
+        const purpose = selectedOption.getAttribute('data-purpose');
+
+        document.getElementById('ctx-urgency').textContent = urgency || 'Normal';
+        document.getElementById('ctx-referral').textContent = referral || 'Self';
+        document.getElementById('ctx-purpose').textContent = purpose || 'No intake notes available.';
+
+        // Color badge for urgency
+        const badge = document.getElementById('ctx-urgency');
+        badge.className = 'badge p-2 px-3 rounded-pill ' +
+            (urgency === 'Crisis' ? 'bg-danger' :
+                (urgency === 'Urgent' ? 'bg-warning text-dark' : 'bg-info text-dark'));
+
+        contextDiv.style.display = 'block';
+        noContextDiv.style.display = 'none';
+    }
+
+    // Run on load if something is pre-selected
+    document.addEventListener('DOMContentLoaded', function () {
+        const select = document.getElementById('appointment_id');
+        if (select.value) {
+            updateContext(select);
+        } else {
+            // Ensure initial state
+            document.getElementById('intake-context').style.display = 'none';
+            document.getElementById('no-context').style.display = 'block';
+        }
+    });
+</script>
 {% endblock %}

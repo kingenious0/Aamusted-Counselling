@@ -1,190 +1,192 @@
-{% extends "base.html" %}
+{% extends "base_modern.html" %}
+
+{% block title %}Student Intake - AAMUSTED{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="row justify-content-center">
-        <div class="col-md-10">
-            <div class="card">
-                <div class="card-header bg-success text-white">
-                    <h5 class="card-title mb-0">Student Intake Form</h5>
-                </div>
-                <div class="card-body">
-                    <form method="POST" action="{{ url_for('intake') }}" class="needs-validation" novalidate>
-                        <!-- Student Information Section -->
-                        <div class="row g-3 mb-4">
-                            <div class="col-12">
-                                <h5 class="border-bottom pb-2">Student Information</h5>
-                            </div>
-
-                            <!-- Name -->
-                            <div class="col-md-6">
-                                <label for="name" class="form-label">Full Name <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="name" name="name" required>
-                                <div class="invalid-feedback">
-                                    Please provide the student's full name.
-                                </div>
-                            </div>
-
-                            <!-- Age -->
-                            <div class="col-md-3">
-                                <label for="age" class="form-label">Age <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="age" name="age" min="16" max="100" required>
-                                <div class="invalid-feedback">
-                                    Please provide a valid age (16-100).
-                                </div>
-                            </div>
-
-                            <!-- Gender -->
-                            <div class="col-md-3">
-                                <label for="gender" class="form-label">Gender <span class="text-danger">*</span></label>
-                                <select class="form-select" id="gender" name="gender" required>
-                                    <option value="">Choose...</option>
-                                    <option value="Male">Male</option>
-                                    <option value="Female">Female</option>
-                                    <option value="Other">Other</option>
-                                </select>
-                                <div class="invalid-feedback">
-                                    Please select a gender.
-                                </div>
-                            </div>
-
-                            <!-- Student Index Number -->
-                            <div class="col-md-6">
-                                <label for="index_number" class="form-label">Student Index Number <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="index_number" name="index_number" required
-                                       placeholder="e.g., 12345678">
-                                <div class="invalid-feedback">
-                                    Please provide the student's index number.
-                                </div>
-                            </div>
-
-                            <!-- Department -->
-                            <div class="col-md-6">
-                                <label for="department" class="form-label">Department <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="department" name="department" required
-                                       placeholder="e.g., Computer Science">
-                                <div class="invalid-feedback">
-                                    Please provide the department.
-                                </div>
-                            </div>
-                            <!-- Faculty -->
-                            <div class="col-md-6">
-                                <label for="faculty" class="form-label">Faculty <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="faculty" name="faculty" required
-                                       placeholder="e.g., Engineering">
-                                <div class="invalid-feedback">
-                                    Please provide the faculty.
-                                </div>
-                            </div>
-
-                            <!-- Programme -->
-                            <div class="col-md-6">
-                                <label for="programme" class="form-label">Programme <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="programme" name="programme" required
-                                       placeholder="e.g., BSc Computer Science">
-                                <div class="invalid-feedback">
-                                    Please provide the programme.
-                                </div>
-                            </div>
-
-                            <!-- Contact Information -->
-                            <div class="col-md-6">
-                                <label for="contact" class="form-label">Contact Information <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="contact" name="contact" required
-                                       placeholder="Phone number or email">
-                                <div class="invalid-feedback">
-                                    Please provide contact information.
-                                </div>
-                            </div>
-
-                            <!-- Parent's Contact -->
-                            <div class="col-md-6">
-                                <label for="parent_contact" class="form-label">Parent's Contact (Optional)</label>
-                                <input type="text" class="form-control" id="parent_contact" name="parent_contact"
-                                       placeholder="Phone number or email">
-                                <div class="invalid-feedback">
-                                    Please provide valid contact information.
-                                </div>
-                            </div>
-
-                            <!-- Hall of Residence -->
-                            <div class="col-md-6">
-                                <label for="hall_of_residence" class="form-label">Hall of Residence (Optional)</label>
-                                <input type="text" class="form-control" id="hall_of_residence" name="hall_of_residence"
-                                       placeholder="e.g., University Hall">
-                                <div class="invalid-feedback">
-                                    Please provide the hall of residence.
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Appointment Section -->
-                        <div class="row g-3 mb-4">
-                            <div class="col-12">
-                                <h5 class="border-bottom pb-2">Initial Appointment</h5>
-                            </div>
-
-                            <!-- Appointment Date -->
-                            <div class="col-md-6">
-                                <label for="appointment_date" class="form-label">Preferred Date <span class="text-danger">*</span></label>
-                                <input type="date" class="form-control" id="appointment_date" name="appointment_date" required
-                                       min="{{ now.strftime('%Y-%m-%d') }}">
-                                <div class="invalid-feedback">
-                                    Please select a valid date.
-                                </div>
-                            </div>
-
-                            <!-- Appointment Time -->
-                            <div class="col-md-6">
-                                <label for="appointment_time" class="form-label">Preferred Time <span class="text-danger">*</span></label>
-                                <input type="time" class="form-control" id="appointment_time" name="appointment_time" required>
-                                <div class="invalid-feedback">
-                                    Please select a valid time.
-                                </div>
-                            </div>
-
-                            <!-- Purpose of Visit -->
-                            <div class="col-12">
-                                <label for="purpose" class="form-label">Purpose of Visit <span class="text-danger">*</span></label>
-                                <textarea class="form-control" id="purpose" name="purpose" rows="3" required
-                                          placeholder="Please briefly describe the reason for seeking counselling..."></textarea>
-                                <div class="invalid-feedback">
-                                    Please provide the purpose of the visit.
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Submit Buttons -->
-                        <div class="row mt-4">
-                            <div class="col-12">
-                                <button type="submit" class="btn btn-success">
-                                    <i class="bi bi-check-circle"></i> Submit Intake Form
-                                </button>
-                                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
-                                    <i class="bi bi-x-circle"></i> Cancel
-                                </a>
-                            </div>
-                        </div>
-                    </form>
-                </div>
+<div class="row justify-content-center">
+    <!-- Main Form Section -->
+    <div class="col-lg-8 mb-4">
+        <div class="d-flex align-items-center mb-4">
+            <a href="javascript:history.back()" class="btn btn-light shadow-sm rounded-circle me-3">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h2 class="fw-bold mb-0">Student Intake Form</h2>
+                <p class="text-muted mb-0">Register a new student and schedule their first consultation.</p>
             </div>
+        </div>
 
-            <!-- Information Card -->
-            <div class="card mt-4">
-                <div class="card-header bg-info text-white">
-                    <h5 class="card-title mb-0">Important Information</h5>
-                </div>
-                <div class="card-body">
-                    <div class="alert alert-info mb-0">
-                        <h6 class="alert-heading"><i class="bi bi-info-circle"></i> Please Note:</h6>
-                        <ul class="mb-0">
-                            <li>All information provided will be kept strictly confidential.</li>
-                            <li>Appointments are available Monday through Friday, 8:00 AM to 5:00 PM.</li>
-                            <li>Please arrive 10 minutes before your scheduled appointment time.</li>
-                            <li>If you need to reschedule, please contact the counselling office at least 24 hours in advance.</li>
-                        </ul>
+        <div class="card card-glass border-0 shadow-lg">
+            <div class="card-body p-4 p-md-5">
+                <form method="POST" action="{{ url_for('intake') }}" class="needs-validation" novalidate>
+
+                    <!-- Section 1: Student Details -->
+                    <div class="d-flex align-items-center mb-4">
+                        <div class="icon-square bg-primary bg-opacity-10 text-primary rounded-3 me-3 p-2">
+                            <i class="bi bi-person-vcard fs-5"></i>
+                        </div>
+                        <h5 class="fw-bold mb-0 text-uppercase small letter-spacing-1">Student Information</h5>
                     </div>
+
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-12">
+                            <label for="name" class="form-label text-muted small fw-bold text-uppercase">Full Name <span
+                                    class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-light border-0" id="name" name="name" required
+                                placeholder="Full Legal Name">
+                            <div class="invalid-feedback">Required.</div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="index_number" class="form-label text-muted small fw-bold text-uppercase">Index
+                                Number <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-light border-0" id="index_number"
+                                name="index_number" required placeholder="e.g. 5191040203">
+                        </div>
+
+                        <div class="col-md-3">
+                            <label for="age" class="form-label text-muted small fw-bold text-uppercase">Age <span
+                                    class="text-danger">*</span></label>
+                            <input type="number" class="form-control bg-light border-0" id="age" name="age" min="16"
+                                max="100" required>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label for="gender" class="form-label text-muted small fw-bold text-uppercase">Gender <span
+                                    class="text-danger">*</span></label>
+                            <select class="form-select bg-light border-0" id="gender" name="gender" required>
+                                <option value="">Select...</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="department"
+                                class="form-label text-muted small fw-bold text-uppercase">Department <span
+                                    class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-light border-0" id="department" name="department"
+                                required placeholder="e.g. Psychology">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="programme" class="form-label text-muted small fw-bold text-uppercase">Programme
+                                <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-light border-0" id="programme" name="programme"
+                                required placeholder="e.g. BSc Psychology">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="faculty" class="form-label text-muted small fw-bold text-uppercase">Faculty
+                                <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-light border-0" id="faculty" name="faculty"
+                                required placeholder="e.g. Education">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="contact" class="form-label text-muted small fw-bold text-uppercase">Contact
+                                <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-light border-0" id="contact" name="contact"
+                                required placeholder="Student Phone/Email">
+                        </div>
+                    </div>
+
+                    <hr class="text-muted opacity-10 my-5">
+
+                    <!-- Section 2: Appointment Details -->
+                    <div class="d-flex align-items-center mb-4">
+                        <div class="icon-square bg-success bg-opacity-10 text-success rounded-3 me-3 p-2">
+                            <i class="bi bi-calendar-event fs-5"></i>
+                        </div>
+                        <h5 class="fw-bold mb-0 text-uppercase small letter-spacing-1">Appointment Details</h5>
+                    </div>
+
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-6">
+                            <label for="appointment_date"
+                                class="form-label text-muted small fw-bold text-uppercase">Preferred Date <span
+                                    class="text-danger">*</span></label>
+                            <input type="date" class="form-control bg-light border-0" id="appointment_date"
+                                name="appointment_date" required min="{{ now.strftime('%Y-%m-%d') }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="appointment_time"
+                                class="form-label text-muted small fw-bold text-uppercase">Preferred Time <span
+                                    class="text-danger">*</span></label>
+                            <input type="time" class="form-control bg-light border-0" id="appointment_time"
+                                name="appointment_time" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="urgency" class="form-label text-muted small fw-bold text-uppercase">Urgency
+                                Level <span class="text-danger">*</span></label>
+                            <select class="form-select bg-light border-0" id="urgency" name="urgency" required>
+                                <option value="Normal">Normal (Routine)</option>
+                                <option value="Urgent">Urgent (Within 24h)</option>
+                                <option value="Crisis">CRISIS (Immediate)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="referral_source"
+                                class="form-label text-muted small fw-bold text-uppercase">Outreach Source</label>
+                            <select class="form-select bg-light border-0" id="referral_source" name="referral_source">
+                                <option value="Self">Self-Referral</option>
+                                <option value="Lecturer">Lecturer / Staff</option>
+                                <option value="Parent">Parent</option>
+                                <option value="Medical">Medical Facility</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="purpose" class="form-label text-muted small fw-bold text-uppercase">Presenting
+                                Problem / Purpose <span class="text-danger">*</span></label>
+                            <textarea class="form-control bg-light border-0" id="purpose" name="purpose" rows="4"
+                                required
+                                placeholder="Brief description of why the student is seeking counselling..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="mt-5 d-flex gap-3">
+                        <button type="submit" class="btn btn-primary btn-lg px-5 shadow-sm btn-hover-lift">
+                            <i class="bi bi-check2-circle me-2"></i> Submit and Schedule
+                        </button>
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-light btn-lg border">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar / Guidelines -->
+    <div class="col-lg-4">
+        <div class="card bg-info bg-opacity-10 border-0 mb-4 mt-lg-5">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="icon-square bg-info text-white rounded-3 me-3 p-2">
+                        <i class="bi bi-info-circle fs-4"></i>
+                    </div>
+                    <h5 class="fw-bold mb-0 text-info">Protocol Guidelines</h5>
                 </div>
+                <ul class="list-unstyled small text-muted mb-0">
+                    <li class="mb-2"><i class="bi bi-dot me-1"></i> Verify student ID card if available.</li>
+                    <li class="mb-2"><i class="bi bi-dot me-1"></i> Appointments are Mon-Fri, 8am - 5pm.</li>
+                    <li class="mb-2"><i class="bi bi-dot me-1"></i> For <strong>CRISIS</strong> cases, contact the
+                        Senior Counsellor immediately.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 fw-bold">Confidentiality Notice</div>
+            <div class="card-body">
+                <p class="small text-muted mb-0">
+                    Remind the student that all information provided is strictly confidential and will only be shared
+                    within the counselling unit, unless there is a risk of harm to self or others.
+                </p>
             </div>
         </div>
     </div>
@@ -193,32 +195,31 @@
 
 {% block scripts %}
 <script>
-    // Form validation
+    // Form Validation logic
     (function () {
-        'use strict'
-        var forms = document.querySelectorAll('.needs-validation')
-        Array.prototype.slice.call(forms).forEach(function (form) {
+        'use strict';
+        const forms = document.querySelectorAll('.needs-validation');
+        Array.from(forms).forEach(function (form) {
             form.addEventListener('submit', function (event) {
                 if (!form.checkValidity()) {
-                    event.preventDefault()
-                    event.stopPropagation()
+                    event.preventDefault();
+                    event.stopPropagation();
                 }
-                form.classList.add('was-validated')
-            }, false)
-        })
-    })()
+                form.classList.add('was-validated');
+            }, false);
+        });
+    })();
 
-    // Set minimum date for appointment to today
-    document.getElementById('appointment_date').min = new Date().toISOString().split('T')[0]
-
-    // Set default time range for appointments (8 AM to 5 PM)
-    document.getElementById('appointment_time').addEventListener('change', function(e) {
-        const time = e.target.value
-        const hour = parseInt(time.split(':')[0])
-        if (hour < 8 || hour >= 17) {
-            alert('Please select a time between 8:00 AM and 5:00 PM')
-            e.target.value = ''
+    // Time Validation
+    document.getElementById('appointment_time').addEventListener('change', function (e) {
+        const time = e.target.value;
+        if (time) {
+            const hour = parseInt(time.split(':')[0]);
+            if (hour < 8 || hour >= 17) {
+                alert('Appointments must be scheduled between 8:00 AM and 5:00 PM.');
+                e.target.value = '';
+            }
         }
-    })
+    });
 </script>
 {% endblock %}

@@ -1,0 +1,9 @@
+Columns in Appointment table:
+(0, 'id', 'INTEGER', 0, None, 1)
+(1, 'student_id', 'INTEGER', 0, None, 0)
+(2, 'counselor_id', 'INTEGER', 0, None, 0)
+(3, 'date', 'DATE', 1, None, 0)
+(4, 'time', 'TIME', 1, None, 0)
+(5, 'purpose', 'TEXT', 0, None, 0)
+(6, 'status', 'TEXT', 0, "'scheduled'", 0)
+(7, 'created_at', 'TIMESTAMP', 0, 'CURRENT_TIMESTAMP', 0)

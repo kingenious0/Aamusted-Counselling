@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,11 +16,11 @@
             --sidebar-width: 250px;
             --sidebar-collapsed-width: 70px;
         }
-        
+
         * {
             box-sizing: border-box;
         }
-        
+
         body {
             margin: 0;
             padding-top: var(--header-height);
@@ -31,7 +32,7 @@
                 padding-left: 0;
             }
         }
-        
+
         .navbar {
             height: var(--header-height);
             z-index: 1030;
@@ -41,7 +42,7 @@
             right: 0;
             background-color: #0d6efd !important;
         }
-        
+
         .sidebar {
             position: fixed;
             top: var(--header-height);
@@ -58,55 +59,70 @@
             scrollbar-width: thin;
             scrollbar-color: #cbd5e0 #f8f9fa;
         }
-        
+
         .sidebar::-webkit-scrollbar {
             width: 6px;
         }
-        
+
         .sidebar::-webkit-scrollbar-track {
             background: #f8f9fa;
         }
-        
+
         .sidebar::-webkit-scrollbar-thumb {
             background: #cbd5e0;
             border-radius: 3px;
         }
-        
+
         .sidebar::-webkit-scrollbar-thumb:hover {
             background: #a0aec0;
         }
-        
+
         .sidebar.collapsed {
             width: var(--sidebar-collapsed-width);
         }
-        
+
         .sidebar.collapsed .sidebar-header {
             justify-content: center;
             padding: 0.5rem 0;
         }
-        
+
         .sidebar.collapsed .sidebar-header .sidebar-title {
             display: none;
         }
-        
+
         .sidebar.collapsed .nav-link {
             padding: 0.75rem;
             justify-content: center;
         }
-        
+
         .sidebar.collapsed .nav-link span {
             display: none;
         }
-        
+
+        .sidebar.collapsed .nav-item .text-uppercase {
+            display: none;
+        }
+
+        /* Show a divider instead of text when collapsed */
+        .sidebar.collapsed .nav-item.mt-3 {
+            margin-top: 0.5rem !important;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 0.5rem;
+        }
+
         .sidebar.collapsed .nav-link i {
             margin-right: 0;
         }
-        
+
+        .sidebar.collapsed .nav-link .bi-chevron-down {
+            display: none;
+        }
+
         .sidebar-sticky {
             padding: 1rem 0;
             height: 100%;
         }
-        
+
         .sidebar-header {
             display: flex;
             align-items: center;
@@ -115,7 +131,7 @@
             border-bottom: 1px solid #dee2e6;
             background-color: #fff;
         }
-        
+
         .sidebar-title {
             font-weight: 600;
             font-size: 0.9rem;
@@ -123,7 +139,7 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-        
+
         .sidebar-toggle {
             background: none;
             border: none;
@@ -134,16 +150,16 @@
             transition: all 0.2s ease;
             font-size: 1.1rem;
         }
-        
+
         .sidebar-toggle:hover {
             background-color: #e9ecef;
             color: #007bff;
         }
-        
+
         .sidebar.collapsed .sidebar-toggle {
             margin: 0 auto;
         }
-        
+
         .sidebar .nav-link {
             font-weight: 500;
             color: #333;
@@ -154,49 +170,49 @@
             align-items: center;
             white-space: nowrap;
         }
-        
+
         .sidebar .nav-link:hover {
             color: #007bff;
             background-color: #e9ecef;
         }
-        
+
         .sidebar .nav-link.active {
             color: #007bff;
             background-color: #e3f2fd;
             border-left: 3px solid #007bff;
         }
-        
+
         .sidebar .nav-link i {
             margin-right: 0.5rem;
             width: 1.25rem;
             text-align: center;
             flex-shrink: 0;
         }
-        
+
         .sidebar .nav-link span {
             transition: opacity 0.2s ease;
         }
-        
+
         /* Drag and drop styles */
         .nav-item.dragging {
             opacity: 0.5;
             cursor: grabbing;
         }
-        
+
         .nav-item.drag-over {
             border-top: 2px solid #007bff;
         }
-        
+
         .nav-item {
             cursor: grab;
             position: relative;
             transition: all 0.2s ease;
         }
-        
+
         .nav-item:active {
             cursor: grabbing;
         }
-        
+
         .nav-item .drag-handle {
             position: absolute;
             left: 0;
@@ -208,15 +224,15 @@
             color: #666;
             cursor: grab;
         }
-        
+
         .nav-item:hover .drag-handle {
             opacity: 1;
         }
-        
+
         .nav-item.dragging .drag-handle {
             opacity: 1;
         }
-        
+
         main {
             padding: 1.5rem;
             min-height: calc(100vh - var(--header-height));
@@ -225,13 +241,13 @@
             overflow-x: auto;
             overflow-y: auto;
         }
-        
+
         /* Enable scrolling for wide content */
         .container-fluid {
             overflow-x: auto;
             max-width: 100%;
         }
-        
+
         /* Scrollable tables */
         .table-responsive-custom,
         .table-responsive {
@@ -239,93 +255,94 @@
             overflow-y: visible;
             -webkit-overflow-scrolling: touch;
             max-width: 100%;
-            min-height: 0.01%; /* Fixes Safari scrolling issue */
+            min-height: 0.01%;
+            /* Fixes Safari scrolling issue */
         }
-        
+
         /* Ensure tables don't break layout */
         .table-responsive table {
             width: 100%;
             margin-bottom: 0;
         }
-        
+
         /* Smooth scrolling */
         html {
             scroll-behavior: smooth;
         }
-        
+
         body {
             overflow-x: hidden;
             overflow-y: auto;
         }
-        
+
         /* Ensure main content can scroll properly */
         @media (min-width: 768px) {
             main {
                 max-width: calc(100vw - var(--sidebar-width));
             }
-            
-            .sidebar.collapsed ~ .row > main {
+
+            .sidebar.collapsed~.row>main {
                 max-width: calc(100vw - var(--sidebar-collapsed-width));
             }
         }
-        
+
         @media (min-width: 768px) {
             .sidebar {
                 transform: translateX(0);
             }
-            
+
             main {
                 margin-left: var(--sidebar-width);
                 width: calc(100% - var(--sidebar-width));
             }
-            
-            .sidebar.collapsed ~ .row > main,
+
+            .sidebar.collapsed~.row>main,
             body:has(.sidebar.collapsed) main {
                 margin-left: var(--sidebar-collapsed-width) !important;
                 width: calc(100% - var(--sidebar-collapsed-width)) !important;
             }
         }
-        
+
         @media (max-width: 767.98px) {
             .sidebar {
                 transform: translateX(-100%);
             }
-            
+
             .sidebar.show {
                 transform: translateX(0);
             }
-            
+
             main {
                 margin-left: 0 !important;
                 padding: 1rem;
             }
-            
+
             .sidebar.collapsed {
                 width: var(--sidebar-width);
             }
-            
+
             .sidebar.collapsed .sidebar-header .sidebar-title {
                 display: block;
             }
-            
+
             .sidebar.collapsed .nav-link span {
                 display: inline;
             }
         }
-        
+
         .navbar-brand {
             font-weight: 600;
             font-size: 1.25rem;
             padding: 0.5rem 1rem;
         }
-        
+
         .card {
             margin-bottom: 1.5rem;
             border: 1px solid #dee2e6;
             border-radius: 0.375rem;
             box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
         }
-        
+
         .flash-messages {
             position: fixed;
             top: calc(var(--header-height) + 10px);
@@ -333,22 +350,25 @@
             z-index: 1050;
             max-width: 300px;
         }
-        
+
         .container-fluid {
             padding: 0;
             overflow-x: auto;
             max-width: 100%;
         }
-        
+
         .row {
             margin: 0;
             max-width: 100%;
         }
-        
-        .col-md-9, .col-lg-10, .col-md-3, .col-lg-2 {
+
+        .col-md-9,
+        .col-lg-10,
+        .col-md-3,
+        .col-lg-2 {
             padding: 0;
         }
-        
+
         .mobile-toggle {
             display: none;
             background: none;
@@ -357,13 +377,13 @@
             font-size: 1.5rem;
             cursor: pointer;
         }
-        
+
         @media (max-width: 767.98px) {
             .mobile-toggle {
                 display: block;
             }
         }
-        
+
         .overlay {
             display: none;
             position: fixed;
@@ -374,7 +394,7 @@
             background: rgba(0, 0, 0, 0.5);
             z-index: 99;
         }
-        
+
         @media (max-width: 767.98px) {
             .overlay.show {
                 display: block;
@@ -382,6 +402,7 @@
         }
     </style>
 </head>
+
 <body>
     <nav class="navbar navbar-dark bg-primary fixed-top">
         <div class="container-fluid">
@@ -397,7 +418,7 @@
                     <div class="theme-segmented-control">
                         <button type="button" class="theme-btn active" data-theme="light" title="Light Theme">
                             <i class="bi bi-sun"></i>
-                    </button>
+                        </button>
                         <button type="button" class="theme-btn" data-theme="dark" title="Dark Theme">
                             <i class="bi bi-moon"></i>
                         </button>
@@ -430,95 +451,146 @@
                 <div class="sidebar-sticky">
                     <ul class="nav flex-column" id="sidebarNav">
                         <li class="nav-item" data-endpoint="dashboard">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'dashboard' }}" href="{{ url_for('dashboard') }}">
+                            <a class="nav-link {{ 'active' if request.endpoint == 'dashboard' }}"
+                                href="{{ url_for('dashboard') }}">
                                 <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
                             </a>
                         </li>
-                        <li class="nav-item" data-endpoint="add_student">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'add_student' }}" href="{{ url_for('add_student') }}">
-                                <i class="bi bi-person-plus"></i> <span>Add Student</span>
-                            </a>
+
+                        <!-- ROLE: SECRETARY (Front Desk) -->
+                        {% if session.get('role') == 'Secretary' %}
+                        <li class="nav-item mt-3 mb-1">
+                            <span class="text-uppercase small fw-bold text-muted ps-3">Front Desk</span>
                         </li>
-                        <li class="nav-item" data-endpoint="intake">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'intake' }}" href="{{ url_for('intake') }}">
-                                <i class="bi bi-file-earmark-text"></i> <span>Intake Form</span>
+                        <li class="nav-item" data-endpoint="add_student">
+                            <a class="nav-link {{ 'active' if request.endpoint == 'add_student' }}"
+                                href="{{ url_for('add_student') }}">
+                                <i class="bi bi-person-plus"></i> <span style="white-space: normal;">Client
+                                    Registration</span>
                             </a>
                         </li>
                         <li class="nav-item" data-endpoint="appointment">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'appointment' }}" href="{{ url_for('appointment') }}">
-                                <i class="bi bi-calendar-event"></i> <span>New Appointment</span>
+                            <a class="nav-link {{ 'active' if request.endpoint == 'appointment' }}"
+                                href="{{ url_for('appointment') }}">
+                                <i class="bi bi-calendar-event"></i> <span>Appointment Intake</span>
                             </a>
                         </li>
                         <li class="nav-item" data-endpoint="manage_appointments">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'manage_appointments' }}" href="{{ url_for('manage_appointments') }}">
-                                <i class="bi bi-calendar-check"></i> <span>Manage Appointments</span>
+                            <a class="nav-link {{ 'active' if request.endpoint == 'manage_appointments' }}"
+                                href="{{ url_for('manage_appointments') }}">
+                                <i class="bi bi-calendar-check"></i> <span>Handover Queue</span>
                             </a>
+                        </li>
+                        <li class="nav-item" data-endpoint="students">
+                            <a class="nav-link {{ 'active' if request.endpoint == 'students' }}"
+                                href="{{ url_for('students') }}">
+                                <i class="bi bi-people"></i> <span>Client Database</span>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        <!-- ROLE: COUNSELLOR (Clinical) -->
+                        {% if session.get('role') == 'Counsellor' %}
+                        <li class="nav-item mt-3 mb-1">
+                            <span class="text-uppercase small fw-bold text-muted ps-3">Clinical Operations</span>
                         </li>
                         <li class="nav-item" data-endpoint="create_session">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'create_session' }}" href="{{ url_for('create_session') }}">
-                                <i class="bi bi-chat-dots"></i> <span>session</span>
-                            </a>
-                        </li>
-                        <li class="nav-item" data-endpoint="case_note">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'case_note' }}" href="{{ url_for('case_note') }}">
-                                <i class="bi bi-journal-text"></i> <span>Case Note</span>
+                            <a class="nav-link {{ 'active' if request.endpoint == 'create_session' }}"
+                                href="{{ url_for('create_session') }}">
+                                <i class="bi bi-chat-dots"></i> <span>New Session</span>
                             </a>
                         </li>
                         <li class="nav-item" data-endpoint="case_notes_list">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'case_notes_list' }}" href="{{ url_for('case_notes_list') }}">
-                                <i class="bi bi-journal-text"></i> <span>Case Notes</span>
-                            </a>
-                        </li>
-                        <li class="nav-item" data-endpoint="dass21">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'dass21' }}" href="{{ url_for('dass21') }}">
-                                <i class="bi bi-clipboard-heart"></i> <span>DASS-21</span>
+                            <a class="nav-link {{ 'active' if request.endpoint == 'case_notes_list' }}"
+                                href="{{ url_for('case_notes_list') }}">
+                                <i class="bi bi-journal-text"></i> <span>Case Folder</span>
                             </a>
                         </li>
                         <li class="nav-item" data-endpoint="dass21_list">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'dass21_list' }}" href="{{ url_for('dass21_list') }}">
-                                <i class="bi bi-clipboard-heart"></i> <span>DASS-21 Records</span>
+                            <a class="nav-link {{ 'active' if request.endpoint == 'dass21_list' }}"
+                                href="{{ url_for('dass21_list') }}">
+                                <i class="bi bi-clipboard-heart"></i> <span>Assessments (DASS)</span>
                             </a>
                         </li>
-                        <li class="nav-item" data-endpoint="sessions_list">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'sessions_list' }}" href="{{ url_for('sessions_list') }}">
-                                <i class="bi bi-list-check"></i> <span>All sessions</span>
+                        <li class="nav-item" data-endpoint="referral">
+                            <a class="nav-link {{ 'active' if request.endpoint == 'referral' }}"
+                                href="{{ url_for('referral') }}">
+                                <i class="bi bi-arrow-right-circle"></i> <span>Outward Referral</span>
                             </a>
                         </li>
-                        <li class="nav-item" data-endpoint="reports_list">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'reports_list' }}" href="{{ url_for('reports_list') }}">
-                                <i class="bi bi-file-earmark-bar-graph"></i> <span>Reports</span>
+                        <li class="nav-item" data-endpoint="students">
+                            <a class="nav-link {{ 'active' if request.endpoint == 'students' }}"
+                                href="{{ url_for('students') }}">
+                                <i class="bi bi-people"></i> <span>Client Database</span>
                             </a>
                         </li>
                         <li class="nav-item" data-endpoint="statistics">
                             <a class="nav-link {{ 'active' if request.endpoint == 'statistics' }}" href="/statistics">
-                                <i class="bi bi-bar-chart-line-fill"></i> <span>Statistics</span>
+                                <i class="bi bi-bar-chart-line"></i> <span>Clinical Metrics</span>
                             </a>
                         </li>
-                        <li class="nav-item" data-endpoint="students">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'students' }}" href="{{ url_for('students') }}">
-                                <i class="bi bi-people"></i> <span>All Students</span>
-                            </a>
+                        {% endif %}
+
+                        <!-- ROLE: ADMIN (System Controller) -->
+                        {% if session.get('role') == 'Admin' %}
+                        <li class="nav-item mt-3 mb-1">
+                            <span class="text-uppercase small fw-bold text-muted ps-3">System Administration</span>
                         </li>
-                        <li class="nav-item" data-endpoint="referral">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'referral' }}" href="{{ url_for('referral') }}">
-                                <i class="bi bi-arrow-right-circle"></i> <span>New Referral</span>
-                            </a>
-                        </li>
-                        <li class="nav-item" data-endpoint="all_referrals">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'all_referrals' }}" href="{{ url_for('all_referrals') }}">
-                                <i class="bi bi-list-check"></i> <span>All Referrals</span>
-                            </a>
-                        </li>
-                        <li class="nav-item" data-endpoint="outcome_questionnaire">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'outcome_questionnaire' }}" href="{{ url_for('outcome_questionnaire') }}">
-                                <i class="bi bi-clipboard-data"></i> <span>Outcome Score</span>
+                        <li class="nav-item" data-endpoint="admin_users">
+                            <a class="nav-link {{ 'active' if request.endpoint and 'admin_users' in request.endpoint }}"
+                                href="{{ url_for('admin_users') }}">
+                                <i class="bi bi-people-fill"></i> <span>User Management</span>
                             </a>
                         </li>
                         <li class="nav-item" data-endpoint="import_csv">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'import_csv' }}" href="{{ url_for('import_csv') }}">
-                                <i class="bi bi-upload"></i> <span>Import CSV</span>
+                            <a class="nav-link {{ 'active' if request.endpoint == 'import_csv' }}"
+                                href="{{ url_for('import_csv') }}">
+                                <i class="bi bi-database-up"></i> <span>Data Operations</span>
                             </a>
                         </li>
+                        <li class="nav-item" data-endpoint="audit_logs">
+                            <a class="nav-link {{ 'active' if request.endpoint == 'audit_logs' }}"
+                                href="{{ url_for('audit_logs') }}">
+                                <i class="bi bi-shield-lock"></i> <span>System Security</span>
+                            </a>
+                        </li>
+                        <li class="nav-item" data-endpoint="statistics">
+                            <a class="nav-link {{ 'active' if request.endpoint == 'statistics' }}" href="/statistics">
+                                <i class="bi bi-graph-up-arrow"></i> <span>Global Analytics</span>
+                            </a>
+                        </li>
+
+                        <!-- Admin Access to All Modules -->
+                        <li class="nav-item mt-3 mb-1">
+                            <span class="text-uppercase small fw-bold text-muted ps-3">Platform Modules</span>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link collapsed" href="#modulesSubmenu" data-bs-toggle="collapse"
+                                aria-expanded="false">
+                                <i class="bi bi-grid-3x3-gap"></i> <span>Access Modules</span>
+                                <i class="bi bi-chevron-down ms-auto" style="font-size: 0.8em;"></i>
+                            </a>
+                            <div class="collapse" id="modulesSubmenu">
+                                <ul class="nav flex-column ms-3 bg-light rounded shadow-sm">
+                                    <li class="nav-item">
+                                        <a class="nav-link pt-2 pb-2 small" href="{{ url_for('students') }}">
+                                            <i class="bi bi-people me-2"></i>Client DB
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link pt-2 pb-2 small" href="{{ url_for('manage_appointments') }}">
+                                            <i class="bi bi-calendar-check me-2"></i>Handover
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link pt-2 pb-2 small" href="{{ url_for('create_session') }}">
+                                            <i class="bi bi-chat-dots me-2"></i>Session Tool
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                        {% endif %}
                     </ul>
                 </div>
             </nav>
@@ -527,16 +599,16 @@
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
                 <!-- Flash messages -->
                 {% with messages = get_flashed_messages() %}
-                    {% if messages %}
-                        <div class="flash-messages">
-                            {% for message in messages %}
-                                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                                    {{ message }}
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
+                {% if messages %}
+                <div class="flash-messages">
+                    {% for message in messages %}
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
                 {% endwith %}
 
                 <!-- Page content -->
@@ -560,7 +632,7 @@
             const toggleIcon = document.getElementById('sidebarToggleIcon');
             const mainContent = document.querySelector('main');
             const isCollapsed = sidebar.classList.toggle('collapsed');
-            
+
             // Update icon direction and adjust main content
             if (isCollapsed) {
                 toggleIcon.classList.remove('bi-chevron-left');
@@ -577,11 +649,11 @@
                     mainContent.style.width = 'calc(100% - 250px)';
                 }
             }
-            
+
             // Save state to localStorage
             localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
         }
-        
+
         // Load sidebar state from localStorage
         function loadSidebarState() {
             const savedState = localStorage.getItem('sidebarCollapsed');
@@ -598,18 +670,18 @@
                 }
             }
         }
-        
+
         // Mobile sidebar toggle
         function toggleSidebar() {
             const sidebar = document.querySelector('.sidebar');
             const overlay = document.getElementById('overlay');
-            
+
             sidebar.classList.toggle('show');
             overlay.classList.toggle('show');
         }
 
         // Close sidebar when window is resized to desktop
-        window.addEventListener('resize', function() {
+        window.addEventListener('resize', function () {
             if (window.innerWidth >= 768) {
                 const sidebar = document.querySelector('.sidebar');
                 const overlay = document.getElementById('overlay');
@@ -619,9 +691,9 @@
         });
 
         // Auto-hide flash messages after 5 seconds
-        setTimeout(function() {
+        setTimeout(function () {
             const alerts = document.querySelectorAll('.flash-messages .alert');
-            alerts.forEach(function(alert) {
+            alerts.forEach(function (alert) {
                 alert.style.transition = 'opacity 0.5s';
                 alert.style.opacity = '0';
                 setTimeout(() => alert.remove(), 500);
@@ -632,12 +704,12 @@
         function setTheme(theme) {
             const body = document.body;
             const html = document.documentElement;
-            
+
             // Remove existing theme classes
             body.classList.remove('light-theme', 'dark-theme', 'aamusted-theme');
             html.classList.remove('light-theme', 'dark-theme', 'aamusted-theme');
-            
-            switch(theme) {
+
+            switch (theme) {
                 case 'light':
                     body.classList.add('light-theme');
                     html.classList.add('light-theme');
@@ -660,10 +732,10 @@
                     }
                     break;
             }
-            
+
             // Save theme preference
             localStorage.setItem('theme', theme);
-            
+
             // Update active dropdown item
             updateActiveTheme(theme);
         }
@@ -680,15 +752,15 @@
         }
 
         // Load saved theme on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const savedTheme = localStorage.getItem('theme') || 'system';
             setTheme(savedTheme);
             loadSidebarState();
-            
+
             // Theme button click handlers
             const themeButtons = document.querySelectorAll('.theme-btn');
             themeButtons.forEach(btn => {
-                btn.addEventListener('click', function() {
+                btn.addEventListener('click', function () {
                     const selectedTheme = this.getAttribute('data-theme');
                     setTheme(selectedTheme);
                 });
@@ -697,7 +769,7 @@
 
         // Listen for system theme changes
         if (window.matchMedia) {
-            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
                 const currentTheme = localStorage.getItem('theme') || 'system';
                 if (currentTheme === 'system') {
                     setTheme('system');
@@ -706,7 +778,7 @@
         }
 
         // Sidebar drag and drop functionality
-        (function() {
+        (function () {
             const sidebarNav = document.getElementById('sidebarNav');
             if (!sidebarNav) return;
 
@@ -721,14 +793,14 @@
                 try {
                     const order = JSON.parse(savedOrder);
                     const items = Array.from(sidebarNav.children);
-                    
+
                     // Sort items according to saved order
                     items.sort((a, b) => {
                         const aEndpoint = a.getAttribute('data-endpoint');
                         const bEndpoint = b.getAttribute('data-endpoint');
                         const aIndex = order.indexOf(aEndpoint);
                         const bIndex = order.indexOf(bEndpoint);
-                        
+
                         if (aIndex === -1) return 1;
                         if (bIndex === -1) return -1;
                         return aIndex - bIndex;
@@ -751,11 +823,11 @@
             // Initialize drag and drop
             function initDragAndDrop() {
                 const items = sidebarNav.querySelectorAll('.nav-item');
-                
+
                 items.forEach(item => {
                     // Make items draggable
                     item.setAttribute('draggable', 'true');
-                    
+
                     // Add drag handle icon
                     const dragHandle = document.createElement('i');
                     dragHandle.className = 'bi bi-grip-vertical drag-handle';
@@ -763,7 +835,7 @@
                     item.appendChild(dragHandle);
 
                     // Drag start
-                    item.addEventListener('dragstart', function(e) {
+                    item.addEventListener('dragstart', function (e) {
                         draggedElement = this;
                         this.classList.add('dragging');
                         e.dataTransfer.effectAllowed = 'move';
@@ -771,24 +843,24 @@
                     });
 
                     // Drag end
-                    item.addEventListener('dragend', function(e) {
+                    item.addEventListener('dragend', function (e) {
                         this.classList.remove('dragging');
-                        
+
                         // Remove drag-over classes from all items
                         items.forEach(i => i.classList.remove('drag-over'));
-                        
+
                         draggedElement = null;
                         draggedOverElement = null;
                     });
 
                     // Drag over
-                    item.addEventListener('dragover', function(e) {
+                    item.addEventListener('dragover', function (e) {
                         if (e.preventDefault) {
                             e.preventDefault();
                         }
-                        
+
                         e.dataTransfer.dropEffect = 'move';
-                        
+
                         if (draggedElement && draggedElement !== this) {
                             this.classList.add('drag-over');
                             draggedOverElement = this;
@@ -796,12 +868,12 @@
                     });
 
                     // Drag leave
-                    item.addEventListener('dragleave', function(e) {
+                    item.addEventListener('dragleave', function (e) {
                         this.classList.remove('drag-over');
                     });
 
                     // Drop
-                    item.addEventListener('drop', function(e) {
+                    item.addEventListener('drop', function (e) {
                         if (e.stopPropagation) {
                             e.stopPropagation();
                         }
@@ -827,446 +899,181 @@
             }
 
             // Initialize on page load
-            document.addEventListener('DOMContentLoaded', function() {
+            document.addEventListener('DOMContentLoaded', function () {
                 loadSidebarOrder();
                 initDragAndDrop();
             });
         })();
     </script>
-    
+
     <style>
-        /* Dark theme color palette - Professional Design System */
+        /* Professional Theme Design System */
         :root {
-            --dark-bg: #1A202C;
-            --dark-surface: #2D3748;
-            --dark-accent: #805AD5;
-            --dark-text-primary: #E2E8F0;
-            --dark-text-secondary: #718096;
-            --dark-border: rgba(255, 255, 255, 0.1);
-        }
-        
-        /* Dark theme styles - COMPREHENSIVE with Enhanced Contrast */
-        body.dark-theme,
-        body.dark-theme html {
-            background-color: var(--dark-bg) !important;
-            color: var(--dark-text-primary) !important;
-        }
-        
-        /* Main content area - Darkest background */
-        body.dark-theme main {
-            background-color: var(--dark-bg) !important;
-            color: var(--dark-text-primary) !important;
-        }
-        
-        body.dark-theme .container-fluid {
-            background-color: var(--dark-bg) !important;
-        }
-        
-        /* Navbar - Surface level */
-        body.dark-theme .navbar {
-            background-color: var(--dark-surface) !important;
-            border-bottom: 1px solid var(--dark-border) !important;
-        }
-        
-        /* Sidebar - Surface level */
-        body.dark-theme .sidebar {
-            background-color: var(--dark-surface) !important;
-            border-right-color: var(--dark-border) !important;
-        }
-        
-        body.dark-theme .sidebar .nav-link {
-            color: var(--dark-text-primary) !important;
-        }
-        
-        body.dark-theme .sidebar .nav-link:hover {
-            background-color: rgba(128, 90, 213, 0.2) !important;
-            color: var(--dark-text-primary) !important;
-        }
-        
-        body.dark-theme .sidebar .nav-link.active {
-            background-color: var(--dark-accent) !important;
-            color: #ffffff !important;
-        }
-        
-        /* Cards - Surface level (lighter than background) */
-        body.dark-theme .card {
-            background-color: var(--dark-surface) !important;
-            border-color: var(--dark-border) !important;
-            color: var(--dark-text-primary) !important;
-        }
-        
-        body.dark-theme .card-header {
-            background-color: rgba(45, 55, 72, 0.5) !important;
-            border-bottom-color: var(--dark-border) !important;
-            color: var(--dark-text-primary) !important;
-        }
-        
-        body.dark-theme .card-body {
-            background-color: var(--dark-surface) !important;
-            color: var(--dark-text-primary) !important;
-        }
-        
-        body.dark-theme .card-footer {
-            background-color: rgba(45, 55, 72, 0.5) !important;
-            border-top-color: var(--dark-border) !important;
-            color: var(--dark-text-primary) !important;
-        }
-        
-        /* Tables */
-        body.dark-theme .table {
-            color: var(--dark-text-primary) !important;
-            background-color: var(--dark-surface) !important;
-        }
-        
-        body.dark-theme .table thead th {
-            background-color: rgba(45, 55, 72, 0.7) !important;
-            color: var(--dark-text-primary) !important;
-            border-color: var(--dark-border) !important;
-        }
-        
-        body.dark-theme .table tbody tr {
-            background-color: var(--dark-surface) !important;
-        }
-        
-        body.dark-theme .table tbody tr:hover {
-            background-color: rgba(128, 90, 213, 0.1) !important;
-        }
-        
-        body.dark-theme .table td,
-        body.dark-theme .table th {
-            border-color: var(--dark-border) !important;
-            color: var(--dark-text-primary) !important;
-        }
-        
-        /* Form Controls - Enhanced with better contrast */
-        body.dark-theme .form-control,
-        body.dark-theme .form-select {
-            background-color: rgba(26, 32, 44, 0.6) !important;
-            border: 1px solid var(--dark-border) !important;
-            color: var(--dark-text-primary) !important;
-        }
-        
-        body.dark-theme .form-control:focus,
-        body.dark-theme .form-select:focus {
-            background-color: rgba(26, 32, 44, 0.8) !important;
-            border-color: var(--dark-accent) !important;
-            box-shadow: 0 0 0 0.25rem rgba(128, 90, 213, 0.25) !important;
-            color: var(--dark-text-primary) !important;
-        }
-        
-        /* Placeholder text - Much better contrast */
-        body.dark-theme .form-control::placeholder,
-        body.dark-theme .form-select::placeholder {
-            color: var(--dark-text-secondary) !important;
-            opacity: 1 !important;
-        }
-        
-        body.dark-theme .form-label {
-            color: var(--dark-text-primary) !important;
-        }
-        
-        body.dark-theme .form-text {
-            color: var(--dark-text-secondary) !important;
-        }
-        
-        body.dark-theme .input-group-text {
-            background-color: rgba(45, 55, 72, 0.8) !important;
-            border-color: var(--dark-border) !important;
-            color: var(--dark-text-primary) !important;
-        }
-        
-        /* Buttons - Using accent color as primary */
-        body.dark-theme .btn {
-            color: var(--dark-text-primary) !important;
-        }
-        
-        body.dark-theme .btn-primary {
-            background-color: var(--dark-accent) !important;
-            border-color: var(--dark-accent) !important;
-            color: #ffffff !important;
-        }
-        
-        body.dark-theme .btn-primary:hover {
-            background-color: #6B46C1 !important;
-            border-color: #6B46C1 !important;
-        }
-        
-        body.dark-theme .btn-secondary {
-            background-color: var(--dark-text-secondary) !important;
-            border-color: var(--dark-text-secondary) !important;
-        }
-        
-        body.dark-theme .btn-success {
-            background-color: #10b981 !important;
-            border-color: #10b981 !important;
-        }
-        
-        body.dark-theme .btn-danger {
-            background-color: #ef4444 !important;
-            border-color: #ef4444 !important;
-        }
-        
-        body.dark-theme .btn-warning {
-            background-color: #f59e0b !important;
-            border-color: #f59e0b !important;
-            color: #000 !important;
-        }
-        
-        body.dark-theme .btn-info {
-            background-color: #3b82f6 !important;
-            border-color: #3b82f6 !important;
-        }
-        
-        body.dark-theme .btn-outline-light {
-            border-color: var(--dark-text-primary) !important;
-            color: var(--dark-text-primary) !important;
-        }
-        
-        body.dark-theme .btn-outline-light:hover {
-            background-color: var(--dark-text-primary) !important;
-            color: var(--dark-bg) !important;
-        }
-        
-        body.dark-theme .btn-outline-primary {
-            border-color: var(--dark-accent) !important;
-            color: var(--dark-accent) !important;
-        }
-        
-        body.dark-theme .btn-outline-primary:hover {
-            background-color: var(--dark-accent) !important;
-            color: #ffffff !important;
-        }
-        
-        body.dark-theme .btn-outline-danger {
-            border-color: #ef4444 !important;
-            color: #ef4444 !important;
-        }
-        
-        body.dark-theme .btn-outline-secondary {
-            border-color: var(--dark-text-secondary) !important;
-            color: var(--dark-text-secondary) !important;
-        }
-        
-        /* Links - Using accent color */
-        body.dark-theme a {
-            color: var(--dark-accent) !important;
-        }
-        
-        body.dark-theme a:hover {
-            color: #6B46C1 !important;
-        }
-        
-        /* Dropdowns */
-        body.dark-theme .dropdown-menu {
-            background-color: var(--dark-surface) !important;
-            border-color: var(--dark-border) !important;
-        }
-        
-        body.dark-theme .dropdown-item {
-            color: var(--dark-text-primary) !important;
-        }
-        
-        body.dark-theme .dropdown-item:hover,
-        body.dark-theme .dropdown-item:focus {
-            background-color: rgba(128, 90, 213, 0.2) !important;
-            color: var(--dark-text-primary) !important;
-        }
-        
-        /* Badges */
-        body.dark-theme .badge {
-            color: #fff !important;
-        }
-        
-        body.dark-theme .badge.bg-primary {
-            background-color: var(--dark-accent) !important;
-        }
-        
-        /* Alerts */
-        body.dark-theme .alert {
-            background-color: var(--dark-surface) !important;
-            border-color: var(--dark-border) !important;
-            color: var(--dark-text-primary) !important;
-        }
-        
-        body.dark-theme .alert-success {
-            background-color: rgba(16, 185, 129, 0.2) !important;
-            border-color: #10b981 !important;
-            color: #d1fae5 !important;
-        }
-        
-        body.dark-theme .alert-danger {
-            background-color: rgba(239, 68, 68, 0.2) !important;
-            border-color: #ef4444 !important;
-            color: #fee2e2 !important;
-        }
-        
-        body.dark-theme .alert-info {
-            background-color: rgba(128, 90, 213, 0.2) !important;
-            border-color: var(--dark-accent) !important;
-            color: var(--dark-text-primary) !important;
-        }
-        
-        /* Text colors */
-        body.dark-theme h1,
-        body.dark-theme h2,
-        body.dark-theme h3,
-        body.dark-theme h4,
-        body.dark-theme h5,
-        body.dark-theme h6 {
-            color: var(--dark-text-primary) !important;
-        }
-        
-        body.dark-theme p,
-        body.dark-theme span,
-        body.dark-theme div:not(.btn):not(.badge),
-        body.dark-theme li {
-            color: var(--dark-text-primary) !important;
-        }
-        
-        body.dark-theme .text-muted {
-            color: var(--dark-text-secondary) !important;
-        }
-        
-        body.dark-theme .text-secondary {
-            color: var(--dark-text-secondary) !important;
-        }
-        
-        /* Modals - Lightest level for hierarchy */
-        body.dark-theme .modal-content {
-            background-color: var(--dark-surface) !important;
-            color: var(--dark-text-primary) !important;
-            border-color: var(--dark-border) !important;
-        }
-        
-        body.dark-theme .modal-header {
-            border-bottom-color: var(--dark-border) !important;
-        }
-        
-        body.dark-theme .modal-footer {
-            border-top-color: var(--dark-border) !important;
-        }
-        
-        /* Pagination */
-        body.dark-theme .page-link {
-            background-color: var(--dark-surface) !important;
-            border-color: var(--dark-border) !important;
-            color: var(--dark-text-primary) !important;
-        }
-        
-        body.dark-theme .page-item.active .page-link {
-            background-color: var(--dark-accent) !important;
-            border-color: var(--dark-accent) !important;
-        }
-        
-        /* List groups */
-        body.dark-theme .list-group-item {
-            background-color: var(--dark-surface) !important;
-            border-color: var(--dark-border) !important;
-            color: var(--dark-text-primary) !important;
-        }
-        
-        /* Breadcrumbs */
-        body.dark-theme .breadcrumb {
-            background-color: var(--dark-surface) !important;
-        }
-        
-        body.dark-theme .breadcrumb-item a {
-            color: var(--dark-accent) !important;
-        }
-        
-        /* Input validation */
-        body.dark-theme .is-invalid {
-            border-color: #ef4444 !important;
-        }
-        
-        body.dark-theme .invalid-feedback {
-            color: #fca5a5 !important;
-        }
-        
-        /* Additional UI elements */
-        body.dark-theme .navbar-brand {
-            color: var(--dark-text-primary) !important;
-        }
-        
-        body.dark-theme .navbar-brand:hover {
-            color: var(--dark-accent) !important;
-        }
-        
-        /* Dashboard cards - Enhanced visibility */
-        body.dark-theme .feature-card,
-        body.dark-theme .stat-card {
-            background-color: var(--dark-surface) !important;
-            border-color: var(--dark-border) !important;
-        }
-        
-        /* Select options */
-        body.dark-theme select option {
-            background-color: var(--dark-surface) !important;
-            color: var(--dark-text-primary) !important;
+            /* Light Theme (Default) */
+            --bg-body: #f8fafc;
+            --bg-surface: #ffffff;
+            --bg-navbar: #0d6efd;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --accent-primary: #3b82f6;
         }
 
-        /* AAMUSTED theme styles */
+        /* Dark theme color palette - Professional Zinc System */
+        body.dark-theme {
+            --bg-body: #09090b;
+            --bg-surface: #18181b;
+            --bg-navbar: #18181b;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --border-color: #27272a;
+            --accent-primary: #3b82f6;
+            --accent-secondary: #8b5cf6;
+        }
+
+        /* AAMUSTED theme styles - Refined & Professional */
         body.aamusted-theme {
-            background-color: #0a0200;
-            color: #191918;
+            --bg-body: #fdfdfd;
+            --bg-surface: #ffffff;
+            --bg-navbar: #8d0202;
+            /* AAMUSTED Maroon */
+            --text-main: #27201f;
+            --text-muted: #6b6665;
+            --border-color: #e5e0df;
+            --accent-primary: #8d0202;
         }
-        
+
+        /* Essential Theme Mappings - applies to BOTH Dark and AAMUSTED themes */
+        body.dark-theme,
+        body.aamusted-theme,
+        body.dark-theme html,
+        body.aamusted-theme html {
+            background-color: var(--bg-body) !important;
+            color: var(--text-main) !important;
+        }
+
+        body.dark-theme main,
+        body.aamusted-theme main {
+            background-color: var(--bg-body) !important;
+            color: var(--text-main) !important;
+        }
+
+        /* Navbar Mapping */
+        body.dark-theme .navbar,
         body.aamusted-theme .navbar {
-            background-color: #8d0202 !important; /* Maroon */
+            background-color: var(--bg-navbar) !important;
+            border-bottom: 1px solid var(--border-color) !important;
         }
-        
+
+        body.dark-theme .navbar-brand,
+        body.aamusted-theme .navbar-brand {
+            color: #ffffff !important;
+            /* White text for better contrast on dark/maroon navbars */
+        }
+
+        /* Sidebar Mapping */
+        body.dark-theme .sidebar,
         body.aamusted-theme .sidebar {
-            background-color: lab(77.35% 16.2 10.71);
-            border-right-color: #8B0000;
+            background-color: var(--bg-surface) !important;
+            border-right: 1px solid var(--border-color) !important;
         }
-        
-        body.aamusted-theme .sidebar .nav-link {
-            color: #2c3e50;
+
+        body.dark-theme .sidebar-header,
+        body.aamusted-theme .sidebar-header {
+            background-color: var(--bg-surface) !important;
+            border-bottom: 1px solid var(--border-color) !important;
         }
-        
-        body.aamusted-theme .sidebar .nav-link:hover {
-            background-color: #8B0000;
-            color: #ffffff;
+
+        body.dark-theme .sidebar-title,
+        body.aamusted-theme .sidebar-title {
+            color: var(--text-muted) !important;
         }
-        
-        body.aamusted-theme .sidebar .nav-link.active {
-            background-color: #8B0000;
-            color: #ffffff;
-            border-left-color: #ffffff;
+
+        body.dark-theme .nav-link,
+        body.aamusted-theme .nav-link {
+            color: var(--text-main) !important;
         }
-        
+
+        body.dark-theme .nav-link:hover,
+        body.aamusted-theme .nav-link:hover {
+            background-color: rgba(0, 0, 0, 0.05) !important;
+        }
+
+        body.dark-theme .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.05) !important;
+        }
+
+        body.dark-theme .nav-link.active,
+        body.aamusted-theme .nav-link.active {
+            background-color: rgba(59, 130, 246, 0.1) !important;
+            color: var(--accent-primary) !important;
+            border-left: 3px solid var(--accent-primary) !important;
+        }
+
+        body.aamusted-theme .nav-link.active {
+            background-color: rgba(141, 2, 2, 0.1) !important;
+        }
+
+        /* Card System Mapping */
+        body.dark-theme .card,
         body.aamusted-theme .card {
-            border-color: #8B0000;
+            background-color: var(--bg-surface) !important;
+            border: 1px solid var(--border-color) !important;
         }
 
-        body.aamusted-theme .table {
-            color: #46502c; /* Dark text for tables */
+        body.dark-theme .card-header,
+        body.aamusted-theme .card-header {
+            background-color: rgba(0, 0, 0, 0.02) !important;
+            border-bottom: 1px solid var(--border-color) !important;
+            color: var(--text-main) !important;
         }
 
+        body.dark-theme .card-header {
+            background-color: rgba(255, 255, 255, 0.02) !important;
+        }
+
+        /* Table Mapping */
+        body.dark-theme .table,
+        body.aamusted-theme .table,
+        body.dark-theme .table> :not(caption)>*>*,
+        body.aamusted-theme .table> :not(caption)>*>* {
+            background-color: var(--bg-surface) !important;
+            color: var(--text-main) !important;
+            border-color: var(--border-color) !important;
+        }
+
+        body.dark-theme .table-hover tbody tr:hover>*,
+        body.aamusted-theme .table-hover tbody tr:hover>* {
+            background-color: rgba(0, 0, 0, 0.02) !important;
+        }
+
+        body.dark-theme .table-hover tbody tr:hover>* {
+            background-color: rgba(255, 255, 255, 0.03) !important;
+        }
+
+        /* Form Controls */
+        body.dark-theme .form-control,
         body.aamusted-theme .form-control,
+        body.dark-theme .form-select,
         body.aamusted-theme .form-select {
-            background-color: #a8a1a1;
-            color: #2c3e50;
-            border-color: #ced4da;
+            background-color: var(--bg-surface) !important;
+            border: 1px solid var(--border-color) !important;
+            color: var(--text-main) !important;
         }
 
-        body.aamusted-theme .form-control:focus,
-        body.aamusted-theme .form-select:focus {
-            border-color: #8B0000;
-            box-shadow: 0 0 0 0.25rem rgba(139, 0, 0, 0.25);
+        body.dark-theme .form-control {
+            background-color: #09090b !important;
         }
-        
-        body.aamusted-theme .btn-outline-light {
-            border-color: #ffffff;
-            color: #ffffff;
+
+        /* Buttons & Interactions */
+        body.dark-theme .btn-primary,
+        body.aamusted-theme .btn-primary {
+            background-color: var(--accent-primary) !important;
+            border-color: var(--accent-primary) !important;
+            color: #ffffff !important;
         }
-        
-        body.aamusted-theme .btn-outline-light:hover {
-            background-color: #ffffff;
-            color: #8B0000;
-        }
-        
-        /* Professional Theme Segmented Control */
+
+        /* Theme Segmented Control */
         .theme-segmented-control {
             display: inline-flex;
             background-color: rgba(255, 255, 255, 0.1);
@@ -1276,7 +1083,7 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
             backdrop-filter: blur(10px);
         }
-        
+
         .theme-btn {
             background: transparent;
             border: none;
@@ -1290,48 +1097,55 @@
             align-items: center;
             justify-content: center;
             min-width: 40px;
-            position: relative;
         }
-        
+
         .theme-btn:hover {
             color: rgba(255, 255, 255, 0.9);
             background-color: rgba(255, 255, 255, 0.1);
         }
-        
+
         .theme-btn.active {
-            background-color: rgba(255, 255, 255, 0.95);
-            color: #333;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            background-color: #ffffff;
+            color: #1a202c;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             font-weight: 600;
         }
-        
-        .theme-btn.active:hover {
-            background-color: #ffffff;
+
+        body.dark-theme .theme-btn.active {
+            background-color: rgba(255, 255, 255, 0.9);
             color: #000;
         }
-        
-        /* Dark theme adjustments */
-        body.dark-theme .theme-segmented-control {
-            background-color: rgba(255, 255, 255, 0.05);
-            border-color: rgba(255, 255, 255, 0.1);
-        }
-        
-        body.dark-theme .theme-btn.active {
-            background-color: rgba(255, 255, 255, 0.15);
-            color: #fff;
-        }
-        
-        /* AAMUSTED theme adjustments */
-        body.aamusted-theme .theme-segmented-control {
-            background-color: rgba(255, 255, 255, 0.1);
-            border-color: rgba(255, 255, 255, 0.3);
-        }
-        
+
         body.aamusted-theme .theme-btn.active {
-            background-color: #8B0000;
-            color: #fff;
+            background-color: #ffffff;
+            color: #8d0202;
+        }
+
+        /* Dashboard Overrides */
+        body.dark-theme .welcome-header,
+        body.aamusted-theme .welcome-header {
+            background: linear-gradient(135deg, var(--bg-navbar) 0%, #440101 100%) !important;
+            color: #ffffff !important;
+        }
+
+        body.dark-theme .welcome-header {
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%) !important;
+        }
+
+        body.dark-theme .stat-card,
+        body.aamusted-theme .stat-card {
+            background: var(--bg-surface) !important;
+        }
+
+        /* Modal Mapping */
+        body.dark-theme .modal-content,
+        body.aamusted-theme .modal-content {
+            background-color: var(--bg-surface) !important;
+            border-color: var(--border-color) !important;
+            color: var(--text-main) !important;
         }
     </style>
     {% block scripts %}{% endblock %}
 </body>
+
 </html>

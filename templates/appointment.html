@@ -1,115 +1,149 @@
-{% extends "base.html" %}
+{% extends "base_modern.html" %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="card-title mb-0">Schedule Appointment</h5>
-                </div>
-                <div class="card-body">
-                    <form method="POST" action="{{ url_for('appointment') }}" class="needs-validation" novalidate>
-                        <div class="row g-3">
-                            <!-- Student Selection -->
-                            <div class="col-md-12">
-                                <label for="student_id" class="form-label">Student <span class="text-danger">*</span></label>
-                                <select class="form-select" id="student_id" name="student_id" required>
-                                    <option value="">Choose student...</option>
-                                    {% for student in students %}
-                                    <option value="{{ student.id }}">{{ student.name }} - {{ student.programme }}</option>
-                                    {% endfor %}
-                                </select>
-                                <div class="invalid-feedback">
-                                    Please select a student.
-                                </div>
-                            </div>
-
-                            <!-- Counsellor Selection -->
-                            <div class="col-md-12">
-                                <label for="counselor_id" class="form-label">Counsellor <span class="text-danger">*</span></label>
-        <select class="form-select" id="counselor_id" name="counselor_id" required>
-                                    {% if Counsellors|length == 1 %}
-                                        <option value="{{ Counsellors[0].id }}" selected>{{ Counsellors[0].name }}</option>
-                                    {% else %}
-                                    <option value="">Choose counsellor...</option>
-                                    {% for counsellor in Counsellors %}
-                                    <option value="{{ counsellor.id }}">{{ counsellor.name }}</option>
-                                    {% endfor %}
-                                    {% endif %}
-                                </select>
-                                <div class="invalid-feedback">
-                                    Please select a counsellor.
-                                </div>
-                            </div>
-
-                            <!-- Appointment Date -->
-                            <div class="col-md-6">
-                                <label for="date" class="form-label">Date <span class="text-danger">*</span></label>
-                                <input type="date" class="form-control" id="date" name="date" required>
-                                <div class="invalid-feedback">
-                                    Please select a date.
-                                </div>
-                            </div>
-
-                            <!-- Appointment Time -->
-                            <div class="col-md-6">
-                                <label for="time" class="form-label">Time <span class="text-danger">*</span></label>
-                                <input type="time" class="form-control" id="time" name="time" required>
-                                <div class="invalid-feedback">
-                                    Please select a time.
-                                </div>
-                            </div>
-
-                            <!-- Purpose -->
-                            <div class="col-12">
-                                <label for="purpose" class="form-label">Purpose of Appointment <span class="text-danger">*</span></label>
-                                <textarea class="form-control" id="purpose" name="purpose" rows="3" required
-                                          placeholder="Please describe the reason for this appointment..."></textarea>
-                                <div class="invalid-feedback">
-                                    Please provide the purpose of the appointment.
-                                </div>
-                            </div>
-
-                            <!-- Submit Buttons -->
-                            <div class="col-12 mt-4">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-calendar-check"></i> Schedule Appointment
-                                </button>
-                                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
-                                    <i class="bi bi-x-circle"></i> Cancel
-                                </a>
-                            </div>
-                        </div>
-                    </form>
+<div class="row justify-content-center">
+    <!-- Main Form Column -->
+    <div class="col-lg-8">
+        <div class="card card-glass border-0 shadow-lg">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 p-3 rounded-circle text-primary me-3">
+                        <i class="bi bi-calendar-plus-fill fs-4"></i>
+                    </div>
+                    <div>
+                        <h4 class="fw-bold mb-1">Schedule Appointment</h4>
+                        <p class="text-muted small mb-0">Book a new counseling session or consultation.</p>
+                    </div>
                 </div>
             </div>
 
-            <!-- Appointment Guidelines -->
-            <div class="card mt-4">
-                <div class="card-header bg-info text-white">
-                    <h5 class="card-title mb-0">Appointment Guidelines</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('appointment') }}" class="needs-validation" novalidate>
+
+                    <!-- Section: Student & Professional -->
+                    <h6 class="text-uppercase text-muted fw-bold mb-3 small"><i
+                            class="bi bi-people me-2"></i>Participants</h6>
+                    <div class="row g-3 mb-4">
                         <div class="col-md-6">
-                            <h6><i class="bi bi-clock"></i> Available Hours</h6>
-                            <ul class="list-unstyled">
-                                <li>Monday - Friday: 8:00 AM - 5:00 PM</li>
-                                <li>Lunch Break: 12:00 PM - 1:00 PM</li>
-                                <li>session Duration: 1 hour</li>
-                            </ul>
+                            <label for="student_id" class="form-label small fw-bold text-secondary">Student
+                                Record</label>
+                            <select class="form-select form-select-lg bg-light border-0" id="student_id"
+                                name="student_id" required>
+                                <option value="">Select Student...</option>
+                                {% for student in students %}
+                                <option value="{{ student.id }}" {% if selected_student_id and
+                                    selected_student_id|string==student.id|string %}selected{% endif %}>
+                                    {{ student.name }} ({{ student.programme }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Required.</div>
                         </div>
+
                         <div class="col-md-6">
-                            <h6><i class="bi bi-exclamation-circle"></i> Important Notes</h6>
-                            <ul class="list-unstyled">
-                                <li>Please arrive 10 minutes early</li>
-                                <li>Bring student ID card</li>
-                                <li>24-hour cancellation notice required</li>
-                            </ul>
+                            <label for="counselor_id" class="form-label small fw-bold text-secondary">Assigned
+                                Counsellor</label>
+                            <select class="form-select form-select-lg bg-light border-0" id="counselor_id"
+                                name="counselor_id" required>
+                                {% if Counsellors|length == 1 %}
+                                <option value="{{ Counsellors[0].id }}" selected>{{ Counsellors[0].name }}</option>
+                                {% else %}
+                                <option value="">Select Counsellor...</option>
+                                {% for counsellor in Counsellors %}
+                                <option value="{{ counsellor.id }}">{{ counsellor.name }}</option>
+                                {% endfor %}
+                                {% endif %}
+                            </select>
+                            <div class="invalid-feedback">Required.</div>
                         </div>
                     </div>
-                </div>
+
+                    <!-- Section: Logistics -->
+                    <h6 class="text-uppercase text-muted fw-bold mb-3 small"><i class="bi bi-clock me-2"></i>Timing &
+                        Urgency</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label for="date" class="form-label small fw-bold text-secondary">Date</label>
+                            <input type="date" class="form-control form-control-lg bg-light border-0" id="date"
+                                name="date" required>
+                            <div class="invalid-feedback">Required.</div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="time" class="form-label small fw-bold text-secondary">Time</label>
+                            <input type="time" class="form-control form-control-lg bg-light border-0" id="time"
+                                name="time" required>
+                            <div class="form-text small"><i class="bi bi-info-circle me-1"></i> 8:00 AM - 5:00 PM
+                                (Lunch: 12-1)</div>
+                            <div class="invalid-feedback">Required.</div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="urgency" class="form-label small fw-bold text-secondary">Urgency Level</label>
+                            <select class="form-select bg-light border-0" id="urgency" name="urgency" required>
+                                <option value="Normal">🟢 Normal (Routine)</option>
+                                <option value="Urgent">🟠 Urgent (Within 24h)</option>
+                                <option value="Crisis">🔴 CRISIS (Immediate)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="referral_source" class="form-label small fw-bold text-secondary">Referral
+                                Source</label>
+                            <select class="form-select bg-light border-0" id="referral_source" name="referral_source">
+                                <option value="Self">Self-Referral</option>
+                                <option value="Lecturer">Lecturer / Academic Staff</option>
+                                <option value="Parent">Parent / Guardian</option>
+                                <option value="Admin">Administration</option>
+                                <option value="Medical">Medical Facility</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Section: Context -->
+                    <h6 class="text-uppercase text-muted fw-bold mb-3 small"><i
+                            class="bi bi-text-paragraph me-2"></i>Context</h6>
+                    <div class="mb-4">
+                        <label for="purpose" class="form-label small fw-bold text-secondary">Purpose of
+                            Appointment</label>
+                        <textarea class="form-control bg-light border-0" id="purpose" name="purpose" rows="4" required
+                            placeholder="Briefly describe the reason for this visit..."></textarea>
+                        <div class="invalid-feedback">Please provide a reason.</div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-light px-4">Cancel</a>
+                        <button type="submit" class="btn btn-primary px-5 btn-hover-lift">
+                            <i class="bi bi-check-lg me-2"></i> Confirm Booking
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar Guidelines -->
+    <div class="col-lg-4">
+        <div class="card card-glass border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <h6 class="fw-bold mb-3"><i class="bi bi-shield-check text-success me-2"></i>Scheduling Policy</h6>
+                <ul class="list-unstyled small text-muted mb-0">
+                    <li class="mb-2 d-flex align-items-start"><i class="bi bi-dot fs-4 me-1 line-height-1"></i>
+                        Appointments are 1 hour by default.</li>
+                    <li class="mb-2 d-flex align-items-start"><i class="bi bi-dot fs-4 me-1 line-height-1"></i> Lunch
+                        break is strictly 12:00 PM - 1:00 PM.</li>
+                    <li class="d-flex align-items-start"><i class="bi bi-dot fs-4 me-1 line-height-1"></i> Urgent cases
+                        typically require immediate escalation to the "Crisis" level for priority handling.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card bg-primary text-white border-0 shadow-sm">
+            <div class="card-body section-glass-dark">
+                <h6 class="fw-bold mb-2"><i class="bi bi-telephone-fill me-2"></i>Emergency Contact</h6>
+                <p class="small opacity-75 mb-0">If this is a life-threatening emergency, please contact University
+                    Security or local emergency services immediately.</p>
             </div>
         </div>
     </div>
@@ -137,7 +171,7 @@
     document.getElementById('date').min = new Date().toISOString().split('T')[0]
 
     // Validate appointment time (8 AM - 5 PM, excluding lunch hour)
-    document.getElementById('time').addEventListener('change', function(e) {
+    document.getElementById('time').addEventListener('change', function (e) {
         const time = e.target.value
         const hour = parseInt(time.split(':')[0])
         if (hour < 8 || hour >= 17 || (hour === 12)) {

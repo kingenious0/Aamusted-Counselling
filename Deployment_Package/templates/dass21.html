@@ -2,6 +2,12 @@
 
 {% block content %}
 <div class="container-fluid py-4">
+    <div class="mb-3">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm rounded-pill text-uppercase fw-bold"
+            style="font-size: 0.75rem; letter-spacing: 0.05em;">
+            <i class="bi bi-arrow-left me-2"></i>Go Back
+        </a>
+    </div>
     <div class="row justify-content-center">
         <div class="col-md-8">
             <div class="card">
@@ -13,11 +19,13 @@
                         <!-- Student Selection -->
                         <div class="row mb-4">
                             <div class="col-12">
-                                <label for="student_id" class="form-label">Student <span class="text-danger">*</span></label>
+                                <label for="student_id" class="form-label">Student <span
+                                        class="text-danger">*</span></label>
                                 <select class="form-select" id="student_id" name="student_id" required>
                                     <option value="">Choose student...</option>
                                     {% for student in students %}
-                                    <option value="{{ student.id }}">{{ student.name }} - {{ student.programme }}</option>
+                                    <option value="{{ student.id }}">{{ student.name }} - {{ student.programme }}
+                                    </option>
                                     {% endfor %}
                                 </select>
                                 <div class="invalid-feedback">
@@ -30,9 +38,10 @@
                         <div class="row g-3">
                             <!-- Depression Score -->
                             <div class="col-md-4">
-                                <label for="depression_score" class="form-label">Depression Score <span class="text-danger">*</span></label>
+                                <label for="depression_score" class="form-label">Depression Score <span
+                                        class="text-danger">*</span></label>
                                 <input type="number" class="form-control" id="depression_score" name="depression_score"
-                                       min="0" max="21" step="0.5" required>
+                                    min="0" max="21" step="0.5" required>
                                 <div class="invalid-feedback">
                                     Please enter a valid score (0-21).
                                 </div>
@@ -41,9 +50,10 @@
 
                             <!-- Anxiety Score -->
                             <div class="col-md-4">
-                                <label for="anxiety_score" class="form-label">Anxiety Score <span class="text-danger">*</span></label>
+                                <label for="anxiety_score" class="form-label">Anxiety Score <span
+                                        class="text-danger">*</span></label>
                                 <input type="number" class="form-control" id="anxiety_score" name="anxiety_score"
-                                       min="0" max="21" step="0.5" required>
+                                    min="0" max="21" step="0.5" required>
                                 <div class="invalid-feedback">
                                     Please enter a valid score (0-21).
                                 </div>
@@ -52,9 +62,10 @@
 
                             <!-- Stress Score -->
                             <div class="col-md-4">
-                                <label for="stress_score" class="form-label">Stress Score <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="stress_score" name="stress_score"
-                                       min="0" max="21" step="0.5" required>
+                                <label for="stress_score" class="form-label">Stress Score <span
+                                        class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="stress_score" name="stress_score" min="0"
+                                    max="21" step="0.5" required>
                                 <div class="invalid-feedback">
                                     Please enter a valid score (0-21).
                                 </div>
@@ -117,11 +128,26 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr><td>0-9</td><td>Normal</td></tr>
-                                        <tr><td>10-13</td><td>Mild</td></tr>
-                                        <tr><td>14-20</td><td>Moderate</td></tr>
-                                        <tr><td>21-27</td><td>Severe</td></tr>
-                                        <tr><td>28+</td><td>Extremely Severe</td></tr>
+                                        <tr>
+                                            <td>0-9</td>
+                                            <td>Normal</td>
+                                        </tr>
+                                        <tr>
+                                            <td>10-13</td>
+                                            <td>Mild</td>
+                                        </tr>
+                                        <tr>
+                                            <td>14-20</td>
+                                            <td>Moderate</td>
+                                        </tr>
+                                        <tr>
+                                            <td>21-27</td>
+                                            <td>Severe</td>
+                                        </tr>
+                                        <tr>
+                                            <td>28+</td>
+                                            <td>Extremely Severe</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -139,11 +165,26 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr><td>0-7</td><td>Normal</td></tr>
-                                        <tr><td>8-9</td><td>Mild</td></tr>
-                                        <tr><td>10-14</td><td>Moderate</td></tr>
-                                        <tr><td>15-19</td><td>Severe</td></tr>
-                                        <tr><td>20+</td><td>Extremely Severe</td></tr>
+                                        <tr>
+                                            <td>0-7</td>
+                                            <td>Normal</td>
+                                        </tr>
+                                        <tr>
+                                            <td>8-9</td>
+                                            <td>Mild</td>
+                                        </tr>
+                                        <tr>
+                                            <td>10-14</td>
+                                            <td>Moderate</td>
+                                        </tr>
+                                        <tr>
+                                            <td>15-19</td>
+                                            <td>Severe</td>
+                                        </tr>
+                                        <tr>
+                                            <td>20+</td>
+                                            <td>Extremely Severe</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -161,11 +202,26 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr><td>0-14</td><td>Normal</td></tr>
-                                        <tr><td>15-18</td><td>Mild</td></tr>
-                                        <tr><td>19-25</td><td>Moderate</td></tr>
-                                        <tr><td>26-33</td><td>Severe</td></tr>
-                                        <tr><td>34+</td><td>Extremely Severe</td></tr>
+                                        <tr>
+                                            <td>0-14</td>
+                                            <td>Normal</td>
+                                        </tr>
+                                        <tr>
+                                            <td>15-18</td>
+                                            <td>Mild</td>
+                                        </tr>
+                                        <tr>
+                                            <td>19-25</td>
+                                            <td>Moderate</td>
+                                        </tr>
+                                        <tr>
+                                            <td>26-33</td>
+                                            <td>Severe</td>
+                                        </tr>
+                                        <tr>
+                                            <td>34+</td>
+                                            <td>Extremely Severe</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -249,7 +305,7 @@
             else { severity = 'Extremely Severe'; color = 'danger' }
         }
 
-        document.getElementById(`${type}_severity`).innerHTML = 
+        document.getElementById(`${type}_severity`).innerHTML =
             `<span class="badge bg-${color}">${severity}</span>`
     }
 
@@ -268,13 +324,13 @@
         }
     }
 
-    document.getElementById('depression_score').addEventListener('input', function() {
+    document.getElementById('depression_score').addEventListener('input', function () {
         validateScore(this)
     })
-    document.getElementById('anxiety_score').addEventListener('input', function() {
+    document.getElementById('anxiety_score').addEventListener('input', function () {
         validateScore(this)
     })
-    document.getElementById('stress_score').addEventListener('input', function() {
+    document.getElementById('stress_score').addEventListener('input', function () {
         validateScore(this)
     })
 </script>

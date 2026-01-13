@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-lg">
+                <div class="card-header bg-white border-bottom-0 pt-4 pb-0 text-center">
+                    <div class="avatar-circle mb-3 bg-primary bg-opacity-10 text-primary mx-auto d-flex align-items-center justify-content-center"
+                        style="width: 60px; height: 60px; border-radius: 50%;">
+                        <i class="bi bi-person-plus-fill fs-3"></i>
+                    </div>
+                    <h4 class="fw-bold">Create New User</h4>
+                    <p class="text-muted small">Add a new staff member to the system.</p>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" action="{{ url_for('admin_add_user') }}">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-uppercase">Full Name</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-person"></i></span>
+                                <input type="text" class="form-control border-start-0 ps-0" name="full_name" required
+                                    placeholder="e.g. Dr. Sarah Smith">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-uppercase">Username</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-at"></i></span>
+                                <input type="text" class="form-control border-start-0 ps-0" name="username" required
+                                    placeholder="j.doe">
+                            </div>
+                            <div class="form-text">This will be used for login.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-uppercase">Role</label>
+                            <select class="form-select" name="role" required>
+                                <option value="" selected disabled>Select Role...</option>
+                                <option value="Secretary">Secretary (Front Desk)</option>
+                                <option value="Counsellor">Counsellor (Professional)</option>
+                                <option value="Admin">Admin (System Owner)</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold small text-uppercase">Initial Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock"></i></span>
+                                <input type="password" class="form-control border-start-0 ps-0" name="password" required
+                                    placeholder="••••••••">
+                            </div>
+                            <div class="form-text">User can change this later.</div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary fw-bold py-2 shadow-sm">Create Account</button>
+                            <a href="{{ url_for('admin_users') }}" class="btn btn-light text-muted">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

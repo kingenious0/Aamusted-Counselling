@@ -1,103 +1,110 @@
-{% extends "base.html" %}
+{% extends "base_modern.html" %}
 
-{% block title %}View Report - {{ report['title'] }}{% endblock %}
+{% block title %}View Report - AAMUSTED{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="row">
-        <div class="col-lg-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
+<div class="row align-items-center mb-4">
+    <div class="col-12">
+        <div class="d-flex align-items-center">
+            <a href="javascript:history.back()" class="btn btn-light border rounded-circle shadow-sm me-3"
+                style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h2 class="fw-bold mb-0 text-dark">Report Details</h2>
+                <p class="text-muted mb-0">{{ report['title'] or 'Untitled Report' }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card card-glass border-0 shadow-sm">
+            <div
+                class="card-header bg-transparent border-0 pt-4 px-4 pb-0 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold text-dark">
+                    <i class="bi bi-file-earmark-text me-2 text-primary"></i>
+                    {{ report['title'] or 'Untitled Report' }}
+                </h5>
                 <div>
-                    <h2 class="mb-1">📄 Report Details</h2>
-                    <p class="text-muted mb-0">{{ report['title'] }}</p>
-                </div>
-                <div>
-                    <a href="{{ url_for('reports_list') }}" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-left me-1"></i>Back to Reports
-                    </a>
+                    <span
+                        class="badge rounded-pill bg-info bg-opacity-10 text-info border border-info border-opacity-10 me-2 px-3">{{
+                        report['report_type'] or 'N/A' }}</span>
+                    <small class="text-muted"><i class="bi bi-calendar-event me-1"></i> {{ report['date_generated']
+                        }}</small>
                 </div>
             </div>
 
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0 py-3">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h5 class="mb-0"><i class="bi bi-file-earmark-text me-2"></i>{{ report['title'] or 'Untitled Report' }}</h5>
+            <div class="card-body p-4">
+                <!-- Report Metadata -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light bg-opacity-50 rounded-3 border border-light">
+                            <small class="text-muted d-block text-uppercase small fw-bold mb-1">Report Type</small>
+                            <span class="fw-bold text-dark">{{ report['report_type'] or 'N/A' }}</span>
                         </div>
-                        <div class="col-md-6 text-end">
-                            <span class="badge bg-info me-2">{{ report['report_type'] or 'N/A' }}</span>
-                            <small class="text-muted">{{ report['date_generated'] }}</small>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light bg-opacity-50 rounded-3 border border-light">
+                            <small class="text-muted d-block text-uppercase small fw-bold mb-1">Date Generated</small>
+                            <span class="fw-bold text-dark">{{ report['date_generated'] }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light bg-opacity-50 rounded-3 border border-light">
+                            <small class="text-muted d-block text-uppercase small fw-bold mb-1">Status</small>
+                            {% if report['file_path'] %}
+                            <span
+                                class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-10">Available</span>
+                            {% else %}
+                            <span
+                                class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-10">Pending</span>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
-                <div class="card-body">
-                    <!-- Report Metadata -->
-                    <div class="row mb-4">
-                        <div class="col-md-4">
-                            <div class="p-3 bg-light rounded">
-                                <small class="text-muted d-block mb-1">Report Type</small>
-                                <strong>{{ report['report_type'] or 'N/A' }}</strong>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="p-3 bg-light rounded">
-                                <small class="text-muted d-block mb-1">Date Generated</small>
-                                <strong>{{ report['date_generated'] }}</strong>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="p-3 bg-light rounded">
-                                <small class="text-muted d-block mb-1">Status</small>
-                                {% if report['file_path'] %}
-                                <span class="badge bg-success">Available</span>
-                                {% else %}
-                                <span class="badge bg-warning">Pending</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- Executive Summary -->
-                    {% if report['summary'] %}
-                    <div class="mb-4">
-                        <h5 class="mb-3"><i class="bi bi-file-text me-2"></i>Executive Summary</h5>
-                        <div class="p-4 bg-light rounded border-start border-4 border-primary">
-                            <div class="report-summary">
-                                {{ report['summary'] | safe | nl2br }}
-                            </div>
-                        </div>
+                <!-- Executive Summary -->
+                {% if report['summary'] %}
+                <div class="mb-4">
+                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-file-text me-2 text-info"></i>Executive Summary
+                    </h6>
+                    <div class="p-4 bg-light rounded-3 border border-light report-summary">
+                        {{ report['summary'] | nl2br | safe }}
                     </div>
-                    {% endif %}
+                </div>
+                {% endif %}
 
-                    <!-- Full Report Content (if available) -->
-                    {% if report['content'] %}
-                    <div class="mb-4">
-                        <h5 class="mb-3"><i class="bi bi-file-earmark me-2"></i>Full Report</h5>
-                        <div class="p-4 bg-light rounded">
-                            <div class="report-content">
-                                {{ report['content'] | safe }}
-                            </div>
-                        </div>
+                <!-- Full Report Content (if available) -->
+                {% if report['content'] %}
+                <div class="mb-4">
+                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-file-richtext me-2 text-secondary"></i>Full
+                        Content</h6>
+                    <div class="p-4 bg-light rounded-3 border border-light report-content">
+                        {{ report['content'] | safe }}
                     </div>
-                    {% endif %}
+                </div>
+                {% endif %}
 
-                    <!-- Actions -->
-                    <div class="border-top pt-4 mt-4">
-                        <h6 class="mb-3">Actions</h6>
-                        <div class="btn-group" role="group">
-                            {% if report['file_path'] %}
-                            <a href="{{ url_for('download_report_file', report_id=report['id']) }}" class="btn btn-success">
-                                <i class="bi bi-download me-1"></i>Download DOCX
-                            </a>
-                            {% endif %}
-                            <a href="{{ url_for('print_report', report_id=report['id']) }}" target="_blank" class="btn btn-primary">
-                                <i class="bi bi-printer me-1"></i>Print / View
-                            </a>
-                        </div>
-                        <div class="alert alert-info mt-3 mb-0">
-                            <i class="bi bi-info-circle me-2"></i>
-                            <strong>Note:</strong> Full reports are generated as Word documents (.docx). Download the file to view the complete structured report with tables, charts, and detailed analysis.
-                        </div>
+                <!-- Actions -->
+                <div class="border-top pt-4 mt-4 text-center">
+                    <p class="small text-muted mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Full reports are generated as Word documents (.docx). Download the file to view the complete
+                        structured report.
+                    </p>
+                    <div class="d-flex justify-content-center gap-3">
+                        {% if report['file_path'] %}
+                        <a href="{{ url_for('download_report_file', report_id=report['id']) }}"
+                            class="btn btn-success shadow-sm rounded-pill px-4 btn-hover-lift">
+                            <i class="bi bi-download me-2"></i>Download DOCX
+                        </a>
+                        {% endif %}
+                        <a href="{{ url_for('print_report', report_id=report['id']) }}" target="_blank"
+                            class="btn btn-primary shadow-sm rounded-pill px-4 btn-hover-lift">
+                            <i class="bi bi-printer me-2"></i>Print Preview
+                        </a>
                     </div>
                 </div>
             </div>
@@ -106,15 +113,16 @@
 </div>
 
 <style>
-.report-summary,
-.report-content {
-    line-height: 1.8;
-    color: #333;
-}
+    .report-summary,
+    .report-content {
+        line-height: 1.8;
+        color: #4a5568;
+        font-size: 0.95rem;
+    }
 
-.report-summary p,
-.report-content p {
-    margin-bottom: 1rem;
-}
+    .report-summary p,
+    .report-content p {
+        margin-bottom: 1rem;
+    }
 </style>
 {% endblock %}

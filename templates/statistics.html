@@ -1,257 +1,212 @@
-{% extends "base.html" %}
+{% extends "base_modern.html" %}
+
+{% block title %}System Analytics - AAMUSTED{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h2 class="mb-1"><i class="bi bi-bar-chart-fill me-2"></i>System Statistics</h2>
-                    <p class="text-muted mb-0">Comprehensive analytics and insights about your counselling system</p>
+<div class="row align-items-center mb-4">
+    <div class="col-md-6">
+        <h2 class="fw-bold mb-0 text-dark">System Analytics</h2>
+        <p class="text-muted mb-0">Comprehensive data insights and performance metrics.</p>
+    </div>
+    <div class="col-md-6 text-md-end mt-3 mt-md-0">
+        <button onclick="window.print()" class="btn btn-outline-primary shadow-sm rounded-pill px-4">
+            <i class="bi bi-printer me-2"></i> Print Report
+        </button>
+    </div>
+</div>
+
+<!-- Overall Statistics Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="card card-glass border-0 shadow-sm h-100 btn-hover-lift">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="rounded-circle bg-primary bg-opacity-10 p-3 text-primary">
+                        <i class="bi bi-people-fill fs-4"></i>
+                    </div>
                 </div>
-                <button onclick="window.print()" class="btn btn-outline-primary">
-                    <i class="bi bi-printer me-2"></i>Print Report
-                </button>
+                <h3 class="fw-bold mb-0">{{ stats_data.overall.total_students }}</h3>
+                <small class="text-muted text-uppercase fw-bold" style="font-size: 0.75rem;">Total Students</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card card-glass border-0 shadow-sm h-100 btn-hover-lift">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="rounded-circle bg-success bg-opacity-10 p-3 text-success">
+                        <i class="bi bi-calendar-check-fill fs-4"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bold mb-0">{{ stats_data.overall.total_appointments }}</h3>
+                <small class="text-muted text-uppercase fw-bold" style="font-size: 0.75rem;">Total Appointments</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card card-glass border-0 shadow-sm h-100 btn-hover-lift">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="rounded-circle bg-purple bg-opacity-10 text-purple p-3" style="color: #6f42c1;">
+                        <i class="bi bi-clipboard-heart-fill fs-4"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bold mb-0">{{ stats_data.overall.total_sessions }}</h3>
+                <small class="text-muted text-uppercase fw-bold" style="font-size: 0.75rem;">Total Sessions</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card card-glass border-0 shadow-sm h-100 btn-hover-lift">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="rounded-circle bg-warning bg-opacity-10 p-3 text-warning">
+                        <i class="bi bi-arrow-right-circle-fill fs-4"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bold mb-0">{{ stats_data.overall.total_referrals }}</h3>
+                <small class="text-muted text-uppercase fw-bold" style="font-size: 0.75rem;">Total Referrals</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Charts Section 1 -->
+    <div class="col-lg-6">
+        <div class="card card-glass border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <h6 class="fw-bold mb-0"><i class="bi bi-pie-chart-fill me-2 text-primary"></i>Students by Gender</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="genderChart" height="250"></canvas>
             </div>
         </div>
     </div>
 
-    <!-- Overall Statistics Cards -->
-    <div class="row g-4 mb-4">
-        <div class="col-xl-3 col-md-6">
-            <div class="card stat-card-overview stat-card-blue">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Total Students</h6>
-                            <h2 class="mb-0">{{ stats_data.overall.total_students }}</h2>
-                        </div>
-                        <div class="stat-icon-large bg-blue">
-                            <i class="bi bi-people-fill"></i>
-                        </div>
-                    </div>
-                </div>
+    <div class="col-lg-6">
+        <div class="card card-glass border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <h6 class="fw-bold mb-0"><i class="bi bi-bar-chart-fill me-2 text-success"></i>Students by Programme
+                </h6>
             </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="card stat-card-overview stat-card-green">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Total Appointments</h6>
-                            <h2 class="mb-0">{{ stats_data.overall.total_appointments }}</h2>
-                        </div>
-                        <div class="stat-icon-large bg-green">
-                            <i class="bi bi-calendar-check-fill"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="card stat-card-overview stat-card-purple">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Total Sessions</h6>
-                            <h2 class="mb-0">{{ stats_data.overall.total_sessions }}</h2>
-                        </div>
-                        <div class="stat-icon-large bg-purple">
-                            <i class="bi bi-clipboard-heart-fill"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="card stat-card-overview stat-card-orange">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Total Referrals</h6>
-                            <h2 class="mb-0">{{ stats_data.overall.total_referrals }}</h2>
-                        </div>
-                        <div class="stat-icon-large bg-orange">
-                            <i class="bi bi-arrow-right-circle-fill"></i>
-                        </div>
-                    </div>
-                </div>
+            <div class="card-body">
+                <canvas id="programmeChart" height="250"></canvas>
             </div>
         </div>
     </div>
 
-    <div class="row g-4">
-        <!-- Students by Gender -->
-        <div class="col-lg-6">
-            <div class="card chart-card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="card-title mb-0"><i class="bi bi-pie-chart-fill me-2"></i>Students by Gender</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="genderChart" height="300"></canvas>
-                </div>
+    <!-- Charts Section 2 -->
+    <div class="col-lg-6">
+        <div class="card card-glass border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <h6 class="fw-bold mb-0"><i class="bi bi-building me-2 text-info"></i>Students by Department</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="departmentChart" height="250"></canvas>
             </div>
         </div>
+    </div>
 
-        <!-- Students by Programme -->
-        <div class="col-lg-6">
-            <div class="card chart-card">
-                <div class="card-header bg-success text-white">
-                    <h5 class="card-title mb-0"><i class="bi bi-bar-chart-fill me-2"></i>Students by Programme</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="programmeChart" height="300"></canvas>
-                </div>
+    <div class="col-lg-6">
+        <div class="card card-glass border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <h6 class="fw-bold mb-0"><i class="bi bi-graph-up me-2 text-warning"></i>Age Distribution</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="ageChart" height="250"></canvas>
             </div>
         </div>
+    </div>
 
-        <!-- Students by Department -->
-        <div class="col-lg-6">
-            <div class="card chart-card">
-                <div class="card-header bg-info text-white">
-                    <h5 class="card-title mb-0"><i class="bi bi-building me-2"></i>Students by Department</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="departmentChart" height="300"></canvas>
-                </div>
+    <!-- Charts Section 3 -->
+    <div class="col-lg-6">
+        <div class="card card-glass border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <h6 class="fw-bold mb-0"><i class="bi bi-pie-chart me-2 text-danger"></i>Appointments by Status</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="appointmentStatusChart" height="250"></canvas>
             </div>
         </div>
+    </div>
 
-        <!-- Age Distribution -->
-        <div class="col-lg-6">
-            <div class="card chart-card">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="card-title mb-0"><i class="bi bi-graph-up me-2"></i>Age Distribution</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="ageChart" height="300"></canvas>
-                </div>
+    <div class="col-lg-6">
+        <div class="card card-glass border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <h6 class="fw-bold mb-0"><i class="bi bi-list-check me-2 text-secondary"></i>Sessions by Type</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="sessionTypeChart" height="250"></canvas>
             </div>
         </div>
+    </div>
 
-        <!-- Appointments by Status -->
-        <div class="col-lg-6">
-            <div class="card chart-card">
-                <div class="card-header bg-danger text-white">
-                    <h5 class="card-title mb-0"><i class="bi bi-pie-chart me-2"></i>Appointments by Status</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="appointmentStatusChart" height="300"></canvas>
-                </div>
+    <!-- Charts Section 4: Timelines -->
+    <div class="col-lg-12">
+        <div class="card card-glass border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <h6 class="fw-bold mb-0"><i class="bi bi-graph-up-arrow me-2 text-primary"></i>Appointments Over Time
+                    (Last 6 Months)</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="appointmentTimelineChart" height="100"></canvas>
             </div>
         </div>
+    </div>
 
-        <!-- Sessions by Type -->
-        <div class="col-lg-6">
-            <div class="card chart-card">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="card-title mb-0"><i class="bi bi-list-check me-2"></i>Sessions by Type</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="sessionTypeChart" height="300"></canvas>
-                </div>
+    <div class="col-lg-12">
+        <div class="card card-glass border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <h6 class="fw-bold mb-0"><i class="bi bi-graph-up me-2 text-success"></i>Sessions Over Time (Last 6
+                    Months)</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="sessionTimelineChart" height="100"></canvas>
             </div>
         </div>
+    </div>
 
-        <!-- Appointments Over Time -->
-        <div class="col-lg-12">
-            <div class="card chart-card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="card-title mb-0"><i class="bi bi-graph-up-arrow me-2"></i>Appointments Over Time (Last 6 Months)</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="appointmentTimelineChart" height="100"></canvas>
-                </div>
+    <div class="col-lg-12">
+        <div class="card card-glass border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <h6 class="fw-bold mb-0"><i class="bi bi-people me-2 text-info"></i>New Students Over Time (Last 6
+                    Months)</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="newStudentsChart" height="100"></canvas>
             </div>
         </div>
+    </div>
 
-        <!-- Sessions Over Time -->
-        <div class="col-lg-12">
-            <div class="card chart-card">
-                <div class="card-header bg-success text-white">
-                    <h5 class="card-title mb-0"><i class="bi bi-graph-up me-2"></i>Sessions Over Time (Last 6 Months)</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="sessionTimelineChart" height="100"></canvas>
-                </div>
+    <div class="col-lg-12">
+        <div class="card card-glass border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <h6 class="fw-bold mb-0"><i class="bi bi-trophy me-2 text-dark"></i>Top Counsellors by Appointments</h6>
             </div>
-        </div>
-
-        <!-- New Students Over Time -->
-        <div class="col-lg-12">
-            <div class="card chart-card">
-                <div class="card-header bg-info text-white">
-                    <h5 class="card-title mb-0"><i class="bi bi-people me-2"></i>New Students Over Time (Last 6 Months)</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="newStudentsChart" height="100"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Top Counsellors -->
-        <div class="col-lg-12">
-            <div class="card chart-card">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="card-title mb-0"><i class="bi bi-trophy me-2"></i>Top Counsellors by Appointments</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="topCounsellorsChart" height="100"></canvas>
-                </div>
+            <div class="card-body">
+                <canvas id="topCounsellorsChart" height="100"></canvas>
             </div>
         </div>
     </div>
 </div>
 
 <style>
-    .stat-card-overview {
-        border: none;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        transition: transform 0.2s, box-shadow 0.2s;
-        overflow: hidden;
-    }
-
-    .stat-card-overview:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-    }
-
-    .stat-card-blue { border-top: 4px solid #0d6efd; }
-    .stat-card-green { border-top: 4px solid #198754; }
-    .stat-card-purple { border-top: 4px solid #6f42c1; }
-    .stat-card-orange { border-top: 4px solid #fd7e14; }
-
-    .stat-icon-large {
-        width: 60px;
-        height: 60px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.75rem;
-        color: white;
-    }
-
-    .bg-blue { background: linear-gradient(135deg, #0d6efd, #0dcaf0); }
-    .bg-green { background: linear-gradient(135deg, #198754, #20c997); }
-    .bg-purple { background: linear-gradient(135deg, #6f42c1, #e83e8c); }
-    .bg-orange { background: linear-gradient(135deg, #fd7e14, #ffc107); }
-
-    .chart-card {
-        border: none;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-
-    .chart-card .card-header {
-        border-radius: 12px 12px 0 0;
-        border: none;
-    }
-
     @media print {
-        .btn { display: none !important; }
-        .chart-card { page-break-inside: avoid; }
+
+        .btn,
+        .no-print {
+            display: none !important;
+        }
+
+        .card-glass {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+        }
+
+        .chart-card {
+            page-break-inside: avoid;
+        }
     }
 </style>
 {% endblock %}
@@ -286,7 +241,7 @@
                 legend: { position: 'bottom' },
                 tooltip: {
                     callbacks: {
-                        label: function(context) {
+                        label: function (context) {
                             let label = context.label || '';
                             let value = context.parsed || 0;
                             let total = context.dataset.data.reduce((a, b) => a + b, 0);
@@ -395,7 +350,7 @@
             plugins: {
                 tooltip: {
                     callbacks: {
-                        label: function(context) {
+                        label: function (context) {
                             let label = context.label || '';
                             let value = context.parsed || 0;
                             let total = context.dataset.data.reduce((a, b) => a + b, 0);
@@ -554,4 +509,3 @@
     }
 </script>
 {% endblock %}
-

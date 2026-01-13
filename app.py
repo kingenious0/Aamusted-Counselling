@@ -7,11 +7,23 @@ import json
 from datetime import datetime, timedelta
 import os
 import sys
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 from auto_report_writer import scheduler, toggle_scheduler, manual_generate_report
+import uuid
+import node_config  # Import the new node config utility
+from sync_engine import sync_bp, trigger_sync # Import sync engine
+
+# Initialize Node Config on Startup
+current_node_config = node_config.load_config()
+print(f"--- Node Identity: {current_node_config['node_id']} ({current_node_config['node_role']}) ---")
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here'
+# Register Sync Blueprint
+app.register_blueprint(sync_bp)
+
+app.secret_key = 'super_secret_key_for_dev_only'  # Change for production
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
 
 # Global flag to prevent concurrent initialization
 _db_initialization_lock = False
@@ -137,7 +149,84 @@ def inject_now():
 def nl2br(value):
     if value:
         return value.replace('\n', '<br>')
+    if value:
+        return value.replace('\n', '<br>')
     return ''
+
+@app.context_processor
+def inject_node_info():
+    """Inject node info into all templates"""
+    return dict(node_config=node_config.load_config())
+
+@app.route('/admin/settings/node', methods=['POST'])
+@login_required
+def update_node_settings():
+    if session.get('role') != 'Admin':
+        flash('Unauthorized access', 'error')
+        return redirect(url_for('dashboard'))
+    
+    try:
+        new_role = request.form.get('node_role')
+        peer_ip = request.form.get('peer_ip')
+        
+        config = node_config.load_config()
+        config['node_role'] = new_role
+        config['peer_ip'] = peer_ip
+        node_config.save_config(config)
+        
+        flash('Node settings updated successfully', 'success')
+    except Exception as e:
+        flash(f'Error updating settings: {str(e)}', 'error')
+        
+    return redirect(url_for('admin_settings'))
+
+@app.route('/admin/sync/now')
+@login_required
+def manual_sync():
+    """Manual trigger for sync"""
+    # Only Admin or authorized roles should trigger sync manually, but safe for now
+    result = trigger_sync()
+    if result.get('status') == 'success':
+        flash(f"Sync completed. {result.get('message', '')}", 'success')
+    else:
+        flash(f"Sync failed: {result.get('message')}", 'error')
+    return redirect(url_for('admin_settings'))
+
+@app.context_processor
+def inject_notifications():
+    if not session.get('logged_in'):
+        return {}
+    
+    try:
+        user_id = session.get('user_id')
+        conn = get_db_connection()
+        # Fetch unread notifications
+        notifs = conn.execute('''
+            SELECT * FROM Notification 
+            WHERE user_id = ? AND is_read = 0 
+            ORDER BY created_at DESC LIMIT 5
+        ''', (user_id,)).fetchall()
+        
+        unread_count = conn.execute('''
+            SELECT COUNT(*) FROM Notification 
+            WHERE user_id = ? AND is_read = 0
+        ''', (user_id,)).fetchone()[0]
+        
+        conn.close()
+        return {'notifications': notifs, 'unread_count': unread_count}
+    except:
+        return {'notifications': [], 'unread_count': 0}
+
+@app.context_processor
+def inject_settings():
+    try:
+        conn = get_db_connection()
+        settings_rows = conn.execute("SELECT setting_name, setting_value FROM app_settings").fetchall()
+        conn.close()
+        settings = {row['setting_name']: row['setting_value'] for row in settings_rows}
+        return {'settings': settings}
+    except:
+        return {'settings': {}}
 
 # ---------- Helper Functions ----------
 def resource_path(relative_path):
@@ -200,6 +289,110 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+@app.route('/audit_logs')
+@login_required
+def audit_logs():
+    if session.get('role') != 'Admin':
+        flash("Unauthorized access to audit trails.", "error")
+        return redirect(url_for('dashboard'))
+    
+    try:
+        conn = get_db_connection()
+        logs = conn.execute('''
+            SELECT al.*, u.username, u.full_name 
+            FROM audit_logs al 
+            JOIN users u ON al.user_id = u.id 
+            ORDER BY al.created_at DESC LIMIT 100
+        ''').fetchall()
+        conn.close()
+        return render_template('audit_logs.html', logs=logs)
+    except Exception as e:
+        flash(f"Error loading logs: {e}", "error")
+        return redirect(url_for('dashboard'))
+        return render_template('audit_logs.html', logs=logs)
+    except Exception as e:
+        flash(f"Error loading logs: {e}", "error")
+        return redirect(url_for('dashboard'))
+
+# ---------- NOTIFICATION SYSTEM ----------
+@app.route('/notifications/mark_read/<int:notification_id>', methods=['POST'])
+@login_required
+def mark_notification_read(notification_id):
+    try:
+        conn = get_db_connection()
+        user_id = session.get('user_id')
+        # Only allow user to mark their own notifications
+        conn.execute("UPDATE Notification SET is_read = 1 WHERE id = ? AND user_id = ?", (notification_id, user_id))
+        conn.commit()
+        conn.close()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        print(f"[NOTIFICATION] Error marking read: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/notifications/mark_all_read', methods=['POST'])
+@login_required
+def mark_all_notifications_read():
+    try:
+        conn = get_db_connection()
+        user_id = session.get('user_id')
+        conn.execute("UPDATE Notification SET is_read = 1 WHERE user_id = ?", (user_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        print(f"[NOTIFICATION] Error marking all read: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+def create_notification(user_id, message, link=None, type='in_app', sender_info=None):
+    """Create a notification for a user."""
+    try:
+        conn = get_db_connection()
+        
+        # Append sender info if provided and accessible
+        final_message = message
+        if sender_info:
+             final_message = f"{message} (Sent by {sender_info})"
+        elif session and session.get('role'):
+             # If we are in a request context with a session
+             try:
+                 sender_role = session.get('role')
+                 if sender_role:
+                    final_message = f"{message} (Sent by {sender_role})"
+             except:
+                 pass
+             
+        conn.execute(
+            "INSERT INTO Notification (user_id, message, link, type) VALUES (?, ?, ?, ?)",
+            (user_id, final_message, link, type)
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[NOTIFICATION] Error: {e}")
+
+def notify_role(role, message, link=None):
+    """Notify all users with a specific role."""
+    try:
+        conn = get_db_connection()
+        # Case insensitive role matching
+        users = conn.execute(
+            "SELECT id FROM users WHERE LOWER(role) = LOWER(?)", 
+            (role,)
+        ).fetchall()
+        
+        sender_info = None
+        try:
+            if session:
+                sender_info = session.get('role')
+        except:
+            pass
+
+        for user in users:
+            create_notification(user['id'], message, link, sender_info=sender_info)
+        conn.close()
+    except Exception as e:
+        print(f"[NOTIFICATION_BROADCAST] Error: {e}")
 # ---------- Routes ----------
 @app.route('/')
 def home():
@@ -247,6 +440,7 @@ def welcome():
 @app.route('/login', methods=['POST'])
 def login():
     try:
+        username = request.form.get('username', '').strip().lower()
         password = request.form.get('password', '')
         
         # Ensure database is initialized before connection
@@ -262,55 +456,22 @@ def login():
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('welcome'))
         
-        stored_hash = None
+        user = None
         try:
-            # Check if app_settings table exists first
-            cursor = conn.cursor()
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='app_settings'")
-            if not cursor.fetchone():
-                # Table doesn't exist - initialize database
-                print("[LOGIN] app_settings table missing, reinitializing database...")
-                conn.close()
-                ensure_database_initialized()
-                conn = get_db_connection()
-            
-            row = conn.execute(
-                "SELECT setting_value FROM app_settings WHERE setting_name = 'password_hash'"
+            # Check user against the users table
+            user = conn.execute(
+                "SELECT * FROM users WHERE LOWER(username) = ?", (username,)
             ).fetchone()
-            stored_hash = row['setting_value'] if row else None
-            if stored_hash is None:
-                # Auto-create default password hash if missing
-                from werkzeug.security import generate_password_hash
-                default_hash = generate_password_hash('Counsellor123')
-                try:
-                    conn.execute(
-                        "INSERT INTO app_settings (setting_name, setting_value) VALUES (?, ?)",
-                        ('password_hash', default_hash)
-                    )
-                    conn.commit()
-                    stored_hash = default_hash
-                except Exception as insert_error:
-                    print(f"[LOGIN] Error creating password hash: {insert_error}")
-                    # Try to rollback and continue
-                    conn.rollback()
-                    stored_hash = default_hash
         except Exception as db_error:
             print(f"[LOGIN] Database query error: {db_error}")
-            import traceback
-            traceback.print_exc()
-            try:
+            # Try once to see if users table is missing
+            if 'no such table' in str(db_error).lower():
+                print("[LOGIN] Users table missing, reinitializing database...")
                 conn.close()
-            except:
-                pass
-            # Try one more time to initialize database
-            try:
                 ensure_database_initialized()
                 conn = get_db_connection()
-                row = conn.execute(
-                    "SELECT setting_value FROM app_settings WHERE setting_name = 'password_hash'"
-                ).fetchone()
-                stored_hash = row['setting_value'] if row else None
-            except:
+                user = conn.execute("SELECT * FROM users WHERE LOWER(username) = ?", (username,)).fetchone()
+            else:
                 flash('Database error. Please restart the application.', 'error')
                 return redirect(url_for('welcome'))
         finally:
@@ -322,38 +483,41 @@ def login():
         print(f"[LOGIN] Unexpected error: {e}")
         import traceback
         traceback.print_exc()
-        flash(f'Login error: {str(e)}. Please check console for details.', 'error')
+        flash(f'Login error: {str(e)}', 'error')
         return redirect(url_for('welcome'))
 
-    # Debug: Print password attempt (without revealing it)
-    print(f"[LOGIN] Password attempt received. Hash exists: {stored_hash is not None}")
-    
-    if stored_hash:
-        password_valid = check_password_hash(stored_hash, password)
-        print(f"[LOGIN] Password check result: {password_valid}")
+    if user and check_password_hash(user['password_hash'], password):
+        # Professional standard: store essential info in session
+        session['logged_in'] = True
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+        session['role'] = user['role']
+        session['full_name'] = user['full_name']
+        session.permanent = True
         
-        if password_valid:
-            session['logged_in'] = True
-            session.permanent = True
+        # Track visit for daily greeting
+        today = datetime.now().date().isoformat()
+        last_visit = session.get('last_visit_date')
+        session['first_visit_today'] = (last_visit != today)
+        session['last_visit_date'] = today
+        
+        # Log the login in audit_logs
+        try:
+            conn = get_db_connection()
+            conn.execute(
+                "INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)",
+                (user['id'], 'LOGIN', f"User logged in successfully", request.remote_addr)
+            )
+            conn.commit()
+            conn.close()
+        except Exception as log_error:
+            print(f"[LOGIN] Audit log error: {log_error}")
             
-            # Check if this is first visit today BEFORE setting the date
-            today = datetime.now().date().isoformat()
-            last_visit = session.get('last_visit_date')
-            is_first_visit_today = (last_visit != today)
-            
-            # Mark today's visit (this will make next check show False)
-            session['last_visit_date'] = today
-            session['first_visit_today'] = is_first_visit_today
-            
-            return redirect(url_for('dashboard'))
-        else:
-            # Password was wrong
-            print(f"[LOGIN] Invalid password - hash exists but doesn't match")
-            flash('Invalid password. Default is: Counsellor123 (Capital C, double L).', 'error')
+        print(f"[LOGIN] Success: {username} logged in as {user['role']}")
+        return redirect(url_for('dashboard'))
     else:
-        # No password hash in database - this shouldn't happen
-        print(f"[LOGIN] ERROR: No password hash found in database!")
-        flash('Database error: No password configured. Please restart the application.', 'error')
+        print(f"[LOGIN] Failed attempt for username: {username}")
+        flash('Invalid username or password.', 'error')
     
     return redirect(url_for('welcome'))
 
@@ -361,271 +525,85 @@ def login():
 @login_required
 def dashboard():
     try:
-        # Check if this is first visit today using the flag set during login
-        # The login() function sets this flag correctly before setting last_visit_date
-        if 'first_visit_today' in session:
-            # Use the flag set during login
-            show_welcome_message = session.pop('first_visit_today', False)
-            # Ensure last_visit_date is set (in case it wasn't)
-            if 'last_visit_date' not in session or session.get('last_visit_date') != datetime.now().date().isoformat():
-                session['last_visit_date'] = datetime.now().date().isoformat()
-        else:
-            # Fallback: Check date if flag wasn't set (shouldn't happen normally)
-            today = datetime.now().date().isoformat()
-            last_visit = session.get('last_visit_date')
-            if last_visit != today:
-                session['last_visit_date'] = today
-                show_welcome_message = True
-            else:
-                show_welcome_message = False
+        user_role = session.get('role', 'Counsellor')
+        user_name = session.get('full_name', 'Counsellor')
         
-        # Ensure database initialized
+        # Check if this is first visit today
+        show_welcome_message = session.pop('first_visit_today', False)
+        
         ensure_database_initialized()
         conn = get_db_connection()
         if conn is None:
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('welcome'))
         
-        # Initialize all variables with defaults
-        counsellor_name = 'Mrs. Gertrude Effeh Brew'
-        total_students = 0
-        total_appointments = 0
-        today_appointments = 0
-        total_sessions = 0
-        this_month_sessions = 0
-        pending_appointments = 0
-        completed_this_month = 0
-        total_referrals = 0
-        updated_count = 0
+        # Initialize variables with defaults
+        stats = {
+            'total_students': 0,
+            'today_count': 0,
+            'total_sessions': 0,
+            'sent_to_counsellor': 0,
+            'in_session': 0
+        }
         today_appts = []
-        appointments = []
-        sessions = []
-        referrals = []
+        pending_action = []  # Role-specific workload
+        recent_activity = []
         
-        # Get counsellor name (Mrs. Gertrude Effeh Brew)
+        # 1. Get GLOBAL stats for dashboard counters
         try:
-            counsellor = conn.execute('SELECT name FROM Counsellor WHERE id = 1').fetchone()
-            if counsellor:
-                counsellor_name = counsellor['name']
+            stats['total_students'] = conn.execute('SELECT COUNT(*) FROM Student').fetchone()[0]
+            stats['today_count'] = conn.execute("SELECT COUNT(*) FROM Appointment WHERE date = DATE('now')").fetchone()[0]
+            stats['total_sessions'] = conn.execute('SELECT COUNT(*) FROM session').fetchone()[0]
+            stats['total_users'] = conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
+            
+            # Workflow specific stats for the counters
+            stats['sent_to_counsellor'] = conn.execute("SELECT COUNT(*) FROM Appointment WHERE status = 'Sent to Counsellor'").fetchone()[0]
+            stats['in_session'] = conn.execute("SELECT COUNT(*) FROM Appointment WHERE status = 'In Session'").fetchone()[0]
         except Exception as e:
-            print(f"[DASHBOARD] Error getting counsellor: {e}")
-    
-    # Statistics: Total Students
-        try:
-            result = conn.execute('SELECT COUNT(*) as count FROM Student').fetchone()
-            total_students = result['count'] if result else 0
-        except Exception as e:
-            print(f"[DASHBOARD] Error getting total_students: {e}")
-            total_students = 0
-    
-    # Statistics: Total Appointments
-        try:
-            result = conn.execute('SELECT COUNT(*) as count FROM Appointment').fetchone()
-            total_appointments = result['count'] if result else 0
-        except Exception as e:
-            print(f"[DASHBOARD] Error getting total_appointments: {e}")
-            total_appointments = 0
-    
-    # Statistics: Today's Appointments
-        try:
-            result = conn.execute('''
-        SELECT COUNT(*) as count 
-        FROM Appointment 
-        WHERE date = DATE('now')
-            ''').fetchone()
-            today_appointments = result['count'] if result else 0
-        except Exception as e:
-            print(f"[DASHBOARD] Error getting today_appointments: {e}")
-            today_appointments = 0
-    
-    # Statistics: Total Sessions
-        try:
-            result = conn.execute('SELECT COUNT(*) as count FROM session').fetchone()
-            total_sessions = result['count'] if result else 0
-        except Exception as e:
-            print(f"[DASHBOARD] Error getting total_sessions: {e}")
-            total_sessions = 0
-    
-    # Statistics: This Month's Sessions
-        try:
-            result = conn.execute('''
-        SELECT COUNT(*) as count 
-        FROM session 
-                WHERE strftime('%Y-%m', created_at)  = strftime('%Y-%m', 'now')
-            ''').fetchone()
-            this_month_sessions = result['count'] if result else 0
-        except Exception as e:
-            print(f"[DASHBOARD] Error getting this_month_sessions: {e}")
-            this_month_sessions = 0
-    
-    # Statistics: Pending Appointments
-        try:
-            result = conn.execute('''
-        SELECT COUNT(*) as count 
-        FROM Appointment 
-        WHERE status IN ('scheduled', 'Scheduled') 
-        AND date >= DATE('now')
-            ''').fetchone()
-            pending_appointments = result['count'] if result else 0
-        except Exception as e:
-            print(f"[DASHBOARD] Error getting pending_appointments: {e}")
-            pending_appointments = 0
-    
-    # Statistics: Completed Sessions This Month
-        try:
-            result = conn.execute('''
-        SELECT COUNT(*) as count 
-        FROM Appointment 
-        WHERE status IN ('Completed', 'completed')
-        AND date >= date('now', 'start of month')
-            ''').fetchone()
-            completed_this_month = result['count'] if result else 0
-        except Exception as e:
-            print(f"[DASHBOARD] Error getting completed_this_month: {e}")
-            completed_this_month = 0
-    
-        # Statistics: Total Referrals
-        try:
-            result = conn.execute('SELECT COUNT(*) as count FROM Referral').fetchone()
-            total_referrals = result['count'] if result else 0
-        except Exception as e:
-            print(f"[DASHBOARD] Error getting total_referrals: {e}")
-            total_referrals = 0
-        
-        # Get updated_count for auto-update banner
-        try:
-            result = conn.execute('''
-                SELECT COUNT(*) as count 
-                FROM Appointment 
-                WHERE status = 'In Session' 
-                AND date = DATE('now')
-            ''').fetchone()
-            updated_count = result['count'] if result else 0
-        except Exception as e:
-            print(f"[DASHBOARD] Error getting updated_count: {e}")
-            updated_count = 0
-    
-        # Get today's appointments
-        try:
-            today_appts_raw = conn.execute('''
-                SELECT a.id, a.date, a.time, a.purpose, a.status,
-                       s.id as student_db_id, s.name as student_name,
-                       c.name as counsellor_name
-                FROM Appointment a
-                LEFT JOIN Student s ON a.student_id = s.id
-                LEFT JOIN Counsellor c ON a.Counsellor_id = c.id
-                WHERE a.date = DATE('now')
-                ORDER BY a.time
-            ''').fetchall()
-            # Convert to list and add professional IDs
-            today_appts = []
-            for apt in today_appts_raw:
-                apt_dict = dict(apt)
-                student_db_id = apt_dict.get('student_db_id', 0)
-                apt_dict['professional_id'] = f"C{student_db_id:03d}" if student_db_id else 'N/A'
-                today_appts.append(apt_dict)
-        except Exception as e:
-            print(f"[DASHBOARD] Error getting today_appts: {e}")
-            today_appts = []
-    
-        # Get upcoming appointments (next 7 days)
-        try:
-            appointments_raw = conn.execute('''
-                SELECT a.id, a.date, a.time, a.purpose, a.status,
-                       s.id as student_db_id, s.name as student_name,
-                       c.name as counsellor_name
-                FROM Appointment a
-                LEFT JOIN Student s ON a.student_id = s.id
-                LEFT JOIN Counsellor c ON a.Counsellor_id = c.id
-                WHERE a.date >= DATE('now') AND a.date <= DATE('now', '+7 days')
-                ORDER BY a.date, a.time
-                LIMIT 10
-            ''').fetchall()
-            # Convert to list and add professional IDs
-            appointments = []
-            for apt in appointments_raw:
-                apt_dict = dict(apt)
-                student_db_id = apt_dict.get('student_db_id', 0)
-                apt_dict['professional_id'] = f"C{student_db_id:03d}" if student_db_id else 'N/A'
-                appointments.append(apt_dict)
-        except Exception as e:
-            print(f"[DASHBOARD] Error getting appointments: {e}")
-            appointments = []
-    
-        # Get recent sessions
-        try:
-            sessions_raw = conn.execute('''
-                SELECT sess.id, sess.session_type, sess.notes, sess.created_at,
-                       s.id as student_db_id, s.name as student_name
-                FROM session sess
-                LEFT JOIN Appointment a ON sess.appointment_id = a.id
-                LEFT JOIN Student s ON a.student_id = s.id
-                ORDER BY sess.created_at DESC
-                LIMIT 5
-            ''').fetchall()
-            # Convert to list and add professional IDs
-            sessions = []
-            for sess in sessions_raw:
-                sess_dict = dict(sess)
-                student_db_id = sess_dict.get('student_db_id', 0)
-                sess_dict['professional_id'] = f"C{student_db_id:03d}" if student_db_id else 'N/A'
-                sessions.append(sess_dict)
-        except Exception as e:
-            print(f"[DASHBOARD] Error getting sessions: {e}")
-            sessions = []
-    
-        # Get recent referrals - handle missing table gracefully
-        try:
-            referrals_raw = conn.execute('''
-            SELECT r.id, r.referred_by, r.reasons, r.created_at,
-                   s.id as student_db_id, s.name as student_name
-            FROM Referral r
-            JOIN session sess ON r.session_id = sess.id
-            JOIN Appointment a ON sess.appointment_id = a.id
-            JOIN Student s ON a.student_id = s.id
-            ORDER BY r.created_at DESC
-            LIMIT 5
-        ''').fetchall()
-            # Convert to list and add professional IDs
-            referrals = []
-            for ref in referrals_raw:
-                ref_dict = dict(ref)
-                student_db_id = ref_dict.get('student_db_id', 0)
-                ref_dict['professional_id'] = f"C{student_db_id:03d}" if student_db_id else 'N/A'
-                referrals.append(ref_dict)
-        except Exception as e:
-            print(f"[DASHBOARD] Error getting referrals: {e}")
-            referrals = []
-    
-        # Get appointment statistics by status for chart - with error handling
-        try:
-            status_stats = conn.execute('''
-                SELECT 
-                    COUNT(CASE WHEN status IN ('scheduled', 'Scheduled') THEN 1 END) as scheduled_count,
-                    COUNT(CASE WHEN status IN ('In Session', 'in session') THEN 1 END) as in_session_count,
-                    COUNT(CASE WHEN status IN ('Completed', 'completed') THEN 1 END) as completed_count,
-                    COUNT(CASE WHEN status IN ('Cancelled', 'cancelled') THEN 1 END) as cancelled_count
-                FROM Appointment
-                WHERE date >= DATE('now', '-30 days')
-            ''').fetchone()
-            # Ensure status_stats has default values
-            if not status_stats:
-                status_stats = {
-                    'scheduled_count': 0,
-                    'in_session_count': 0,
-                    'completed_count': 0,
-                    'cancelled_count': 0
-                }
-        except Exception as e:
-            print(f"[DASHBOARD] Error getting status stats: {e}")
-            status_stats = {
-                'scheduled_count': 0,
-                'in_session_count': 0,
-                'completed_count': 0,
-                'cancelled_count': 0
-            }
+            print(f"[DASHBOARD] Stats error: {e}")
 
-        # Generate greeting based on time and visit status
+        # 2. Define Workload based on Role
+        if user_role == 'Secretary' or user_role == 'Admin':
+            try:
+                # Cases awaiting handover (Secretary's queue) - Show ALL scheduled items
+                pending_action = conn.execute('''
+                    SELECT a.*, s.name as student_name 
+                    FROM Appointment a JOIN Student s ON a.student_id = s.id 
+                    WHERE a.status = 'Scheduled'
+                    ORDER BY a.date ASC, a.time ASC
+                ''').fetchall()
+                
+                # Recently sent activity
+                recent_activity = conn.execute('''
+                    SELECT a.*, s.name as student_name 
+                    FROM Appointment a JOIN Student s ON a.student_id = s.id 
+                    WHERE a.status = 'Sent to Counsellor'
+                    ORDER BY a.created_at DESC LIMIT 5
+                ''').fetchall()
+            except Exception as e:
+                print(f"[DASHBOARD] Workload query error: {e}")
+        
+        elif user_role == 'Counsellor':
+            try:
+                # Incoming Case Referrals (Counsellor's queue)
+                pending_action = conn.execute('''
+                    SELECT a.*, s.name as student_name 
+                    FROM Appointment a JOIN Student s ON a.student_id = s.id 
+                    WHERE a.status = 'Sent to Counsellor' OR a.status = 'Checked In'
+                    ORDER BY a.date ASC, a.time ASC
+                ''').fetchall()
+                
+                # Active Sessions for the current Counsellor
+                today_appts = conn.execute('''
+                    SELECT a.*, s.name as student_name 
+                    FROM Appointment a JOIN Student s ON a.student_id = s.id 
+                    WHERE a.status = 'In Session'
+                    ORDER BY a.time ASC
+                ''').fetchall()
+            except Exception as e:
+                print(f"[DASHBOARD] Counsellor query error: {e}")
+
+        # Generate greeting
         current_hour = datetime.now().hour
         if current_hour < 12:
             time_greeting = "Good morning"
@@ -634,11 +612,9 @@ def dashboard():
         else:
             time_greeting = "Good evening"
 
-        # Create personalized greeting
+        greeting = f"{time_greeting}, {user_name}"
         if show_welcome_message:
-            greeting = f"{time_greeting}, {counsellor_name}, Welcome Back Counsellor! 👋"
-        else:
-            greeting = f"{time_greeting}, {counsellor_name}"
+            greeting += " - Welcome Back! 👋"
 
         # Ensure connection is closed before rendering
         try:
@@ -647,35 +623,457 @@ def dashboard():
             pass
 
         # Pass all template variables
-        return render_template('dashboard.html', 
-                             updated_count=updated_count,
-                             appointments=appointments,
-                             today_appts=today_appts,
-                             sessions=sessions,
-                             referrals=referrals,
-                             greeting=greeting,
-                             counsellor_name=counsellor_name,
-                             show_welcome_message=show_welcome_message,
-                             total_students=total_students,
-                             total_appointments=total_appointments,
-                             today_appointments=today_appointments,
-                             total_sessions=total_sessions,
-                             this_month_sessions=this_month_sessions,
-                             pending_appointments=pending_appointments,
-                             completed_this_month=completed_this_month,
-                             total_referrals=total_referrals,
-                             status_stats=status_stats)
-    
+        if user_role == 'Admin':
+            return render_template('admin_dashboard.html', 
+                                stats=stats, 
+                                greeting=greeting, 
+                                pending_action=pending_action,
+                                recent_activity=recent_activity,
+                                show_welcome_message=show_welcome_message)
+        else:
+            # SWITCH TO MODERN DASHBOARD
+            return render_template('dashboard_modern.html', 
+                                role=user_role,
+                                greeting=greeting,
+                                stats=stats,
+                                today_appts=today_appts,
+                                pending_action=pending_action,
+                                recent_activity=recent_activity,
+                                show_welcome_message=show_welcome_message)
+                             
     except Exception as e:
-        print(f"[DASHBOARD] Unexpected error: {e}")
+        print(f"[DASHBOARD] Critical error: {e}")
         import traceback
         traceback.print_exc()
-        try:
-            conn.close()
-        except:
-            pass
-        flash('Error loading dashboard. Please try refreshing the page.', 'error')
         return redirect(url_for('welcome'))
+
+@app.route('/appointment/update_status/<int:appt_id>/<new_status>')
+@login_required
+def update_appt_status(appt_id, new_status):
+    # Standardize Status Input
+    status_map = {
+        'scheduled': 'Scheduled',
+        'checked_in': 'Checked In',
+        'sent_to_counsellor': 'Sent to Counsellor',
+        'accepted': 'Accepted', # Intermediate state
+        'in_session': 'In Session',
+        'completed': 'Completed',
+        'cancelled': 'Cancelled'
+    }
+    
+    clean_status = status_map.get(new_status.lower().replace(' ', '_'), new_status)
+    
+    user_role = session.get('role')
+    conn = get_db_connection()
+    
+    # Get current status
+    appt = conn.execute("SELECT status, student_id FROM Appointment WHERE id = ?", (appt_id,)).fetchone()
+    if not appt:
+        conn.close()
+        flash("Appointment not found.", "error")
+        return redirect(url_for('dashboard'))
+        
+    current_status = appt['status']
+    student_name = conn.execute("SELECT name FROM Student WHERE id = ?", (appt['student_id'],)).fetchone()['name']
+
+    # --- STRICT WORKFLOW ENGINE ---
+    allowed = False
+    error_msg = "Invalid workflow transition."
+    
+    # 1. Secretary: Scheduled -> Checked In (Step 1)
+    if current_status == 'Scheduled' and clean_status == 'Checked In':
+        if user_role in ['Secretary', 'Admin']:
+            allowed = True
+        else:
+            error_msg = "Only Secretary can check in students."
+
+    # 1.5. Secretary: Scheduled -> Sent to Counsellor (Direct Handover)
+    elif current_status == 'Scheduled' and clean_status == 'Sent to Counsellor':
+        if user_role in ['Secretary', 'Admin']:
+            allowed = True
+            # Notify Counsellors
+            notify_role('Counsellor', f"Incoming Patient: {student_name}", url_for('dashboard'))
+            notify_role('Counselor', f"Incoming Patient: {student_name}", url_for('dashboard'))
+        else:
+             error_msg = "Only Secretary can handover students."
+
+    # 2. Secretary: Checked In -> Sent to Counsellor (Step 2)
+    elif current_status == 'Checked In' and clean_status == 'Sent to Counsellor':
+        if user_role in ['Secretary', 'Admin']:
+            allowed = True
+            notify_role('Counsellor', f"Incoming Patient: {student_name}", url_for('dashboard'))
+            notify_role('Counselor', f"Incoming Patient: {student_name}", url_for('dashboard'))
+        else:
+            error_msg = "Only Secretary can handover students."
+
+    # 3. Counsellor: Sent to Counsellor -> In Session
+    elif (current_status == 'Sent to Counsellor' or current_status == 'Checked In') and clean_status == 'In Session':
+        if user_role in ['Counsellor', 'Counselor', 'Admin']:
+            allowed = True
+        else:
+             error_msg = "Only Counsellor can start a session."
+
+    # 4. Counsellor: In Session -> Completed
+    elif current_status == 'In Session' and clean_status == 'Completed':
+        if user_role in ['Counsellor', 'Counselor', 'Admin']:
+            allowed = True
+        else:
+             error_msg = "Only Counsellor can complete a session."
+
+    # 4.5. Counsellor: Completed -> In Session (Re-open case)
+    elif current_status == 'Completed' and clean_status == 'In Session':
+        if user_role in ['Counsellor', 'Counselor', 'Admin']:
+            allowed = True
+        else:
+             error_msg = "Only Counsellor can re-open a session."
+             
+    # 5. Anyone: -> Scheduled (Send Back/Reset)
+    elif clean_status == 'Scheduled':
+         allowed = True # Allow reset
+
+    if not allowed:
+        conn.close()
+        flash(f"Workflow Error: {error_msg} ({current_status} -> {clean_status})", "error")
+        return redirect(url_for('dashboard'))
+
+    # Update DB
+    try:
+        # Update status and timestamps
+        timestamp_col = None
+        if clean_status == 'Checked In': timestamp_col = 'checked_in_at'
+        if clean_status == 'Sent to Counsellor': timestamp_col = 'sent_to_counsellor_at'
+        if clean_status == 'In Session': timestamp_col = 'accepted_at'
+        if clean_status == 'Completed': timestamp_col = 'completed_at'
+        
+        sql = "UPDATE Appointment SET status = ?"
+        params = [clean_status]
+        
+        if timestamp_col:
+            sql += f", {timestamp_col} = CURRENT_TIMESTAMP"
+        
+        # If jumping from Scheduled to Sent to Counsellor, ensure checked_in_at is also set if null
+        if current_status == 'Scheduled' and clean_status == 'Sent to Counsellor':
+            sql += ", checked_in_at = COALESCE(checked_in_at, CURRENT_TIMESTAMP)"
+            
+        sql += " WHERE id = ?"
+        params.append(appt_id)
+        
+        conn.execute(sql, params)
+        
+        conn.execute(
+            "INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)",
+            (session.get('user_id'), 'WORKFLOW', f"Moved {student_name} from {current_status} to {clean_status}")
+        )
+        conn.commit()
+        conn.close()
+        
+        # Success Feedback
+        flash(f"Moved {student_name} to {clean_status}", "success")
+        
+        # If starting a session, redirect to the session notes page
+        if clean_status == 'In Session':
+            return redirect(url_for('create_session', appointment_id=appt_id))
+            
+        return redirect(url_for('dashboard'))
+        
+    except Exception as e:
+        print(f"[WORKFLOW] Error updating status: {e}")
+        conn.close()
+        flash(f"Database Error: {str(e)}", "error")
+        
+    return redirect(url_for('dashboard'))
+
+# ---------- ADMIN USER MANAGEMENT ----------
+
+@app.route('/admin/users')
+@login_required
+def admin_users():
+    if session.get('role') != 'Admin':
+        flash('Unauthorized access.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    conn = get_db_connection()
+    users = conn.execute('SELECT * FROM users ORDER BY created_at DESC').fetchall()
+    conn.close()
+    return render_template('admin_users.html', users=users)
+
+@app.route('/admin/users/add', methods=['GET', 'POST'])
+@login_required
+def admin_add_user():
+    if session.get('role') != 'Admin':
+        return redirect(url_for('dashboard'))
+        
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        full_name = request.form.get('full_name')
+        role = request.form.get('role')
+        
+        if not username or not password or not role:
+            flash('All fields are required', 'error')
+            return redirect(url_for('admin_add_user'))
+            
+        hashed_pw = generate_password_hash(password)
+        
+        try:
+            conn = get_db_connection()
+            conn.execute('INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)',
+                        (username, hashed_pw, full_name, role))
+            conn.execute('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)',
+                        (session.get('user_id'), 'USER_CREATE', f"Created user {username} ({role})"))
+            conn.commit()
+            conn.close()
+            flash(f'User {username} created successfully!', 'success')
+            return redirect(url_for('admin_users'))
+        except sqlite3.IntegrityError:
+            flash('Username already exists', 'error')
+        except Exception as e:
+            flash(f'Error creating user: {e}', 'error')
+            
+    return render_template('admin_add_user.html')
+
+@app.route('/admin/users/delete/<int:user_id>', methods=['POST'])
+@login_required
+def admin_delete_user(user_id):
+    if session.get('role') != 'Admin':
+        return redirect(url_for('dashboard'))
+        
+    if user_id == session.get('user_id'):
+        flash('You cannot delete your own account.', 'error')
+        return redirect(url_for('admin_users'))
+        
+    try:
+        conn = get_db_connection()
+        conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        conn.execute('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)',
+                    (session.get('user_id'), 'USER_DELETE', f"Deleted user ID {user_id}"))
+        conn.commit()
+        conn.close()
+        flash('User deleted successfully.', 'success')
+    except Exception as e:
+        flash(f'Error deleting user: {e}', 'error')
+        
+    return redirect(url_for('admin_users'))
+
+@app.route('/admin/users/reset_password', methods=['POST'])
+@login_required
+def admin_reset_password():
+    if session.get('role') != 'Admin':
+        return redirect(url_for('dashboard'))
+        
+    user_id = request.form.get('user_id')
+    new_password = request.form.get('new_password')
+    
+    if not user_id or not new_password:
+        flash('Missing data for password reset.', 'error')
+        return redirect(url_for('admin_users'))
+        
+    try:
+        hashed_pw = generate_password_hash(new_password)
+        conn = get_db_connection()
+        conn.execute('UPDATE users SET password_hash = ? WHERE id = ?', (hashed_pw, user_id))
+        conn.execute('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)',
+                    (session.get('user_id'), 'USER_PW_RESET', f"Reset password for user ID {user_id}"))
+        conn.commit()
+        conn.close()
+        flash('Password reset successfully.', 'success')
+    except Exception as e:
+        flash(f'Error resetting password: {e}', 'error')
+        
+    return redirect(url_for('admin_users'))
+
+@app.route('/admin/workflow')
+@login_required
+def admin_workflow():
+    if session.get('role') != 'Admin':
+        return redirect(url_for('dashboard'))
+    
+    conn = get_db_connection()
+    # Fetch settings or set defaults
+    auto_notify = conn.execute("SELECT setting_value FROM app_settings WHERE setting_name = 'workflow_auto_notify'").fetchone()
+    lock_notes = conn.execute("SELECT setting_value FROM app_settings WHERE setting_name = 'workflow_lock_notes'").fetchone()
+    conn.close()
+    
+    settings = {
+        'auto_notify': auto_notify['setting_value'] == 'true' if auto_notify else True,
+        'lock_notes': lock_notes['setting_value'] == 'true' if lock_notes else True
+    }
+    
+    return render_template('admin_workflow.html', settings=settings)
+
+@app.route('/admin/settings')
+@login_required
+def admin_settings():
+    if session.get('role') != 'Admin':
+        return redirect(url_for('dashboard'))
+    
+    conn = get_db_connection()
+    # Fetch all settings
+    settings_rows = conn.execute("SELECT setting_name, setting_value FROM app_settings").fetchall()
+    conn.close()
+    
+    # Convert list of rows to dictionary
+    settings = {row['setting_name']: row['setting_value'] for row in settings_rows}
+    
+    return render_template('admin_settings.html', settings=settings)
+
+@app.route('/admin/settings/update', methods=['POST'])
+@login_required
+def admin_update_settings():
+    if session.get('role') != 'Admin':
+        flash("Unauthorized", "error")
+        return redirect(url_for('dashboard'))
+        
+    try:
+        conn = get_db_connection()
+        
+        # List of settings to update
+        setting_keys = ['system_name', 'logo_url', 'theme_color']
+        
+        for key in setting_keys:
+            val = request.form.get(key)
+            if val is not None:
+                # Upsert logic (SQLite specific or simple delete/insert)
+                # Since we don't know if key exists, we can do REPLACE INTO or checking first.
+                # Simplest for SQLite: INSERT OR REPLACE if primary key is set, but we don't have PK on name maybe?
+                # Let's check schema. Assuming key-value pair uniqueness is enforced or not,
+                # let's try to update, if 0 rows, insert.
+                
+                cursor = conn.cursor()
+                cursor.execute("UPDATE app_settings SET setting_value = ? WHERE setting_name = ?", (val, key))
+                if cursor.rowcount == 0:
+                    cursor.execute("INSERT INTO app_settings (setting_name, setting_value) VALUES (?, ?)", (key, val))
+                    
+        conn.commit()
+        conn.close()
+        flash("System configuration updated successfully.", "success")
+    except Exception as e:
+        flash(f"Error saving settings: {e}", "error")
+        
+    return redirect(url_for('admin_settings'))
+
+@app.route('/admin/workflow/save', methods=['POST'])
+@login_required
+def save_workflow_settings():
+    if session.get('role') != 'Admin':
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        
+    try:
+        data = request.get_json()
+        conn = get_db_connection()
+        
+        # Upsert logic (delete then insert is easier for simple KV)
+        conn.execute("DELETE FROM app_settings WHERE setting_name IN ('workflow_auto_notify', 'workflow_lock_notes')")
+        
+        conn.execute("INSERT INTO app_settings (setting_name, setting_value) VALUES (?, ?)", 
+                     ('workflow_auto_notify', 'true' if data.get('auto_notify') else 'false'))
+        conn.execute("INSERT INTO app_settings (setting_name, setting_value) VALUES (?, ?)", 
+                     ('workflow_lock_notes', 'true' if data.get('lock_notes') else 'false'))
+                     
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/admin/forms')
+@login_required
+def admin_forms():
+    if session.get('role') != 'Admin':
+        return redirect(url_for('dashboard'))
+    return render_template('admin_forms.html')
+
+@app.route('/admin/export/master')
+@login_required
+
+def admin_export_master():
+    if session.get('role') != 'Admin':
+        return redirect(url_for('dashboard'))
+
+    try:
+        import openpyxl
+        from openpyxl.utils import get_column_letter
+        from openpyxl.styles import Font, PatternFill
+        import io
+    except ImportError:
+        flash("Export library missing. Please contact support.", "error")
+        return redirect(url_for('dashboard'))
+
+    conn = get_db_connection()
+    
+    # 1. Fetch Datasets
+    students = conn.execute("SELECT * FROM Student").fetchall()
+    appointments = conn.execute("SELECT * FROM Appointment").fetchall()
+    intake_forms = conn.execute("SELECT * FROM intake_forms").fetchall()
+    users = conn.execute("SELECT id, username, full_name, role, last_login, created_at FROM users").fetchall()
+    
+    conn.close()
+
+    # 2. Create Workbook
+    wb = openpyxl.Workbook()
+    
+    # Helper to write sheet
+    def write_sheet(wb, sheet_name, data, columns=None):
+        if sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+        else:
+            ws = wb.create_sheet(sheet_name)
+            
+        if not data:
+            ws.append(["No Data Available"])
+            return
+
+        # Headers
+        if not columns:
+            columns = data[0].keys()
+        
+        # Style headers
+        header_font = Font(bold=True, color="FFFFFFFF")
+        header_fill = PatternFill(start_color="FF4F81BD", end_color="FF4F81BD", fill_type="solid")
+        
+        for col_num, col_title in enumerate(columns, 1):
+            cell = ws.cell(row=1, column=col_num, value=str(col_title).upper())
+            cell.font = header_font
+            cell.fill = header_fill
+
+        # Data
+        for row_data in data:
+            row_values = [row_data[col] for col in columns]
+            ws.append(row_values)
+            
+        # Autosize columns
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter # Get the column name
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = (max_length + 2)
+            ws.column_dimensions[column].width = min(adjusted_width, 50)
+
+    # 3. Populate Sheets
+    # Remove default sheet
+    if 'Sheet' in wb.sheetnames:
+        del wb['Sheet']
+        
+    write_sheet(wb, "Students", students)
+    write_sheet(wb, "Appointments", appointments)
+    write_sheet(wb, "Intake Records", intake_forms)
+    write_sheet(wb, "System Users", users)
+
+    # 4. Return File
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    response = make_response(output.getvalue())
+    response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    response.headers['Content-Disposition'] = f'attachment; filename=Master_Data_Export_{timestamp}.xlsx'
+    return response
 
 @app.route('/logout')
 def logout():
@@ -782,7 +1180,7 @@ def add_student():
                 conn.close()
             except Exception:
                 pass
-            return render_template('add_student.html', student=student)
+            return render_template('add_student.html', student=student, user_name=session.get('full_name'))
 
     except Exception as e:
         print(f"[ADD_STUDENT] Unexpected error: {e}")
@@ -790,6 +1188,7 @@ def add_student():
         traceback.print_exc()
         flash('Error loading student form. Please try again.', 'error')
         return redirect(url_for('students'))
+
 
 @app.route('/sessions')
 @login_required
@@ -893,6 +1292,11 @@ def create_session():
 
                     conn.commit()
                     flash('Session created successfully!')
+                    
+                    # Check for follow-up scheduling
+                    if request.form.get('schedule_followup'):
+                         return redirect(url_for('appointment', student_id=student_id))
+                         
                     return redirect(url_for('sessions_list'))
                 else:
                     flash('Invalid appointment selected.')
@@ -908,16 +1312,16 @@ def create_session():
                     pass
             return redirect(url_for('create_session'))
 
-        # GET: load appointments for dropdown
+        # GET: load appointments for dropdown and potential context
         appointments = []
         try:
             appointments = conn.execute('''
                 SELECT a.id, a.date as date, a.time as time, a.status, s.name as student_name,
-                       c.name as counsellor_name
+                       c.name as counsellor_name, a.urgency, a.referral_source, a.purpose
                 FROM Appointment a
                 LEFT JOIN Student s ON a.student_id = s.id
                 LEFT JOIN Counsellor c ON a.Counsellor_id = c.id
-                WHERE a.status IN ('scheduled', 'Scheduled', 'Completed', 'completed')
+                WHERE a.status IN ('scheduled', 'Scheduled', 'In Session', 'Completed', 'completed', 'Sent to Counsellor')
                 ORDER BY a.date DESC, a.time DESC
             ''').fetchall()
         except Exception as e:
@@ -929,7 +1333,9 @@ def create_session():
             except Exception:
                 pass
 
-        return render_template('create_session.html', appointments=appointments)
+        # Check if specific appointment_id is passed in args (from Dashboard or Queue)
+        selected_appt_id = request.args.get('appointment_id')
+        return render_template('create_session.html', appointments=appointments, selected_appt_id=selected_appt_id)
     except Exception as e:
         print(f"[CREATE_SESSION] Unexpected error: {e}")
         import traceback
@@ -1137,7 +1543,62 @@ def generate_report_now():
             'status': 'error',
             'message': f'Error generating report: {str(e)}'
         }), 500
-
+@app.route('/my_cases')
+@login_required
+def my_cases():
+    # Only for Clinical roles
+    if session.get('role') not in ['Counsellor', 'Counselor', 'Admin']:
+        flash("Access restricted to clinical staff.", "error")
+        return redirect(url_for('dashboard'))
+        
+    try:
+        conn = get_db_connection()
+        user_full_name = session.get('full_name')
+        
+        # 1. Find Counsellor ID based on User Name
+        counsellor = conn.execute("SELECT id FROM Counsellor WHERE name = ?", (user_full_name,)).fetchone()
+        
+        if not counsellor:
+            # Fallback for Admin - show all
+            if session.get('role') == 'Admin':
+                 students = conn.execute("SELECT * FROM Student ORDER BY name").fetchall()
+                 conn.close()
+                 return render_template('students.html', students=students, programs=[], page_title="All Cases (Admin View)")
+            
+            # Auto-heal: If logged-in user is a Counsellor but missing from Counsellor table, add them
+            if session.get('role') in ['Counsellor', 'Counselor']:
+                try:
+                    conn.execute("INSERT INTO Counsellor (name, contact) VALUES (?, '')", (user_full_name,))
+                    conn.commit()
+                    # Fetch again
+                    counsellor = conn.execute("SELECT id FROM Counsellor WHERE name = ?", (user_full_name,)).fetchone()
+                except Exception as e:
+                    print(f"[MY_CASES] Auto-create failed: {e}")
+            
+            if not counsellor:
+                flash(f"Error: Professional profile not found for '{user_full_name}'. Please contact Admin.", "error")
+                conn.close()
+                return redirect(url_for('dashboard'))
+            
+        counsellor_id = counsellor['id']
+        
+        # 2. Find students who have appointments with this counsellor (Past or Future)
+        # We use DISTINCT to avoid duplicates
+        students = conn.execute('''
+            SELECT DISTINCT s.* 
+            FROM Student s
+            JOIN Appointment a ON s.id = a.student_id
+            WHERE a.Counsellor_id = ?
+            ORDER BY a.date DESC
+        ''', (counsellor_id,)).fetchall()
+        
+        conn.close()
+        
+        return render_template('students.html', students=students, programs=[], page_title="My Calls List")
+        
+    except Exception as e:
+        print(f"[MY_CASES] Error: {e}")
+        return redirect(url_for('dashboard'))
 @app.route('/download_report_file/<int:report_id>')
 @login_required
 def download_report_file(report_id):
@@ -1312,7 +1773,7 @@ def student_profile(id):
 
         return render_template('student_profile.html', 
                              student=student, 
-                             session=sessions,
+                             sessions=sessions,
                              referrals=referrals,
                              dass21_scores=dass21_scores,
                              oq_scores=oq_scores)
@@ -2193,55 +2654,68 @@ def import_csv():
 @app.route('/intake', methods=['GET', 'POST'])
 @login_required
 def intake():
+    """
+    Phase 1: Secretary Intake Flow
+    - Registers new student (if needed)
+    - Creates Appointment
+    - Records Urgency, Purpose, and Referral Source
+    - Sets status to 'Scheduled' (Pending Handover)
+    """
     if request.method == 'POST':
-        # Get form data
-        student_id = request.form.get('student_id')
-        
-        # Check if student exists
         conn = get_db_connection()
-        student = conn.execute('SELECT * FROM Student WHERE id = ?', (student_id,)).fetchone()
-        
-        if not student:
-            conn.close()
-            flash('Student not found. Please check the ID or add the student first.', 'danger')
-            return redirect(url_for('intake'))
-        
-        # Process intake form data
-        intake_data = {
-            'student_id': student_id,
-            'date': request.form.get('date'),
-            'presenting_issue': request.form.get('presenting_issue'),
-            'background': request.form.get('background'),
-            'mental_status': request.form.get('mental_status'),
-            'risk_assessment': request.form.get('risk_assessment'),
-            'diagnosis': request.form.get('diagnosis'),
-            'treatment_plan': request.form.get('treatment_plan'),
-            'counselor_id': session.get('user_id')
-        }
-        
-        # Insert intake form data into database
         try:
-            conn.execute('''
-                INSERT INTO intake_forms (student_id, date, presenting_issue, background, 
-                mental_status, risk_assessment, diagnosis, treatment_plan, counselor_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                intake_data['student_id'], intake_data['date'], intake_data['presenting_issue'],
-                intake_data['background'], intake_data['mental_status'], intake_data['risk_assessment'],
-                intake_data['diagnosis'], intake_data['treatment_plan'], intake_data['counselor_id']
-            ))
-            conn.commit()
-            conn.close()
+            # 1. Extract Student Info
+            name = request.form.get('name')
+            age = request.form.get('age')
+            gender = request.form.get('gender')
+            index_number = request.form.get('index_number')
+            department = request.form.get('department')
+            faculty = request.form.get('faculty')
+            programme = request.form.get('programme')
+            contact = request.form.get('contact')
+            parent_contact = request.form.get('parent_contact')
+            hall = request.form.get('hall_of_residence')
             
-            flash('Intake form submitted successfully!', 'success')
-            return redirect(url_for('student_profile', id=student_id))
+            # 2. Extract Appointment/Intake Info
+            appt_date = request.form.get('appointment_date')
+            appt_time = request.form.get('appointment_time')
+            purpose = request.form.get('purpose')
+            urgency = request.form.get('urgency')
+            referral = request.form.get('referral_source')
+            
+            # 3. Create/Check Student
+            # Determine logic: assume New Client per form design, but check index_number to avoid dupes
+            existing_student = conn.execute("SELECT id FROM Student WHERE index_number = ?", (index_number,)).fetchone()
+            
+            if existing_student:
+                student_id = existing_student['id']
+                # Optional: Update contact info if changed
+            else:
+                cursor = conn.execute('''
+                    INSERT INTO Student (name, age, gender, index_number, department, 
+                    faculty, programme, contact, parent_contact, hall_of_residence)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (name, age, gender, index_number, department, faculty, programme, contact, parent_contact, hall))
+                student_id = cursor.lastrowid
+                
+            # 4. Create Appointment (The "Intake Record")
+            conn.execute('''
+                INSERT INTO Appointment (student_id, date, time, purpose, status, urgency, referral_source)
+                VALUES (?, ?, ?, ?, 'Scheduled', ?, ?)
+            ''', (student_id, appt_date, appt_time, purpose, urgency, referral))
+            
+            conn.commit()
+            flash('Student intake registered and appointment scheduled successfully.', 'success')
+            return redirect(url_for('dashboard'))
+            
         except Exception as e:
-            conn.close()
-            flash(f'Error submitting intake form: {str(e)}', 'danger')
+            conn.rollback()
+            flash(f'Error processing intake: {str(e)}', 'danger')
             return redirect(url_for('intake'))
-    
-    # GET request - display the form
-    return render_template('intake.html')
+        finally:
+            conn.close()
+
+    return render_template('intake.html', now=datetime.now())
 
 @app.route('/appointment', methods=['GET', 'POST'])
 @login_required
@@ -2260,6 +2734,8 @@ def appointment():
             appointment_time = request.form.get('time')
             purpose = request.form.get('purpose')
             counselor_id = request.form.get('counselor_id')
+            urgency = request.form.get('urgency', 'Normal')
+            referral = request.form.get('referral_source', 'Self')
 
             students = []
             counsellors = []
@@ -2296,9 +2772,9 @@ def appointment():
             # Save appointment to database
             try:
                 conn.execute('''
-                        INSERT INTO Appointment (student_id, date, time, purpose, Counsellor_id, status)
-                    VALUES (?, ?, ?, ?, ?, 'scheduled')
-                ''', (student_id, appointment_date, appointment_time, purpose, counselor_id))
+                        INSERT INTO Appointment (student_id, date, time, purpose, Counsellor_id, status, urgency, referral_source)
+                    VALUES (?, ?, ?, ?, ?, 'Scheduled', ?, ?)
+                ''', (student_id, appointment_date, appointment_time, purpose, counselor_id, urgency, referral))
                 conn.commit()
                 flash('Appointment scheduled successfully!', 'success')
                 return redirect(url_for('manage_appointments'))
@@ -2327,7 +2803,10 @@ def appointment():
             except Exception:
                 pass
     
-        return render_template('appointment.html', students=students, Counsellors=counsellors)
+        return render_template('appointment.html', 
+                             students=students, 
+                             Counsellors=counsellors, 
+                             selected_student_id=request.args.get('student_id'))
     except Exception as e:
         print(f"[APPOINTMENT] Unexpected error: {e}")
         import traceback
@@ -2383,7 +2862,7 @@ def update_appointment_status(appointment_id):
         return redirect(url_for('manage_appointments'))
     
     # Valid statuses
-    valid_statuses = ['Scheduled', 'In Session', 'Completed', 'Cancelled', 'Postponed']
+    valid_statuses = ['Scheduled', 'Sent to Counsellor', 'In Session', 'Completed', 'Cancelled', 'Postponed']
     if new_status not in valid_statuses:
         flash('Invalid status', 'error')
         return redirect(url_for('manage_appointments'))
@@ -2701,7 +3180,7 @@ def print_session(session_id):
             flash('Session not found', 'error')
             return redirect(url_for('dashboard'))
         
-        return render_template('print_session.html', session=session_data)
+        return render_template('print_session.html', session_data=session_data)
     except Exception as e:
         print(f"[PRINT_SESSION] Unexpected error: {e}")
         import traceback
@@ -3299,7 +3778,11 @@ def internal_error(error):
     # Try to log to file if running as EXE
     try:
         if getattr(sys, 'frozen', False):
-            error_log_path = os.path.join(os.path.dirname(sys.executable), 'error_log.txt')
+            try:
+                base_path = os.path.dirname(sys.executable)
+            except:
+                base_path = os.path.dirname(os.path.abspath(__file__))
+            error_log_path = os.path.join(base_path, 'error_log.txt')
             with open(error_log_path, 'a') as f:
                 f.write(f"\n=== ERROR {datetime.now()} ===\n")
                 f.write(f"{error}\n")
@@ -3312,16 +3795,25 @@ def internal_error(error):
     return '''
     <html>
     <head><title>Internal Server Error</title></head>
-    <body>
-        <h1>Internal Server Error</h1>
-        <p>The server encountered an error. Details have been logged.</p>
-        <p><a href="/welcome">Return to Login</a></p>
+    <body style="font-family: sans-serif; padding: 2rem; line-height: 1.6;">
+        <h1 style="color: #dc3545;">Internal Server Error</h1>
+        <p>The server encountered an error while processing your request.</p>
+        <div style="background: #f8f9fa; padding: 1rem; border-radius: 4px; border: 1px solid #dee2e6; margin: 1rem 0;">
+            <code>''' + str(error) + '''</code>
+        </div>
+        <p><a href="/welcome" style="display: inline-block; background: #0d6efd; color: white; padding: 0.5rem 1rem; text-decoration: none; border-radius: 4px;">Return to Login</a></p>
     </body>
     </html>
     ''', 500
 
 @app.errorhandler(Exception)
 def handle_exception(e):
+    # Pass through HTTP errors (like 404, 405, etc.) so Flask handles them normally
+    from werkzeug.exceptions import HTTPException
+    if isinstance(e, HTTPException):
+        return e
+        
+    # For actual unhandled code exceptions, log and return 500
     import traceback
     error_trace = traceback.format_exc()
     print(f"[UNHANDLED ERROR] {e}")
@@ -3435,7 +3927,7 @@ if __name__ == '__main__':
             print("Browser opened automatically!")
         except Exception as e:
             print(f"Could not open browser automatically: {e}")
-            print("Please manually open: http://127.0.0.1:5000")
+            print("Please manually open: http://localhost:5000")
     
     # Open browser automatically (only if not in debug mode)
     is_exe = getattr(sys, 'frozen', False)
@@ -3446,13 +3938,15 @@ if __name__ == '__main__':
         print("Server starting... Browser will open automatically.")
     else:
         print("Starting in development mode...")
-        print("Open your browser and navigate to: http://127.0.0.1:5000")
+        print("Local access: http://localhost:5000")
+        print("Network access: http://<your-ip-address>:5000")
     
     print()
     
     try:
         # Run app (debug=False for production EXE)
-        app.run(debug=not is_exe, host='127.0.0.1', port=5000, use_reloader=False)
+        # Run app (debug=not is_exe, host='0.0.0.0', port=5000, use_reloader=not is_exe)
+        app.run(debug=not is_exe, host='0.0.0.0', port=5000, use_reloader=not is_exe)
     except Exception as e:
         print(f"ERROR: Failed to start server: {e}")
         if not is_exe:

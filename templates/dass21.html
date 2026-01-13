@@ -1,188 +1,211 @@
-{% extends "base.html" %}
+{% extends "base_modern.html" %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="card-title mb-0">DASS-21 Assessment Score Entry</h5>
-                </div>
-                <div class="card-body">
-                    <form method="POST" action="{{ url_for('dass21') }}" class="needs-validation" novalidate>
-                        <!-- Student Selection -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <label for="student_id" class="form-label">Student <span class="text-danger">*</span></label>
-                                <select class="form-select" id="student_id" name="student_id" required>
-                                    <option value="">Choose student...</option>
-                                    {% for student in students %}
-                                    <option value="{{ student.id }}">{{ student.name }} - {{ student.programme }}</option>
-                                    {% endfor %}
-                                </select>
-                                <div class="invalid-feedback">
-                                    Please select a student.
-                                </div>
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex align-items-center">
+            <a href="javascript:history.back()" class="btn btn-light border rounded-circle shadow-sm me-3"
+                style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h2 class="fw-bold mb-0 text-dark">DASS-21 Assessment</h2>
+                <p class="text-muted mb-0">Record scores for Depression, Anxiety, and Stress.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- LEFT COLUMN: Form -->
+    <div class="col-lg-8">
+        <div class="card card-glass border-0 shadow-sm">
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('dass21') }}" class="needs-validation" novalidate>
+
+                    <!-- Student Selection -->
+                    <div class="mb-5">
+                        <label for="student_id" class="form-label fw-bold text-secondary text-uppercase small">Select
+                            Student <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-lg bg-light border-0" id="student_id" name="student_id"
+                            required>
+                            <option value="">choose a student...</option>
+                            {% for student in students %}
+                            <option value="{{ student.id }}">{{ student.name }} - {{ student.programme }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="invalid-feedback">Please select a student.</div>
+                    </div>
+
+                    <h5 class="fw-bold text-dark mb-4">Raw Score Entry (0-21)</h5>
+                    <div class="row g-4 mb-4">
+                        <!-- Depression Score -->
+                        <div class="col-md-4">
+                            <div class="p-3 bg-danger bg-opacity-10 rounded-3 border border-danger border-opacity-10">
+                                <label for="depression_score"
+                                    class="form-label fw-bold text-danger text-uppercase small">Depression</label>
+                                <input type="number" class="form-control form-control-lg border-0 bg-white"
+                                    id="depression_score" name="depression_score" min="0" max="21" step="0.5" required
+                                    placeholder="0">
+                                <div class="invalid-feedback">Score must be 0-21.</div>
+                                <div id="depression_severity" class="mt-2 text-center text-danger fw-bold small">-</div>
                             </div>
                         </div>
 
-                        <!-- DASS-21 Scores -->
-                        <div class="row g-3">
-                            <!-- Depression Score -->
-                            <div class="col-md-4">
-                                <label for="depression_score" class="form-label">Depression Score <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="depression_score" name="depression_score"
-                                       min="0" max="21" step="0.5" required>
-                                <div class="invalid-feedback">
-                                    Please enter a valid score (0-21).
-                                </div>
-                                <div id="depression_severity" class="form-text mt-2"></div>
-                            </div>
-
-                            <!-- Anxiety Score -->
-                            <div class="col-md-4">
-                                <label for="anxiety_score" class="form-label">Anxiety Score <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="anxiety_score" name="anxiety_score"
-                                       min="0" max="21" step="0.5" required>
-                                <div class="invalid-feedback">
-                                    Please enter a valid score (0-21).
-                                </div>
-                                <div id="anxiety_severity" class="form-text mt-2"></div>
-                            </div>
-
-                            <!-- Stress Score -->
-                            <div class="col-md-4">
-                                <label for="stress_score" class="form-label">Stress Score <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="stress_score" name="stress_score"
-                                       min="0" max="21" step="0.5" required>
-                                <div class="invalid-feedback">
-                                    Please enter a valid score (0-21).
-                                </div>
-                                <div id="stress_severity" class="form-text mt-2"></div>
+                        <!-- Anxiety Score -->
+                        <div class="col-md-4">
+                            <div class="p-3 bg-warning bg-opacity-10 rounded-3 border border-warning border-opacity-10">
+                                <label for="anxiety_score"
+                                    class="form-label fw-bold text-warning text-uppercase small">Anxiety</label>
+                                <input type="number" class="form-control form-control-lg border-0 bg-white"
+                                    id="anxiety_score" name="anxiety_score" min="0" max="21" step="0.5" required
+                                    placeholder="0">
+                                <div class="invalid-feedback">Score must be 0-21.</div>
+                                <div id="anxiety_severity" class="mt-2 text-center text-warning fw-bold small">-</div>
                             </div>
                         </div>
 
-                        <!-- Final Scores Display -->
-                        <div class="row mt-4">
-                            <div class="col-12">
-                                <div class="alert alert-info">
-                                    <h6 class="alert-heading">Final Scores (×2):</h6>
-                                    <div class="row">
-                                        <div class="col-md-4">
-                                            Depression: <span id="final_depression">0</span>
-                                        </div>
-                                        <div class="col-md-4">
-                                            Anxiety: <span id="final_anxiety">0</span>
-                                        </div>
-                                        <div class="col-md-4">
-                                            Stress: <span id="final_stress">0</span>
-                                        </div>
-                                    </div>
+                        <!-- Stress Score -->
+                        <div class="col-md-4">
+                            <div class="p-3 bg-info bg-opacity-10 rounded-3 border border-info border-opacity-10">
+                                <label for="stress_score"
+                                    class="form-label fw-bold text-info text-uppercase small">Stress</label>
+                                <input type="number" class="form-control form-control-lg border-0 bg-white"
+                                    id="stress_score" name="stress_score" min="0" max="21" step="0.5" required
+                                    placeholder="0">
+                                <div class="invalid-feedback">Score must be 0-21.</div>
+                                <div id="stress_severity" class="mt-2 text-center text-info fw-bold small">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Final Calculation Preview -->
+                    <div class="card bg-dark text-white border-0 mb-5">
+                        <div class="card-body p-4">
+                            <h6 class="text-uppercase text-white-50 small fw-bold mb-3">Calculated Clinical Scores (x2)
+                            </h6>
+                            <div class="row text-center">
+                                <div class="col-4 border-end border-white border-opacity-10">
+                                    <div class="display-6 fw-bold" id="final_depression">0</div>
+                                    <div class="small text-white-50">Depression</div>
+                                </div>
+                                <div class="col-4 border-end border-white border-opacity-10">
+                                    <div class="display-6 fw-bold" id="final_anxiety">0</div>
+                                    <div class="small text-white-50">Anxiety</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="display-6 fw-bold" id="final_stress">0</div>
+                                    <div class="small text-white-50">Stress</div>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Submit Buttons -->
-                        <div class="row mt-4">
-                            <div class="col-12">
-                                <button type="submit" class="btn btn-warning">
-                                    <i class="bi bi-save"></i> Save Scores
-                                </button>
-                                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
-                                    <i class="bi bi-x-circle"></i> Cancel
-                                </a>
-                            </div>
-                        </div>
-                    </form>
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-light border px-4">Cancel</a>
+                        <button type="submit" class="btn btn-primary px-5 shadow-sm btn-hover-lift">
+                            <i class="bi bi-save me-2"></i> Save Assessment
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN: Guidelines -->
+    <div class="col-lg-4">
+        <div class="card card-glass border-0 shadow-sm sticky-top" style="top: 20px;">
+            <div class="card-header bg-transparent border-0 pt-4 px-4">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3 text-primary">
+                        <i class="bi bi-journal-check"></i>
+                    </div>
+                    <h6 class="fw-bold mb-0 text-dark">Scoring Guide (x2)</h6>
                 </div>
             </div>
-
-            <!-- DASS-21 Guidelines -->
-            <div class="card mt-4">
-                <div class="card-header bg-info text-white">
-                    <h5 class="card-title mb-0">DASS-21 Interpretation Guidelines</h5>
+            <div class="card-body px-4 pb-4">
+                <div class="alert alert-light border small text-muted mb-4">
+                    <i class="bi bi-info-circle me-1"></i> Scores below show clinical ranges for the
+                    <strong>multiplied</strong> final score.
                 </div>
-                <div class="card-body">
-                    <!-- Severity Ratings Tables -->
-                    <div class="row">
-                        <!-- Depression -->
-                        <div class="col-md-4">
-                            <h6 class="border-bottom pb-2">Depression Severity</h6>
-                            <div class="table-responsive">
-                                <table class="table table-sm">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Score</th>
-                                            <th>Severity</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr><td>0-9</td><td>Normal</td></tr>
-                                        <tr><td>10-13</td><td>Mild</td></tr>
-                                        <tr><td>14-20</td><td>Moderate</td></tr>
-                                        <tr><td>21-27</td><td>Severe</td></tr>
-                                        <tr><td>28+</td><td>Extremely Severe</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
 
-                        <!-- Anxiety -->
-                        <div class="col-md-4">
-                            <h6 class="border-bottom pb-2">Anxiety Severity</h6>
-                            <div class="table-responsive">
-                                <table class="table table-sm">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Score</th>
-                                            <th>Severity</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr><td>0-7</td><td>Normal</td></tr>
-                                        <tr><td>8-9</td><td>Mild</td></tr>
-                                        <tr><td>10-14</td><td>Moderate</td></tr>
-                                        <tr><td>15-19</td><td>Severe</td></tr>
-                                        <tr><td>20+</td><td>Extremely Severe</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                <h6 class="text-uppercase small fw-bold text-danger mb-2">Depression</h6>
+                <table class="table table-sm table-borderless small mb-4">
+                    <tbody>
+                        <tr>
+                            <td>Normal</td>
+                            <td class="text-end text-muted">0-9</td>
+                        </tr>
+                        <tr>
+                            <td>Mild</td>
+                            <td class="text-end text-muted">10-13</td>
+                        </tr>
+                        <tr>
+                            <td>Moderate</td>
+                            <td class="text-end text-muted">14-20</td>
+                        </tr>
+                        <tr>
+                            <td>Severe</td>
+                            <td class="text-end text-muted">21-27</td>
+                        </tr>
+                        <tr>
+                            <td>Extremely Severe</td>
+                            <td class="text-end text-muted">28+</td>
+                        </tr>
+                    </tbody>
+                </table>
 
-                        <!-- Stress -->
-                        <div class="col-md-4">
-                            <h6 class="border-bottom pb-2">Stress Severity</h6>
-                            <div class="table-responsive">
-                                <table class="table table-sm">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Score</th>
-                                            <th>Severity</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr><td>0-14</td><td>Normal</td></tr>
-                                        <tr><td>15-18</td><td>Mild</td></tr>
-                                        <tr><td>19-25</td><td>Moderate</td></tr>
-                                        <tr><td>26-33</td><td>Severe</td></tr>
-                                        <tr><td>34+</td><td>Extremely Severe</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+                <h6 class="text-uppercase small fw-bold text-warning mb-2">Anxiety</h6>
+                <table class="table table-sm table-borderless small mb-4">
+                    <tbody>
+                        <tr>
+                            <td>Normal</td>
+                            <td class="text-end text-muted">0-7</td>
+                        </tr>
+                        <tr>
+                            <td>Mild</td>
+                            <td class="text-end text-muted">8-9</td>
+                        </tr>
+                        <tr>
+                            <td>Moderate</td>
+                            <td class="text-end text-muted">10-14</td>
+                        </tr>
+                        <tr>
+                            <td>Severe</td>
+                            <td class="text-end text-muted">15-19</td>
+                        </tr>
+                        <tr>
+                            <td>Extremely Severe</td>
+                            <td class="text-end text-muted">20+</td>
+                        </tr>
+                    </tbody>
+                </table>
 
-                    <!-- Important Notes -->
-                    <div class="alert alert-warning mt-4 mb-0">
-                        <h6 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> Important Notes:</h6>
-                        <ul class="mb-0">
-                            <li>Enter the raw scores (0-21) for each category.</li>
-                            <li>Final scores will be automatically multiplied by 2.</li>
-                            <li>Keep the original DASS-21 questionnaire for detailed reference.</li>
-                            <li>Consider referral for severe or extremely severe scores.</li>
-                        </ul>
-                    </div>
-                </div>
+                <h6 class="text-uppercase small fw-bold text-info mb-2">Stress</h6>
+                <table class="table table-sm table-borderless small mb-0">
+                    <tbody>
+                        <tr>
+                            <td>Normal</td>
+                            <td class="text-end text-muted">0-14</td>
+                        </tr>
+                        <tr>
+                            <td>Mild</td>
+                            <td class="text-end text-muted">15-18</td>
+                        </tr>
+                        <tr>
+                            <td>Moderate</td>
+                            <td class="text-end text-muted">19-25</td>
+                        </tr>
+                        <tr>
+                            <td>Severe</td>
+                            <td class="text-end text-muted">26-33</td>
+                        </tr>
+                        <tr>
+                            <td>Extremely Severe</td>
+                            <td class="text-end text-muted">34+</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -215,9 +238,9 @@
         }
 
         // Update final scores (×2)
-        document.getElementById('final_depression').textContent = (scores.depression * 2).toFixed(1)
-        document.getElementById('final_anxiety').textContent = (scores.anxiety * 2).toFixed(1)
-        document.getElementById('final_stress').textContent = (scores.stress * 2).toFixed(1)
+        document.getElementById('final_depression').textContent = (scores.depression * 2).toFixed(1).replace('.0', '')
+        document.getElementById('final_anxiety').textContent = (scores.anxiety * 2).toFixed(1).replace('.0', '')
+        document.getElementById('final_stress').textContent = (scores.stress * 2).toFixed(1).replace('.0', '')
 
         // Update severity indicators
         updateSeverity('depression', scores.depression * 2)
@@ -227,36 +250,38 @@
 
     function updateSeverity(type, score) {
         let severity = ''
-        let color = ''
 
         if (type === 'depression') {
-            if (score <= 9) { severity = 'Normal'; color = 'success' }
-            else if (score <= 13) { severity = 'Mild'; color = 'info' }
-            else if (score <= 20) { severity = 'Moderate'; color = 'warning' }
-            else if (score <= 27) { severity = 'Severe'; color = 'danger' }
-            else { severity = 'Extremely Severe'; color = 'danger' }
+            if (score <= 9) severity = 'Normal'
+            else if (score <= 13) severity = 'Mild'
+            else if (score <= 20) severity = 'Moderate'
+            else if (score <= 27) severity = 'Severe'
+            else severity = 'Extremely Severe'
         } else if (type === 'anxiety') {
-            if (score <= 7) { severity = 'Normal'; color = 'success' }
-            else if (score <= 9) { severity = 'Mild'; color = 'info' }
-            else if (score <= 14) { severity = 'Moderate'; color = 'warning' }
-            else if (score <= 19) { severity = 'Severe'; color = 'danger' }
-            else { severity = 'Extremely Severe'; color = 'danger' }
+            if (score <= 7) severity = 'Normal'
+            else if (score <= 9) severity = 'Mild'
+            else if (score <= 14) severity = 'Moderate'
+            else if (score <= 19) severity = 'Severe'
+            else severity = 'Extremely Severe'
         } else if (type === 'stress') {
-            if (score <= 14) { severity = 'Normal'; color = 'success' }
-            else if (score <= 18) { severity = 'Mild'; color = 'info' }
-            else if (score <= 25) { severity = 'Moderate'; color = 'warning' }
-            else if (score <= 33) { severity = 'Severe'; color = 'danger' }
-            else { severity = 'Extremely Severe'; color = 'danger' }
+            if (score <= 14) severity = 'Normal'
+            else if (score <= 18) severity = 'Mild'
+            else if (score <= 25) severity = 'Moderate'
+            else if (score <= 33) severity = 'Severe'
+            else severity = 'Extremely Severe'
         }
 
-        document.getElementById(`${type}_severity`).innerHTML = 
-            `<span class="badge bg-${color}">${severity}</span>`
+        document.getElementById(`${type}_severity`).textContent = severity
     }
 
-    // Add event listeners to score inputs
-    document.getElementById('depression_score').addEventListener('input', updateScores)
-    document.getElementById('anxiety_score').addEventListener('input', updateScores)
-    document.getElementById('stress_score').addEventListener('input', updateScores)
+    // Add event listeners
+    ['depression_score', 'anxiety_score', 'stress_score'].forEach(id => {
+        const el = document.getElementById(id);
+        el.addEventListener('input', function () {
+            validateScore(this);
+            updateScores();
+        });
+    });
 
     // Validate score ranges
     function validateScore(input) {
@@ -267,15 +292,5 @@
             input.setCustomValidity('')
         }
     }
-
-    document.getElementById('depression_score').addEventListener('input', function() {
-        validateScore(this)
-    })
-    document.getElementById('anxiety_score').addEventListener('input', function() {
-        validateScore(this)
-    })
-    document.getElementById('stress_score').addEventListener('input', function() {
-        validateScore(this)
-    })
 </script>
 {% endblock %}
