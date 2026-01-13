@@ -3836,6 +3836,46 @@ if __name__ == '__main__':
         db_path = os.path.join(base_path, 'counseling.db')
         
         # Check and initialize
+import threading
+import time
+
+def run_auto_sync_loop():
+    """Background thread to auto-sync every 10 seconds"""
+    print("--- Auto-Sync Service Started ---")
+    while True:
+        try:
+            # Check if sync is enabled and peer IP is set
+            config = node_config.load_config()
+            peer_ip = config.get('peer_ip')  
+            if peer_ip:
+                # Trigger sync silently
+                # We use a slight delay or check to avoid spamming if offline
+                result = trigger_sync()
+                if result.get('status') == 'success' and result.get('count', 0) > 0:
+                    print(f"[AUTO-SYNC] Synced {result['count']} records.")
+            
+        except Exception as e:
+            print(f"[AUTO-SYNC] Error: {e}")
+        
+        # Sleep for 10 seconds before next sync attempt
+        time.sleep(10)
+
+if __name__ == '__main__':
+    # Initialize database FIRST before anything else
+    print("Initializing database...")
+    try:
+        # Force database initialization at startup
+        try:
+            if getattr(sys, 'frozen', False):
+                base_path = os.path.dirname(sys.executable)
+            else:
+                base_path = os.path.dirname(os.path.abspath(__file__))
+        except:
+            base_path = os.path.dirname(os.path.abspath(__file__))
+        
+        db_path = os.path.join(base_path, 'counseling.db')
+        
+        # Check and initialize
         if not os.path.exists(db_path):
             print(f"Database not found, creating at: {db_path}")
             import db_setup
@@ -3902,6 +3942,10 @@ if __name__ == '__main__':
                     input("Press Enter to exit...")
                 sys.exit(1)
     
+    # Start Auto-Sync Thread
+    sync_thread = threading.Thread(target=run_auto_sync_loop, daemon=True)
+    sync_thread.start()
+
     # Log available routes for debugging
     print('=' * 60)
     print('AAMUSTED Counselling Management System')
@@ -3945,10 +3989,8 @@ if __name__ == '__main__':
     
     try:
         # Run app (debug=False for production EXE)
-        # Run app (debug=not is_exe, host='0.0.0.0', port=5000, use_reloader=not is_exe)
-        app.run(debug=not is_exe, host='0.0.0.0', port=5000, use_reloader=not is_exe)
+        app.run(debug=not getattr(sys, 'frozen', False), host='0.0.0.0', port=5000, use_reloader=False)
     except Exception as e:
-        print(f"ERROR: Failed to start server: {e}")
-        if not is_exe:
-            input("Press Enter to exit...")
+        print(f"Error starting server: {e}")
+        input("Press Enter to exit...")
         sys.exit(1)
