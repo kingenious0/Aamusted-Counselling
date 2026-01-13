@@ -32,10 +32,13 @@ pyinstaller --noconfirm --clean \
     --hidden-import "json" \
     --hidden-import "node_config" \
     --hidden-import "sync_engine" \
+    --hidden-import "apscheduler" \
+    --hidden-import "apscheduler.schedulers.background" \
     --collect-all "flask" \
     --collect-all "jinja2" \
     --collect-all "werkzeug" \
     --collect-all "requests" \
+    --collect-all "docx" \
     --windowed \
     app.py
 
