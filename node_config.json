@@ -1,0 +1,7 @@
+{
+    "node_id": "NODE_8DEAC5EF",
+    "node_role": "SECRETARY",
+    "peer_ip": "10.251.98.166",
+    "sync_enabled": true,
+    "sync_interval_seconds": 60
+}
