@@ -153,6 +153,67 @@ def nl2br(value):
         return value.replace('\n', '<br>')
     return ''
 
+# ---------- Helper Functions ----------
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and PyInstaller"""
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    
+    return os.path.join(base_path, relative_path)
+
+def get_db_connection():
+    """Get database connection - works in both dev and EXE mode"""
+    # Ensure database is initialized first (only once)
+    ensure_database_initialized()
+    
+    # Get database path
+    try:
+        if getattr(sys, 'frozen', False):
+            # Running as compiled EXE
+            base_path = os.path.dirname(sys.executable)
+        else:
+            # Running as script
+            base_path = os.path.dirname(os.path.abspath(__file__))
+    except:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    
+    db_path = os.path.join(base_path, 'counseling.db')
+    
+    # Connect with timeout to prevent locking issues
+    conn = sqlite3.connect(db_path, timeout=10.0)
+    conn.row_factory = sqlite3.Row
+    
+    # Quick verification that Student table exists (most critical table)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND (name='Student' OR name='student')")
+        if not cursor.fetchone():
+            print("[GET_DB_CONNECTION] Student table missing! Reinitializing...")
+            conn.close()
+            # Force reinitialization
+            global _db_initialized
+            _db_initialized = False
+            ensure_database_initialized()
+            # Reconnect
+            conn = sqlite3.connect(db_path, timeout=10.0)
+            conn.row_factory = sqlite3.Row
+    except Exception as verify_error:
+        print(f"[GET_DB_CONNECTION] Error verifying tables: {verify_error}")
+        # Continue anyway - let the query fail and be caught by route handlers
+    
+    return conn
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'logged_in' not in session:
+            return redirect(url_for('welcome'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.context_processor
 def inject_node_info():
     """Inject node info into all templates"""
@@ -227,67 +288,6 @@ def inject_settings():
         return {'settings': settings}
     except:
         return {'settings': {}}
-
-# ---------- Helper Functions ----------
-def resource_path(relative_path):
-    """Get absolute path to resource, works for dev and PyInstaller"""
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.dirname(os.path.abspath(__file__))
-    
-    return os.path.join(base_path, relative_path)
-
-def get_db_connection():
-    """Get database connection - works in both dev and EXE mode"""
-    # Ensure database is initialized first (only once)
-    ensure_database_initialized()
-    
-    # Get database path
-    try:
-        if getattr(sys, 'frozen', False):
-            # Running as compiled EXE
-            base_path = os.path.dirname(sys.executable)
-        else:
-            # Running as script
-            base_path = os.path.dirname(os.path.abspath(__file__))
-    except:
-        base_path = os.path.dirname(os.path.abspath(__file__))
-    
-    db_path = os.path.join(base_path, 'counseling.db')
-    
-    # Connect with timeout to prevent locking issues
-    conn = sqlite3.connect(db_path, timeout=10.0)
-    conn.row_factory = sqlite3.Row
-    
-    # Quick verification that Student table exists (most critical table)
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND (name='Student' OR name='student')")
-        if not cursor.fetchone():
-            print("[GET_DB_CONNECTION] Student table missing! Reinitializing...")
-            conn.close()
-            # Force reinitialization
-            global _db_initialized
-            _db_initialized = False
-            ensure_database_initialized()
-            # Reconnect
-            conn = sqlite3.connect(db_path, timeout=10.0)
-            conn.row_factory = sqlite3.Row
-    except Exception as verify_error:
-        print(f"[GET_DB_CONNECTION] Error verifying tables: {verify_error}")
-        # Continue anyway - let the query fail and be caught by route handlers
-    
-    return conn
-
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'logged_in' not in session:
-            return redirect(url_for('welcome'))
-        return f(*args, **kwargs)
-    return decorated_function
 
 @app.route('/audit_logs')
 @login_required
