@@ -3820,22 +3820,6 @@ def handle_exception(e):
     print(f"[UNHANDLED ERROR] Traceback:\n{error_trace}")
     return internal_error(e)
 
-if __name__ == '__main__':
-    # Initialize database FIRST before anything else
-    print("Initializing database...")
-    try:
-        # Force database initialization at startup
-        try:
-            if getattr(sys, 'frozen', False):
-                base_path = os.path.dirname(sys.executable)
-            else:
-                base_path = os.path.dirname(os.path.abspath(__file__))
-        except:
-            base_path = os.path.dirname(os.path.abspath(__file__))
-        
-        db_path = os.path.join(base_path, 'counseling.db')
-        
-        # Check and initialize
 import threading
 import time
 
