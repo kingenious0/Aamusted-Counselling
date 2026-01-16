@@ -78,6 +78,7 @@ def init_db():
             accepted_at TIMESTAMP,          -- New: Workflow timestamp
             completed_at TIMESTAMP,         -- New: Workflow timestamp
             referral_reason TEXT,           -- New: Context for handover
+            referral_source TEXT,           -- New: Reporting
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (student_id) REFERENCES Student(id),
             FOREIGN KEY (Counsellor_id) REFERENCES Counsellor(id)
@@ -260,11 +261,35 @@ def init_db():
     add_column_if_missing('Appointment', 'accepted_at', 'TIMESTAMP')
     add_column_if_missing('Appointment', 'completed_at', 'TIMESTAMP')
     add_column_if_missing('Appointment', 'referral_reason', 'TEXT')
+    add_column_if_missing('Appointment', 'referral_source', 'TEXT')
 
     # Users table updates
     add_column_if_missing('users', 'phone', 'TEXT')
     add_column_if_missing('users', 'email', 'TEXT')
     add_column_if_missing('users', 'profile_pic', 'TEXT')
+
+    # App Settings sync updates
+    add_column_if_missing('app_settings', 'updated_at', 'TIMESTAMP')
+    # Manual backfill since ADD COLUMN DEFAULT CURRENT_TIMESTAMP can be flaky in some SQLite versions
+    try:
+        cursor.execute("UPDATE app_settings SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL")
+    except:
+        pass
+    add_column_if_missing('app_settings', 'global_id', 'TEXT')
+    # Uniqueness enforced by logic/UUID
+
+    # Backfill global_id for app_settings if missing
+    try:
+        settings_rows = cursor.execute("SELECT id FROM app_settings WHERE global_id IS NULL").fetchall()
+        if settings_rows:
+            import uuid
+            print(f"[DB_SETUP] Backfilling global_id for {len(settings_rows)} settings...")
+            for row in settings_rows:
+                row_id = row[0]
+                new_uuid = str(uuid.uuid4())
+                cursor.execute("UPDATE app_settings SET global_id = ? WHERE id = ?", (new_uuid, row_id))
+    except Exception as e:
+        print(f"[DB_SETUP] Warning during backfill: {e}")
 
     cursor.execute("PRAGMA foreign_keys = ON;")
 

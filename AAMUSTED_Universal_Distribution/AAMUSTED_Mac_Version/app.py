@@ -251,8 +251,15 @@ def set_theme():
     try:
         theme = request.form.get('theme', 'default')
         conn = get_db_connection()
-        # Upsert theme setting
-        conn.execute("INSERT OR REPLACE INTO app_settings (setting_name, setting_value) VALUES ('active_theme', ?)", (theme,))
+        # Upsert theme setting with sync support
+        sys_id = str(uuid.uuid4())
+        conn.execute("""
+            INSERT INTO app_settings (setting_name, setting_value, global_id, updated_at) 
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP) 
+            ON CONFLICT(setting_name) DO UPDATE SET 
+                setting_value=excluded.setting_value, 
+                updated_at=CURRENT_TIMESTAMP
+        """, ('active_theme', theme, sys_id))
         conn.commit()
         conn.close()
         return jsonify({'status': 'success', 'theme': theme})
@@ -1032,8 +1039,9 @@ def admin_workflow():
 @app.route('/admin/settings')
 @login_required
 def admin_settings():
-    if session.get('role') != 'Admin':
-        return redirect(url_for('dashboard'))
+    # Access control: All roles can access for Node Config; Admin checks handled in template
+    # if session.get('role') != 'Admin':
+    #     return redirect(url_for('dashboard'))
     
     conn = get_db_connection()
     # Fetch all settings

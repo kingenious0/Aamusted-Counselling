@@ -12,7 +12,8 @@ sync_bp = Blueprint('sync', __name__, url_prefix='/api/sync')
 SYNC_TABLES = [
     'Student', 'Appointment', 'session', 'Referral', 
     'CaseManagement', 'OutcomeQuestionnaire', 'DASS21', 
-    'Feedback', 'SessionIssue', 'Notification'
+    'Feedback', 'SessionIssue', 'Notification',
+    'app_settings'
 ]
 
 def get_db_connection():
