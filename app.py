@@ -223,7 +223,10 @@ def inject_node_info():
 @app.route('/admin/settings/node', methods=['POST'])
 @login_required
 def update_node_settings():
-    if session.get('role') != 'Admin':
+    # Allow Admin, Secretary, and Counsellor to update local node settings
+    # This is necessary for initial setup on their respective machines
+    allowed_roles = ['Admin', 'Secretary', 'Counsellor', 'Counselor']
+    if session.get('role') not in allowed_roles:
         flash('Unauthorized access', 'error')
         return redirect(url_for('dashboard'))
     

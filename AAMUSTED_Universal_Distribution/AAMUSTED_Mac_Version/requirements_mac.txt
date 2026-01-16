@@ -8,11 +8,7 @@ blinker==1.6.3
 python-dateutil==2.8.2
 six==1.16.0
 openpyxl==3.1.2
-
-# Database
-
-
-# Development dependencies (optional)
+python-docx>=0.8.11
+APScheduler>=3.10.0
+requests>=2.31.0
 python-dotenv==1.0.0
-
-# For Windows packaging

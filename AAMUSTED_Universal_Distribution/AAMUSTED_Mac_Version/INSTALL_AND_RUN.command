@@ -70,5 +70,25 @@ fi
 
 # 4. Launch App
 echo "🚀 Starting System..."
+echo ""
+echo "IMPORTANT: The system is starting."
+echo "1. The browser should open automatically."
+echo "2. If you see 'Sync failed: No peer IP', go to Admin -> Settings in the app"
+echo "   and enter the IP address of the OTHER computer."
+echo "3. Default Login Credentials:"
+echo "   - Username: admin"
+echo "   - Password: Admin123"
+echo "   - Username: counsellor"
+echo "   - Password: Counsellor123"
+echo "   - Username: secretary"
+echo "   - Password: Secretary123"
+echo ""
+
+# 3b. Run Database Migration (Fix Schema)
+if [ -f "add_sync_columns.py" ]; then
+    echo "Running database migration..."
+    python3 add_sync_columns.py
+fi
+
 export AAMUSTED_AUTO_OPEN_BROWSER=1
 python3 app.py
