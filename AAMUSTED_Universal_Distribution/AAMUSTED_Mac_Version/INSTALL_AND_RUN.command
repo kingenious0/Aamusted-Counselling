@@ -83,6 +83,9 @@ echo "   - Password: Counsellor123"
 echo "   - Username: secretary"
 echo "   - Password: Secretary123"
 echo ""
+echo "4. YOUR IP ADDRESS (Enter this on the Windows machine):"
+ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print "   - " $2}'
+echo ""
 
 # 3b. Run Database Migration (Fix Schema)
 if [ -f "add_sync_columns.py" ]; then

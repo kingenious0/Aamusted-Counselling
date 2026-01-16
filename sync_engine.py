@@ -187,8 +187,8 @@ def trigger_sync():
         resp = requests.post(f"{peer_url}/handshake", timeout=2)
         if resp.status_code != 200:
             return {"status": "error", "message": "Handshake failed"}
-    except:
-        return {"status": "offline", "message": "Peer unreachable"}
+    except Exception as e:
+        return {"status": "offline", "message": f"Peer unreachable: {str(e)}"}
         
     # 2. Pull (Get their changes)
     # We need to know when we last synced with THEM.
