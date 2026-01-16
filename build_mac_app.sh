@@ -10,8 +10,15 @@ cd "$(dirname "$0")"
 # Fix for "ProxyError: Cannot connect to proxy" on some Mac systems
 export no_proxy='*'
 
+# Exit on error
+set -e
+
 echo "1. Installing Dependencies..."
-pip3 install -r requirements.txt
+if ! pip3 install -r requirements.txt; then
+    echo "Error: Failed to install dependencies."
+    exit 1
+fi
+
 pip3 install pyinstaller
 
 echo "2. Cleaning previous builds..."

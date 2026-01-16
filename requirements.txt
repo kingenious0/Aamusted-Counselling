@@ -14,10 +14,10 @@ APScheduler>=3.10.0
 requests>=2.31.0
 
 # Database
-sqlite3
+
 
 # Development dependencies (optional)
 python-dotenv==1.0.0
 
 # For Windows packaging
-pywin32==306
+pywin32==306; sys_platform == 'win32'
