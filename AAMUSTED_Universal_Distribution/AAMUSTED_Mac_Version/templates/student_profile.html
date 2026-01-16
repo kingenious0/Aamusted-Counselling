@@ -1,0 +1,400 @@
+{% extends "base_modern.html" %}
+
+{% block title %}Clinical Profile: {{ student.name }} - AAMUSTED{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Left Column: Student Bio & Identity -->
+    <div class="col-lg-4 mb-4">
+        <!-- Main Identity Card -->
+        <div class="card card-glass border-0 shadow-lg mb-4">
+            <div class="card-body text-center pt-5 pb-4">
+                <div class="avatar-circle-lg bg-primary bg-opacity-10 text-primary mx-auto mb-3 fw-bold display-4 d-flex align-items-center justify-content-center"
+                    style="width: 100px; height: 100px; border-radius: 50%;">
+                    {{ student.name[:2].upper() }}
+                </div>
+                <h3 class="fw-bold mb-1">{{ student.name }}</h3>
+                <p class="text-muted mb-3 font-monospace">{{ student.professional_id or 'ID: ' ~ student.id }}</p>
+
+                <div class="d-flex justify-content-center gap-2 mb-4">
+                    <span class="badge bg-light text-dark border">{{ student.programme or 'General Arts' }}</span>
+                    {% if student.gender %}
+                    <span class="badge bg-light text-dark border">{{ student.gender }}</span>
+                    {% endif %}
+                    {% if student.age %}
+                    <span class="badge bg-light text-dark border">{{ student.age }} yrs</span>
+                    {% endif %}
+                </div>
+
+                <div class="d-grid gap-2">
+                    <a href="/appointment?student_id={{ student.id }}" class="btn btn-primary btn-hover-lift shadow-sm">
+                        <i class="bi bi-calendar-plus me-2"></i>Schedule Session
+                    </a>
+                </div>
+            </div>
+            <div class="card-footer bg-light bg-opacity-50 border-0 p-3">
+                <div class="row text-center small text-muted">
+                    <div class="col">
+                        <strong class="d-block text-dark h5 mb-0">{{ sessions|length }}</strong>
+                        Sessions
+                    </div>
+                    <div class="col border-start">
+                        <strong class="d-block text-dark h5 mb-0">{{ referrals|length }}</strong>
+                        Referrals
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Demographics & Contact -->
+        <div class="card card-glass border-0 shadow-sm mb-4">
+            <div class="card-header bg-transparent border-0 fw-bold text-uppercase small text-muted letter-spacing-1">
+                Demographics & Contact
+            </div>
+            <div class="card-body pt-0">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-3 d-flex">
+                        <i class="bi bi-card-text text-secondary me-3 fs-5"></i>
+                        <div>
+                            <small class="d-block text-muted">Index Number</small>
+                            <span class="fw-medium">{{ student.index_number or 'N/A' }}</span>
+                        </div>
+                    </li>
+                    <li class="mb-3 d-flex">
+                        <i class="bi bi-telephone text-secondary me-3 fs-5"></i>
+                        <div>
+                            <small class="d-block text-muted">Phone Number</small>
+                            <span class="fw-medium">{{ student.contact or 'N/A' }}</span>
+                        </div>
+                    </li>
+                    <li class="mb-3 d-flex">
+                        <i class="bi bi-envelope text-secondary me-3 fs-5"></i>
+                        <div>
+                            <small class="d-block text-muted">Email Address</small>
+                            <span class="fw-medium">{{ student.email or 'N/A' }}</span>
+                        </div>
+                    </li>
+                    <li class="mb-3 d-flex">
+                        <i class="bi bi-building text-secondary me-3 fs-5"></i>
+                        <div>
+                            <small class="d-block text-muted">Hall of Residence</small>
+                            <span class="fw-medium">{{ student.hall_of_residence or 'N/A' }}</span>
+                        </div>
+                    </li>
+                    <li class="d-flex">
+                        <i class="bi bi-calendar3 text-secondary me-3 fs-5"></i>
+                        <div>
+                            <small class="d-block text-muted">Registered On</small>
+                            <span class="fw-medium">{{ student.created_at }}</span>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="d-grid gap-2">
+            <button class="btn btn-light border shadow-sm text-start" onclick="printProfile()">
+                <i class="bi bi-printer me-2 text-secondary"></i> Print Profile Summary
+            </button>
+            <button class="btn btn-light border shadow-sm text-start" onclick="exportHistory()">
+                <i class="bi bi-file-earmark-spreadsheet me-2 text-success"></i> Export History (CSV)
+            </button>
+        </div>
+    </div>
+
+    <!-- Right Column: Clinical Data -->
+    <div class="col-lg-8">
+        <div class="card card-glass border-0 shadow-lg h-100">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <ul class="nav nav-pills card-header-pills bg-light rounded-pill p-1 d-inline-flex" id="studentTabs"
+                    role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link rounded-pill active px-4" id="session-tab" data-bs-toggle="tab"
+                            href="#session" role="tab">
+                            Sessions
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link rounded-pill px-4" id="assessments-tab" data-bs-toggle="tab"
+                            href="#assessments" role="tab">
+                            Assessments
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link rounded-pill px-4" id="referrals-tab" data-bs-toggle="tab" href="#referrals"
+                            role="tab">
+                            Referrals
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="card-body p-4">
+                <div class="tab-content" id="studentTabsContent">
+
+                    <!-- Sessions Tab -->
+                    <div class="tab-pane fade show active" id="session" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold mb-0">Session History</h5>
+                            <span class="badge bg-primary bg-opacity-10 text-primary">{{ sessions|length }}
+                                Records</span>
+                        </div>
+
+                        {% if sessions %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle table-borderless">
+                                <thead class="border-bottom text-uppercase small text-muted">
+                                    <tr>
+                                        <th>Date & Time</th>
+                                        <th>Counsellor</th>
+                                        <th>Type</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for s in sessions %}
+                                    <tr class="border-bottom row-hover">
+                                        <td class="fw-medium">{{ s.date }} <span class="text-muted small ms-1">{{ s.time
+                                                }}</span></td>
+                                        <td>{{ s.Counsellor_name }}</td>
+                                        <td><span class="badge bg-light text-dark border">{{ s.session_type or 'General'
+                                                }}</span></td>
+                                        <td>
+                                            {% if s.status == 'Completed' %}
+                                            <i class="bi bi-check-circle-fill text-success me-1"></i> Completed
+                                            {% elif s.status == 'Scheduled' %}
+                                            <i class="bi bi-clock-fill text-warning me-1"></i> Scheduled
+                                            {% else %}
+                                            {{ s.status }}
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            <a href="{{ url_for('print_session', session_id=s.id) }}" target="_blank"
+                                                class="btn btn-sm btn-light">
+                                                <i class="bi bi-file-text"></i> Details
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5 text-muted opacity-50">
+                            <i class="bi bi-calendar-x display-4"></i>
+                            <p class="mt-2">No sessions recorded yet.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Assessments Tab -->
+                    <div class="tab-pane fade" id="assessments" role="tabpanel">
+                        <h5 class="fw-bold mb-4">Psychometric Assessments</h5>
+
+                        <!-- DASS-21 -->
+                        <div class="card bg-light border-0 mb-4">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-3 text-secondary text-uppercase small letter-spacing-1">DASS-21
+                                    Screening</h6>
+                                {% if dass21_scores %}
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <thead>
+                                            <tr class="text-muted border-bottom">
+                                                <th>Date</th>
+                                                <th>Depression</th>
+                                                <th>Anxiety</th>
+                                                <th>Stress</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for score in dass21_scores %}
+                                            <tr class="border-bottom bg-white rounded-3">
+                                                <td class="ps-2 py-2">{{ score.completion_date }}</td>
+                                                <td class="py-2">
+                                                    <span
+                                                        class="badge rounded-pill {% if score.depression_score >= 21 %}bg-danger{% elif score.depression_score >= 14 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                                        {{ score.depression_score }}
+                                                    </span>
+                                                </td>
+                                                <td class="py-2">
+                                                    <span
+                                                        class="badge rounded-pill {% if score.anxiety_score >= 15 %}bg-danger{% elif score.anxiety_score >= 10 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                                        {{ score.anxiety_score }}
+                                                    </span>
+                                                </td>
+                                                <td class="py-2">
+                                                    <span
+                                                        class="badge rounded-pill {% if score.stress_score >= 34 %}bg-danger{% elif score.stress_score >= 26 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                                        {{ score.stress_score }}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% else %}
+                                <p class="small text-muted mb-0">No DASS-21 records found.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- OQ-45.2 -->
+                        <div class="card bg-light border-0">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-3 text-secondary text-uppercase small letter-spacing-1">OQ-45.2
+                                    Outcome</h6>
+                                {% if oq_scores %}
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <thead>
+                                            <tr class="text-muted border-bottom">
+                                                <th>Date</th>
+                                                <th>Total Score</th>
+                                                <th>Context</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for score in oq_scores %}
+                                            <tr class="border-bottom bg-white">
+                                                <td class="ps-2 py-2">{{ score.completion_date }}</td>
+                                                <td class="py-2">
+                                                    <span
+                                                        class="badge rounded-pill {% if score.total_score >= 64 %}bg-danger{% elif score.total_score >= 55 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                                        {{ score.total_score }}
+                                                    </span>
+                                                </td>
+                                                <td class="py-2 small text-muted">{{ score.session_date }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% else %}
+                                <p class="small text-muted mb-0">No OQ-45.2 records found.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Referrals Tab -->
+                    <div class="tab-pane fade" id="referrals" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold mb-0">Referral History</h5>
+                        </div>
+                        {% if referrals %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle table-borderless">
+                                <thead class="border-bottom text-uppercase small text-muted">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Referred By</th>
+                                        <th>Reason</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for referral in referrals %}
+                                    <tr class="border-bottom row-hover">
+                                        <td>{{ referral.created_at }}</td>
+                                        <td>{{ referral.referred_by }}</td>
+                                        <td>
+                                            <div class="text-truncate" style="max-width: 250px;">
+                                                {{ referral.reasons }}
+                                            </div>
+                                        </td>
+                                        <td class="text-end">
+                                            <a href="{{ url_for('print_referral', id=referral.id) }}" target="_blank"
+                                                class="btn btn-sm btn-light">
+                                                <i class="bi bi-printer"></i> Print
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5 text-muted opacity-50">
+                            <i class="bi bi-box-arrow-up-right display-4"></i>
+                            <p class="mt-2">No referrals recorded.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden Print Template -->
+<div id="printProfile" class="d-none">
+    <div class="p-4">
+        <h2 class="mb-4">Student Clinical Profile: {{ student.name }}</h2>
+        <table class="table table-bordered mb-4">
+            <tr>
+                <th>Student ID</th>
+                <td>{{ student.professional_id or student.id }}</td>
+                <th>Index Number</th>
+                <td>{{ student.index_number }}</td>
+            </tr>
+            <tr>
+                <th>Program</th>
+                <td>{{ student.programme }}</td>
+                <th>Contact</th>
+                <td>{{ student.contact }}</td>
+            </tr>
+        </table>
+
+        <h4>Recent Sessions</h4>
+        <table class="table table-bordered table-sm">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Counselor</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in sessions[:5] %}
+                <tr>
+                    <td>{{ s.date }}</td>
+                    <td>{{ s.Counsellor_name }}</td>
+                    <td>{{ s.status }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function printProfile() {
+        const content = document.getElementById('printProfile').innerHTML;
+        const win = window.open('', '', 'height=700,width=900');
+        win.document.write('<html><head><title>Print Profile</title>');
+        win.document.write('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">');
+        win.document.write('</head><body onload="window.print();window.close()">' + content + '</body></html>');
+        win.document.close();
+    }
+
+    function exportHistory() {
+        let csvContent = "data:text/csv;charset=utf-8,Type,Date,Details\n";
+        {% for s in sessions %}
+        csvContent += "Session,{{ s.date }},{{ s.Counsellor_name }} - {{ s.session_type }}\n";
+        {% endfor %}
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "{{ student.name }}_clinical_history.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+{% endblock %}

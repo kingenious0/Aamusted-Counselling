@@ -1,0 +1,72 @@
+{% extends "base_modern.html" %}
+
+{% block title %}Create User - Admin{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card card-glass border-0 shadow-lg">
+            <div class="card-header bg-transparent border-0 pt-4 pb-0 text-center">
+                <div class="avatar-circle mb-3 bg-primary bg-opacity-10 text-primary mx-auto d-flex align-items-center justify-content-center shadow-sm"
+                    style="width: 60px; height: 60px; border-radius: 50%;">
+                    <i class="bi bi-person-plus-fill fs-3"></i>
+                </div>
+                <h4 class="fw-bold text-dark">Create New User</h4>
+                <p class="text-muted small">Add a new staff member to the system.</p>
+            </div>
+            <div class="card-body p-4 p-md-5">
+                <form method="POST" action="{{ url_for('admin_add_user') }}">
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-uppercase text-secondary">Full Name</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-0"><i
+                                    class="bi bi-person text-muted"></i></span>
+                            <input type="text" class="form-control form-control-lg bg-light border-0" name="full_name"
+                                required placeholder="e.g. Dr. Sarah Smith">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-uppercase text-secondary">Username</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-0"><i class="bi bi-at text-muted"></i></span>
+                            <input type="text" class="form-control form-control-lg bg-light border-0" name="username"
+                                required placeholder="e.g. j.doe">
+                        </div>
+                        <div class="form-text small">This will be used for login.</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-uppercase text-secondary">Role</label>
+                        <select class="form-select form-select-lg bg-light border-0" name="role" required>
+                            <option value="" selected disabled>Select Role...</option>
+                            <option value="Secretary">Secretary (Front Desk)</option>
+                            <option value="Counsellor">Counsellor (Professional)</option>
+                            <option value="Admin">Admin (System Owner)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-5">
+                        <label class="form-label fw-bold small text-uppercase text-secondary">Initial Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-0"><i
+                                    class="bi bi-lock text-muted"></i></span>
+                            <input type="password" class="form-control form-control-lg bg-light border-0"
+                                name="password" required placeholder="••••••••">
+                        </div>
+                        <div class="form-text small">User can change this later.</div>
+                    </div>
+
+                    <div class="d-grid gap-3">
+                        <button type="submit" class="btn btn-primary btn-lg shadow-sm btn-hover-lift fw-bold">
+                            <i class="bi bi-check2-circle me-2"></i>Create Account
+                        </button>
+                        <a href="{{ url_for('admin_users') }}"
+                            class="btn btn-light btn-lg border border-0 text-muted">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

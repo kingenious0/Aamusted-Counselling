@@ -1,0 +1,227 @@
+{% extends "base_modern.html" %}
+
+{% block title %}Record Session - Clinical Notes{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex align-items-center">
+            <a href="javascript:history.back()" class="btn btn-light border rounded-circle shadow-sm me-3"
+                style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h2 class="fw-bold mb-0 text-dark">Document Session</h2>
+                <p class="text-muted mb-0">Record detailed clinical notes and observations.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- LEFT COLUMN: Form -->
+    <div class="col-lg-8">
+        <div class="card card-glass border-0 shadow-sm">
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('create_session') }}" class="needs-validation" novalidate
+                    id="sessionForm">
+
+                    <!-- Appointment Selection -->
+                    <div class="mb-5">
+                        <label for="appointment_id"
+                            class="form-label text-uppercase small text-secondary fw-bold">Select Appointment to
+                            Document <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-lg bg-light border-0" id="appointment_id"
+                            name="appointment_id" required>
+                            <option value="">choose appointment...</option>
+                            {% for appointment in appointments %}
+                            <option value="{{ appointment.id }}">
+                                {{ appointment.date }} - {{ appointment.student_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="invalid-feedback">Please link this to an appoinment.</div>
+                    </div>
+
+                    <div class="row g-4 mb-5">
+                        <div class="col-md-5">
+                            <label for="session_type"
+                                class="form-label text-uppercase small text-secondary fw-bold">Session Type <span
+                                    class="text-danger">*</span></label>
+                            <select class="form-select bg-light border-0" id="session_type" name="session_type"
+                                required>
+                                <option value="">Select type...</option>
+                                <option value="Initial Consultation">Initial Consultation</option>
+                                <option value="Follow-up session">Follow-up Session</option>
+                                <option value="Crisis Intervention">Crisis Intervention</option>
+                                <option value="Group session">Group Session</option>
+                                <option value="Assessment session">Assessment Session</option>
+                            </select>
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label text-uppercase small text-secondary fw-bold">Primary Issues
+                                Addressed <span class="text-danger">*</span></label>
+                            <div class="bg-light p-3 rounded-3">
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <div class="form-check"><input class="form-check-input" type="checkbox"
+                                                name="issues" value="Anxiety" id="i_anxiety"><label
+                                                class="form-check-label" for="i_anxiety">Anxiety</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox"
+                                                name="issues" value="Depression" id="i_depression"><label
+                                                class="form-check-label" for="i_depression">Depression</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox"
+                                                name="issues" value="Stress" id="i_stress"><label
+                                                class="form-check-label" for="i_stress">Stress</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox"
+                                                name="issues" value="Academic" id="i_academic"><label
+                                                class="form-check-label" for="i_academic">Academic</label></div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="form-check"><input class="form-check-input" type="checkbox"
+                                                name="issues" value="Relationship" id="i_rel"><label
+                                                class="form-check-label" for="i_rel">Relationship</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox"
+                                                name="issues" value="Career" id="i_career"><label
+                                                class="form-check-label" for="i_career">Career</label></div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="issues" value="Other"
+                                                id="issueOther">
+                                            <label class="form-check-label fw-bold" for="issueOther">Other</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Other issue input -->
+                                <div class="mt-2 pt-2 border-top" id="otherIssueContainer" style="display: none;">
+                                    <input type="text" class="form-control form-control-sm bg-white" id="otherIssue"
+                                        name="other_issue" placeholder="Specify other issue...">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label for="notes"
+                                class="form-label text-uppercase small text-secondary fw-bold mb-0">Detailed Session
+                                Notes <span class="text-danger">*</span></label>
+                            <small class="text-muted"><i class="bi bi-shield-lock me-1"></i>Confidential</small>
+                        </div>
+                        <textarea class="form-control bg-light border-0" id="notes" name="notes" rows="8" required
+                            placeholder="Record observations, interventions used, client demeanor, and progress..."></textarea>
+                    </div>
+
+                    <div class="mb-4 bg-primary bg-opacity-10 p-3 rounded-3 border border-primary border-opacity-25">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="schedule_followup"
+                                name="schedule_followup">
+                            <label class="form-check-label fw-bold text-dark" for="schedule_followup">
+                                Schedule Follow-up Appointment immediately after saving
+                            </label>
+                        </div>
+                        <small class="text-muted ms-5 d-block">You will be redirected to the scheduling page.</small>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-light border px-4">Cancel</a>
+                        <button type="submit" class="btn btn-success px-5 shadow-sm btn-hover-lift">
+                            <i class="bi bi-save me-2"></i> Save Notes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN: Guidelines -->
+    <div class="col-lg-4">
+        <div class="card card-glass border-0 shadow-sm sticky-top" style="top: 20px;">
+            <div class="card-header bg-transparent border-0 pt-4 px-4">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3 text-primary">
+                        <i class="bi bi-journal-text"></i>
+                    </div>
+                    <h6 class="fw-bold mb-0 text-dark">Documentation Guide</h6>
+                </div>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <h6 class="text-uppercase small fw-bold text-dark mb-3">Key Elements</h6>
+                <ul class="list-unstyled small text-muted mb-4">
+                    <li class="mb-2"><i class="bi bi-check2-circle text-success me-2"></i>Emotional state & presentation
+                    </li>
+                    <li class="mb-2"><i class="bi bi-check2-circle text-success me-2"></i>Core topics discussed</li>
+                    <li class="mb-2"><i class="bi bi-check2-circle text-success me-2"></i>Therapeutic interventions</li>
+                    <li class="mb-2"><i class="bi bi-check2-circle text-success me-2"></i>Client response & progress
+                    </li>
+                    <li class="mb-2"><i class="bi bi-check2-circle text-success me-2"></i>Risk assessment (if
+                        applicable)</li>
+                </ul>
+
+                <h6 class="text-uppercase small fw-bold text-dark mb-3">Best Practices</h6>
+                <ul class="list-unstyled small text-muted mb-0">
+                    <li class="mb-2"><i class="bi bi-dot me-1"></i>Maintain objectivity</li>
+                    <li class="mb-2"><i class="bi bi-dot me-1"></i>Use professional terminology</li>
+                    <li class="mb-2"><i class="bi bi-dot me-1"></i>Focus on observable facts</li>
+                    <li class="mb-2"><i class="bi bi-dot me-1"></i>Document safety plans clearly</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Form validation and interactions
+    document.getElementById('sessionForm').addEventListener('submit', function (event) {
+        if (!this.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        // Check if at least one issue is selected
+        const issues = this.querySelectorAll('input[name="issues"]:checked');
+        if (issues.length === 0) {
+            event.preventDefault();
+            event.stopPropagation();
+            alert('Please select at least one related issue.');
+            // Ideally scroll to issues or show a specific error message next to it
+        }
+
+        // Check "Other" issue validity
+        const otherCheckbox = document.getElementById('issueOther');
+        const otherInput = document.getElementById('otherIssue');
+        if (otherCheckbox.checked && !otherInput.value.trim()) {
+            event.preventDefault();
+            otherInput.focus();
+            alert('Please specify the "Other" issue.');
+        }
+
+        this.classList.add('was-validated');
+    });
+
+    // Auto-expand textarea
+    const textarea = document.getElementById('notes');
+    textarea.addEventListener('input', function () {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+
+    // Show/hide other issue input
+    const otherIssueCheckbox = document.getElementById('issueOther');
+    const otherIssueContainer = document.getElementById('otherIssueContainer');
+    const otherIssueInput = document.getElementById('otherIssue');
+
+    otherIssueCheckbox.addEventListener('change', function () {
+        if (this.checked) {
+            otherIssueContainer.style.display = 'block';
+            otherIssueInput.setAttribute('required', 'required');
+            otherIssueInput.focus();
+        } else {
+            otherIssueContainer.style.display = 'none';
+            otherIssueInput.removeAttribute('required');
+            otherIssueInput.value = '';
+        }
+    });
+</script>
+{% endblock %}

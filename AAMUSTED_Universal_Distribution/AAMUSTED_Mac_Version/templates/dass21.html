@@ -1,0 +1,296 @@
+{% extends "base_modern.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex align-items-center">
+            <a href="javascript:history.back()" class="btn btn-light border rounded-circle shadow-sm me-3"
+                style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h2 class="fw-bold mb-0 text-dark">DASS-21 Assessment</h2>
+                <p class="text-muted mb-0">Record scores for Depression, Anxiety, and Stress.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- LEFT COLUMN: Form -->
+    <div class="col-lg-8">
+        <div class="card card-glass border-0 shadow-sm">
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('dass21') }}" class="needs-validation" novalidate>
+
+                    <!-- Student Selection -->
+                    <div class="mb-5">
+                        <label for="student_id" class="form-label fw-bold text-secondary text-uppercase small">Select
+                            Student <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-lg bg-light border-0" id="student_id" name="student_id"
+                            required>
+                            <option value="">choose a student...</option>
+                            {% for student in students %}
+                            <option value="{{ student.id }}">{{ student.name }} - {{ student.programme }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="invalid-feedback">Please select a student.</div>
+                    </div>
+
+                    <h5 class="fw-bold text-dark mb-4">Raw Score Entry (0-21)</h5>
+                    <div class="row g-4 mb-4">
+                        <!-- Depression Score -->
+                        <div class="col-md-4">
+                            <div class="p-3 bg-danger bg-opacity-10 rounded-3 border border-danger border-opacity-10">
+                                <label for="depression_score"
+                                    class="form-label fw-bold text-danger text-uppercase small">Depression</label>
+                                <input type="number" class="form-control form-control-lg border-0 bg-white"
+                                    id="depression_score" name="depression_score" min="0" max="21" step="0.5" required
+                                    placeholder="0">
+                                <div class="invalid-feedback">Score must be 0-21.</div>
+                                <div id="depression_severity" class="mt-2 text-center text-danger fw-bold small">-</div>
+                            </div>
+                        </div>
+
+                        <!-- Anxiety Score -->
+                        <div class="col-md-4">
+                            <div class="p-3 bg-warning bg-opacity-10 rounded-3 border border-warning border-opacity-10">
+                                <label for="anxiety_score"
+                                    class="form-label fw-bold text-warning text-uppercase small">Anxiety</label>
+                                <input type="number" class="form-control form-control-lg border-0 bg-white"
+                                    id="anxiety_score" name="anxiety_score" min="0" max="21" step="0.5" required
+                                    placeholder="0">
+                                <div class="invalid-feedback">Score must be 0-21.</div>
+                                <div id="anxiety_severity" class="mt-2 text-center text-warning fw-bold small">-</div>
+                            </div>
+                        </div>
+
+                        <!-- Stress Score -->
+                        <div class="col-md-4">
+                            <div class="p-3 bg-info bg-opacity-10 rounded-3 border border-info border-opacity-10">
+                                <label for="stress_score"
+                                    class="form-label fw-bold text-info text-uppercase small">Stress</label>
+                                <input type="number" class="form-control form-control-lg border-0 bg-white"
+                                    id="stress_score" name="stress_score" min="0" max="21" step="0.5" required
+                                    placeholder="0">
+                                <div class="invalid-feedback">Score must be 0-21.</div>
+                                <div id="stress_severity" class="mt-2 text-center text-info fw-bold small">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Final Calculation Preview -->
+                    <div class="card bg-dark text-white border-0 mb-5">
+                        <div class="card-body p-4">
+                            <h6 class="text-uppercase text-white-50 small fw-bold mb-3">Calculated Clinical Scores (x2)
+                            </h6>
+                            <div class="row text-center">
+                                <div class="col-4 border-end border-white border-opacity-10">
+                                    <div class="display-6 fw-bold" id="final_depression">0</div>
+                                    <div class="small text-white-50">Depression</div>
+                                </div>
+                                <div class="col-4 border-end border-white border-opacity-10">
+                                    <div class="display-6 fw-bold" id="final_anxiety">0</div>
+                                    <div class="small text-white-50">Anxiety</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="display-6 fw-bold" id="final_stress">0</div>
+                                    <div class="small text-white-50">Stress</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-light border px-4">Cancel</a>
+                        <button type="submit" class="btn btn-primary px-5 shadow-sm btn-hover-lift">
+                            <i class="bi bi-save me-2"></i> Save Assessment
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN: Guidelines -->
+    <div class="col-lg-4">
+        <div class="card card-glass border-0 shadow-sm sticky-top" style="top: 20px;">
+            <div class="card-header bg-transparent border-0 pt-4 px-4">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3 text-primary">
+                        <i class="bi bi-journal-check"></i>
+                    </div>
+                    <h6 class="fw-bold mb-0 text-dark">Scoring Guide (x2)</h6>
+                </div>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <div class="alert alert-light border small text-muted mb-4">
+                    <i class="bi bi-info-circle me-1"></i> Scores below show clinical ranges for the
+                    <strong>multiplied</strong> final score.
+                </div>
+
+                <h6 class="text-uppercase small fw-bold text-danger mb-2">Depression</h6>
+                <table class="table table-sm table-borderless small mb-4">
+                    <tbody>
+                        <tr>
+                            <td>Normal</td>
+                            <td class="text-end text-muted">0-9</td>
+                        </tr>
+                        <tr>
+                            <td>Mild</td>
+                            <td class="text-end text-muted">10-13</td>
+                        </tr>
+                        <tr>
+                            <td>Moderate</td>
+                            <td class="text-end text-muted">14-20</td>
+                        </tr>
+                        <tr>
+                            <td>Severe</td>
+                            <td class="text-end text-muted">21-27</td>
+                        </tr>
+                        <tr>
+                            <td>Extremely Severe</td>
+                            <td class="text-end text-muted">28+</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h6 class="text-uppercase small fw-bold text-warning mb-2">Anxiety</h6>
+                <table class="table table-sm table-borderless small mb-4">
+                    <tbody>
+                        <tr>
+                            <td>Normal</td>
+                            <td class="text-end text-muted">0-7</td>
+                        </tr>
+                        <tr>
+                            <td>Mild</td>
+                            <td class="text-end text-muted">8-9</td>
+                        </tr>
+                        <tr>
+                            <td>Moderate</td>
+                            <td class="text-end text-muted">10-14</td>
+                        </tr>
+                        <tr>
+                            <td>Severe</td>
+                            <td class="text-end text-muted">15-19</td>
+                        </tr>
+                        <tr>
+                            <td>Extremely Severe</td>
+                            <td class="text-end text-muted">20+</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h6 class="text-uppercase small fw-bold text-info mb-2">Stress</h6>
+                <table class="table table-sm table-borderless small mb-0">
+                    <tbody>
+                        <tr>
+                            <td>Normal</td>
+                            <td class="text-end text-muted">0-14</td>
+                        </tr>
+                        <tr>
+                            <td>Mild</td>
+                            <td class="text-end text-muted">15-18</td>
+                        </tr>
+                        <tr>
+                            <td>Moderate</td>
+                            <td class="text-end text-muted">19-25</td>
+                        </tr>
+                        <tr>
+                            <td>Severe</td>
+                            <td class="text-end text-muted">26-33</td>
+                        </tr>
+                        <tr>
+                            <td>Extremely Severe</td>
+                            <td class="text-end text-muted">34+</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Form validation
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms).forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+                form.classList.add('was-validated')
+            }, false)
+        })
+    })()
+
+    // Score calculation and severity display
+    function updateScores() {
+        const scores = {
+            depression: parseFloat(document.getElementById('depression_score').value) || 0,
+            anxiety: parseFloat(document.getElementById('anxiety_score').value) || 0,
+            stress: parseFloat(document.getElementById('stress_score').value) || 0
+        }
+
+        // Update final scores (×2)
+        document.getElementById('final_depression').textContent = (scores.depression * 2).toFixed(1).replace('.0', '')
+        document.getElementById('final_anxiety').textContent = (scores.anxiety * 2).toFixed(1).replace('.0', '')
+        document.getElementById('final_stress').textContent = (scores.stress * 2).toFixed(1).replace('.0', '')
+
+        // Update severity indicators
+        updateSeverity('depression', scores.depression * 2)
+        updateSeverity('anxiety', scores.anxiety * 2)
+        updateSeverity('stress', scores.stress * 2)
+    }
+
+    function updateSeverity(type, score) {
+        let severity = ''
+
+        if (type === 'depression') {
+            if (score <= 9) severity = 'Normal'
+            else if (score <= 13) severity = 'Mild'
+            else if (score <= 20) severity = 'Moderate'
+            else if (score <= 27) severity = 'Severe'
+            else severity = 'Extremely Severe'
+        } else if (type === 'anxiety') {
+            if (score <= 7) severity = 'Normal'
+            else if (score <= 9) severity = 'Mild'
+            else if (score <= 14) severity = 'Moderate'
+            else if (score <= 19) severity = 'Severe'
+            else severity = 'Extremely Severe'
+        } else if (type === 'stress') {
+            if (score <= 14) severity = 'Normal'
+            else if (score <= 18) severity = 'Mild'
+            else if (score <= 25) severity = 'Moderate'
+            else if (score <= 33) severity = 'Severe'
+            else severity = 'Extremely Severe'
+        }
+
+        document.getElementById(`${type}_severity`).textContent = severity
+    }
+
+    // Add event listeners
+    ['depression_score', 'anxiety_score', 'stress_score'].forEach(id => {
+        const el = document.getElementById(id);
+        el.addEventListener('input', function () {
+            validateScore(this);
+            updateScores();
+        });
+    });
+
+    // Validate score ranges
+    function validateScore(input) {
+        const value = parseFloat(input.value)
+        if (value < 0 || value > 21) {
+            input.setCustomValidity('Score must be between 0 and 21')
+        } else {
+            input.setCustomValidity('')
+        }
+    }
+</script>
+{% endblock %}

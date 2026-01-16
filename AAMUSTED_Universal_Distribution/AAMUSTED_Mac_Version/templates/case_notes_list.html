@@ -1,0 +1,137 @@
+{% extends "base_modern.html" %}
+
+{% block title %}Case Notes - Clinical Registry{% endblock %}
+
+{% block content %}
+<div class="row align-items-center mb-4">
+    <div class="col-md-6">
+        <h2 class="fw-bold mb-0 text-dark">Clinical Case Notes</h2>
+        <p class="text-muted mb-0">Confidential therapy records.</p>
+    </div>
+    <div class="col-md-6 text-md-end mt-3 mt-md-0">
+        <a href="{{ url_for('case_note') }}" class="btn btn-primary shadow-sm btn-hover-lift">
+            <i class="bi bi-plus-circle me-2"></i> New Case Note
+        </a>
+    </div>
+</div>
+
+<!-- Search Bar -->
+<div class="card card-glass border-0 shadow-sm mb-4">
+    <div class="card-body p-4">
+        <div class="input-group">
+            <span class="input-group-text bg-light border-0"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" class="form-control bg-light border-0" id="searchInput"
+                placeholder="Search by student name, ID, or content...">
+        </div>
+    </div>
+</div>
+
+<!-- Case Notes Table -->
+<div class="card card-glass border-0 shadow-lg">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="caseNotesTable" style="min-height: 300px;">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4 text-uppercase small fw-bold text-muted border-0">Date</th>
+                        <th class="text-uppercase small fw-bold text-muted border-0">Student</th>
+                        <th class="text-uppercase small fw-bold text-muted border-0">Session Date</th>
+                        <th class="text-uppercase small fw-bold text-muted border-0">Appearance & Problems</th>
+                        <th class="text-uppercase small fw-bold text-muted border-0">Clinical Plan</th>
+                        <th class="text-end pe-4 text-uppercase small fw-bold text-muted border-0">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="border-top-0">
+                    {% for case in case_notes %}
+                    <tr>
+                        <td class="ps-4">
+                            <span class="fw-bold text-dark">{{ case.created_at.split(' ')[0] if case.created_at else
+                                'N/A' }}</span>
+                            <div class="small text-muted">{{ case.created_at.split(' ')[1][:5] if case.created_at and '
+                                ' in case.created_at else '' }}</div>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle bg-primary bg-opacity-10 text-primary me-2">
+                                    {{ case.student_name[0] if case.student_name else '?' }}
+                                </div>
+                                <div class="d-flex flex-column">
+                                    <span class="fw-medium text-dark">{{ case.student_name or 'N/A' }}</span>
+                                    <span class="small text-muted">ID: {{ case.professional_id }}</span>
+                                </div>
+                            </div>
+                            {% if case.programme %}
+                            <span class="badge bg-light text-secondary border mt-1">{{ case.programme }}</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="text-secondary">{{ case.session_date.split(' ')[0] if case.session_date else
+                                'N/A' }}</span></td>
+                        <td style="max-width: 250px;">
+                            <div class="mb-1">
+                                <span class="badge bg-light text-dark border me-1">Appearance</span>
+                                <span class="text-muted small text-truncate d-inline-block align-bottom"
+                                    style="max-width: 150px;">{{ case.client_appearance or '-' }}</span>
+                            </div>
+                            <div>
+                                <span
+                                    class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-10 me-1">Problem</span>
+                                <span class="text-muted small text-truncate d-inline-block align-bottom"
+                                    style="max-width: 150px;">{{ case.problems or '-' }}</span>
+                            </div>
+                        </td>
+                        <td style="max-width: 250px;">
+                            <div class="mb-1">
+                                <span
+                                    class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-10 me-1">Intervention</span>
+                                <span class="text-muted small text-truncate d-inline-block align-bottom"
+                                    style="max-width: 140px;">{{ case.interventions or '-' }}</span>
+                            </div>
+                            <div>
+                                <span
+                                    class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-10 me-1">Recs</span>
+                                <span class="text-muted small text-truncate d-inline-block align-bottom"
+                                    style="max-width: 140px;">{{ case.recommendations or '-' }}</span>
+                            </div>
+                        </td>
+                        <td class="text-end pe-4">
+                            <a href="{{ url_for('print_case_note', case_id=case.id) }}" target="_blank"
+                                class="btn btn-sm btn-light border btn-hover-lift" title="Print Case Note">
+                                <i class="bi bi-printer text-secondary"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <div class="d-flex flex-column align-items-center">
+                                <i class="bi bi-journal-x fs-1 opacity-50 mb-3"></i>
+                                <p class="mb-0">No case notes recorded yet.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Search functionality
+    document.getElementById('searchInput').addEventListener('input', function (e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const table = document.getElementById('caseNotesTable');
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        for (let row of rows) {
+            // Skip "No results" row if it exists (check by cell count or class)
+            if (row.cells.length < 2) continue;
+
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(searchTerm) ? '' : 'none';
+        }
+    });
+</script>
+{% endblock %}

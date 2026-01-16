@@ -1,0 +1,129 @@
+{% extends "base_modern.html" %}
+
+{% block title %}DASS-21 Records - Clinical Registry{% endblock %}
+
+{% block content %}
+<div class="row align-items-center mb-4">
+    <div class="col-md-6">
+        <h2 class="fw-bold mb-0 text-dark">DASS-21 Assessments</h2>
+        <p class="text-muted mb-0">Depression, Anxiety and Stress Scale records.</p>
+    </div>
+    <div class="col-md-6 text-md-end mt-3 mt-md-0">
+        <a href="{{ url_for('dass21') }}" class="btn btn-primary shadow-sm btn-hover-lift">
+            <i class="bi bi-plus-circle me-2"></i> New Assessment
+        </a>
+    </div>
+</div>
+
+<!-- Search Bar -->
+<div class="card card-glass border-0 shadow-sm mb-4">
+    <div class="card-body p-4">
+        <div class="input-group">
+            <span class="input-group-text bg-light border-0"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" class="form-control bg-light border-0" id="searchInput"
+                placeholder="Search by student name or ID...">
+        </div>
+    </div>
+</div>
+
+<!-- DASS-21 Records Table -->
+<div class="card card-glass border-0 shadow-lg">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="dass21Table" style="min-height: 300px;">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4 text-uppercase small fw-bold text-muted border-0">Date</th>
+                        <th class="text-uppercase small fw-bold text-muted border-0">Student</th>
+                        <th class="text-center text-uppercase small fw-bold text-muted border-0">Depression</th>
+                        <th class="text-center text-uppercase small fw-bold text-muted border-0">Anxiety</th>
+                        <th class="text-center text-uppercase small fw-bold text-muted border-0">Stress</th>
+                        <th class="text-end pe-4 text-uppercase small fw-bold text-muted border-0">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="border-top-0">
+                    {% for dass21 in dass21_records %}
+                    <tr>
+                        <td class="ps-4">
+                            <span class="fw-bold text-dark">{{ dass21.created_at.split(' ')[0] if dass21.created_at else
+                                'N/A' }}</span>
+                            <div class="small text-muted">{{ dass21.created_at.split(' ')[1][:5] if dass21.created_at
+                                and ' ' in dass21.created_at else '' }}</div>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle bg-primary bg-opacity-10 text-primary me-2">
+                                    {{ dass21.student_name[0] if dass21.student_name else '?' }}
+                                </div>
+                                <div class="d-flex flex-column">
+                                    <span class="fw-medium text-dark">{{ dass21.student_name or 'N/A' }}</span>
+                                    <span class="small text-muted">ID: {{ dass21.professional_id }}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            <span
+                                class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-10 rounded-pill px-3">
+                                {{ "%.0f"|format(dass21.final_depression) }}
+                            </span>
+                            <div class="small text-muted mt-1" style="font-size: 0.75rem;">(Raw: {{
+                                dass21.depression_score }})</div>
+                        </td>
+                        <td class="text-center">
+                            <span
+                                class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-10 rounded-pill px-3">
+                                {{ "%.0f"|format(dass21.final_anxiety) }}
+                            </span>
+                            <div class="small text-muted mt-1" style="font-size: 0.75rem;">(Raw: {{ dass21.anxiety_score
+                                }})</div>
+                        </td>
+                        <td class="text-center">
+                            <span
+                                class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-10 rounded-pill px-3">
+                                {{ "%.0f"|format(dass21.final_stress) }}
+                            </span>
+                            <div class="small text-muted mt-1" style="font-size: 0.75rem;">(Raw: {{ dass21.stress_score
+                                }})</div>
+                        </td>
+                        <td class="text-end pe-4">
+                            <a href="{{ url_for('print_dass21', dass21_id=dass21.id) }}" target="_blank"
+                                class="btn btn-sm btn-light border btn-hover-lift" title="Print Result">
+                                <i class="bi bi-printer text-secondary"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <div class="d-flex flex-column align-items-center">
+                                <i class="bi bi-clipboard-x fs-1 opacity-50 mb-3"></i>
+                                <p class="mb-0">No DASS-21 records found.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Search functionality
+    document.getElementById('searchInput').addEventListener('input', function (e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const table = document.getElementById('dass21Table');
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        for (let row of rows) {
+            // Skip "No results" row if it exists (check by cell count or class)
+            if (row.cells.length < 2) continue;
+
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(searchTerm) ? '' : 'none';
+        }
+    });
+</script>
+{% endblock %}

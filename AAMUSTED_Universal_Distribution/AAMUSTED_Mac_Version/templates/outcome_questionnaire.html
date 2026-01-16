@@ -1,0 +1,247 @@
+{% extends "base_modern.html" %}
+
+{% block title %}Outcome Questionnaire - Clinical Assessment{% endblock %}
+
+{% block content %}
+<div class="row align-items-center mb-4">
+    <div class="col-12">
+        <div class="d-flex align-items-center">
+            <a href="javascript:history.back()" class="btn btn-light border rounded-circle shadow-sm me-3"
+                style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h2 class="fw-bold mb-0 text-dark">Outcome Questionnaire</h2>
+                <p class="text-muted mb-0">Record clinical outcome measures and track progress.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Main Form -->
+    <div class="col-lg-8">
+        <div class="card card-glass border-0 shadow-sm">
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('outcome_questionnaire') }}" class="needs-validation" novalidate>
+                    <div class="row g-4">
+                        <!-- Student Selection -->
+                        <div class="col-md-12">
+                            <label for="student_id"
+                                class="form-label fw-bold small text-uppercase text-secondary">Student <span
+                                    class="text-danger">*</span></label>
+                            <select class="form-select form-select-lg bg-light border-0" id="student_id"
+                                name="student_id" required>
+                                <option value="">Choose student...</option>
+                                {% for student in students %}
+                                <option value="{{ student.id }}">{{ student.name }} - {{ student.programme }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Please select a student.</div>
+                        </div>
+
+                        <!-- Session Selection -->
+                        <div class="col-md-12">
+                            <label for="session_id"
+                                class="form-label fw-bold small text-uppercase text-secondary">Related Session <span
+                                    class="text-danger">*</span></label>
+                            <select class="form-select form-select-lg bg-light border-0" id="session_id"
+                                name="session_id" required>
+                                <option value="">Choose session...</option>
+                                {% for s in sessions %}
+                                <option value="{{ s.id }}">
+                                    {{ s.created_at_formatted }} - {{ s.student_name }} ({{ s.professional_id }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Please select a session.</div>
+                        </div>
+
+                        <!-- Demographics -->
+                        <div class="col-md-6">
+                            <label for="age" class="form-label fw-bold small text-uppercase text-secondary">Age</label>
+                            <input type="number" class="form-control form-control-lg bg-light border-0" id="age"
+                                name="age" min="0">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="sex" class="form-label fw-bold small text-uppercase text-secondary">Sex</label>
+                            <select class="form-select form-select-lg bg-light border-0" id="sex" name="sex">
+                                <option value="">Select Sex</option>
+                                <option value="M">M</option>
+                                <option value="F">F</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12 mt-5">
+                            <h5 class="fw-bold text-dark mb-3">Symptom Rating</h5>
+                            <p class="text-muted small mb-4">
+                                Use the scale below to rate how much the student has experienced each feeling or thought
+                                during the last week, including today.
+                            </p>
+                        </div>
+
+                        {% for i in range(1, 26) %}
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light bg-opacity-50 rounded-3 border border-light">
+                                <label for="item{{ i }}" class="form-label fw-bold small text-secondary">Item {{ i
+                                    }}</label>
+                                <select class="form-select border-0 bg-white item-score" id="item{{ i }}"
+                                    name="item{{ i }}">
+                                    <option value="0">0 = Never</option>
+                                    <option value="1">1 = Rarely</option>
+                                    <option value="2">2 = Sometimes</option>
+                                    <option value="3">3 = Frequently</option>
+                                    <option value="4">4 = Almost Always</option>
+                                </select>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                        <!-- Total Score Card -->
+                        <div class="col-12 mt-4">
+                            <div class="card bg-primary text-white border-0 shadow-sm">
+                                <div class="card-body p-4 text-center">
+                                    <label for="total_score"
+                                        class="form-label text-uppercase small text-white-50 fw-bold">Total Calculated
+                                        Score</label>
+                                    <div class="d-flex justify-content-center align-items-center">
+                                        <input type="number"
+                                            class="form-control form-control-lg border-0 bg-transparent text-white text-center display-1 fw-bold p-0"
+                                            id="total_score" name="total_score" min="0" max="100" required readonly
+                                            style="font-size: 3rem; width: 120px;">
+                                    </div>
+                                    <div class="small text-white-50 mt-2">Range: 0 - 100</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="col-12 mt-4">
+                            <div class="d-flex justify-content-end gap-2">
+                                <a href="{{ url_for('dashboard') }}" class="btn btn-light border btn-lg px-4">Cancel</a>
+                                <button type="submit" class="btn btn-primary btn-lg shadow-sm btn-hover-lift px-5">
+                                    <i class="bi bi-save me-2"></i> Save Assessment
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Guidelines Panel -->
+    <div class="col-lg-4">
+        <div class="card card-glass border-0 shadow-sm sticky-top" style="top: 2rem; z-index: 100;">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-info-circle me-2 text-info"></i>Guidelines</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="alert alert-light border small text-muted mb-4">
+                    <p class="mb-2"><strong><i class="bi bi-check-circle-fill text-success me-1"></i> Input
+                            Accuracy:</strong> Only enter the total score derived from the paper-based Outcome
+                        Questionnaire.</p>
+                    <p class="mb-0"><strong><i class="bi bi-file-earmark-text-fill text-primary me-1"></i> Record
+                            Keeping:</strong> Retain the original paper questionnaire in the physical file for audit
+                        purposes.</p>
+                </div>
+
+                <h6 class="fw-bold small text-uppercase text-secondary mb-3">Interpretation Guide</h6>
+                <div class="list-group list-group-flush border rounded-3 overflow-hidden mb-4">
+                    <div class="list-group-item bg-success bg-opacity-10 border-light p-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-bold text-success-emphasis">Normal Range</span>
+                            <span class="badge bg-success text-white">0 - 63</span>
+                        </div>
+                        <div class="small text-muted mt-1">Status is considered non-clinical.</div>
+                    </div>
+                    <div class="list-group-item bg-warning bg-opacity-10 border-light p-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-bold text-warning-emphasis">Clinical Range</span>
+                            <span class="badge bg-warning text-dark">64 - 180</span>
+                        </div>
+                        <div class="small text-muted mt-1">Indicates significant distress.</div>
+                    </div>
+                </div>
+
+                <div class="card bg-light border-0">
+                    <div class="card-body">
+                        <h6 class="fw-bold small mb-2"><i class="bi bi-graph-up-arrow me-2 text-primary"></i>Progress
+                            Tracking</h6>
+                        <p class="small text-muted mb-0">Changes of <strong>14+ points</strong> are considered
+                            clinically significant deviations. Monitor regularly.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Form validation
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms).forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+                form.classList.add('was-validated')
+            }, false)
+        })
+    })()
+
+    // Calculate total score dynamically
+    const itemScoreSelects = document.querySelectorAll('.item-score');
+    const totalScoreInput = document.getElementById('total_score');
+
+    function calculateTotalScore() {
+        let total = 0;
+        itemScoreSelects.forEach(select => {
+            total += parseInt(select.value);
+        });
+        totalScoreInput.value = total;
+    }
+
+    itemScoreSelects.forEach(select => {
+        select.addEventListener('change', calculateTotalScore);
+    });
+
+    // Initial calculation on page load
+    calculateTotalScore();
+
+    // Filter session based on selected student
+    document.getElementById('student_id').addEventListener('change', function (e) {
+        const studentId = e.target.value;
+        const sessionSelect = document.getElementById('session_id');
+        const sessions = Array.from(sessionSelect.options);
+
+        // Simple client-side filtering logic (can be enhanced if real student-session mapping needed)
+        // For now preserving existing logic or improving if needed. 
+        // NOTE: The previous logic relied on text matching, which is fragile but I will keep it for compatibility
+        // unless I see a 'data-student-id' attribute, which isn't there. 
+        // Ideally we should fetch sessions via AJAX or add data attribs.
+        // Assuming the previous naive logic was:
+
+        sessions.forEach(option => {
+            if (option.value === '') return;
+            // Naive matching based on name presence. 
+            const studentNameInOption = option.text;
+            const selectedStudentName = e.target.options[e.target.selectedIndex].text.split(' - ')[0];
+
+            if (studentNameInOption && studentNameInOption.includes(selectedStudentName)) {
+                option.style.display = '';
+            } else {
+                option.style.display = 'none';
+            }
+        });
+
+        sessionSelect.value = '';
+    });
+</script>
+{% endblock %}

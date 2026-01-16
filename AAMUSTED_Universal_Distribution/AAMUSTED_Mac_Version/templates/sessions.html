@@ -1,0 +1,390 @@
+{% extends "base_modern.html" %}
+
+{% block title %}All Sessions - AAMUSTED Counselling System{% endblock %}
+
+{% block content %}
+<div class="row align-items-center mb-4">
+    <div class="col-md-5">
+        <h2 class="fw-bold mb-0 text-dark">Session History</h2>
+        <p class="text-muted mb-0">Review clinical notes and session records.</p>
+    </div>
+    <div class="col-md-7 text-md-end mt-3 mt-md-0">
+        <div class="btn-group shadow-sm me-2" role="group">
+            <button type="button" class="btn btn-light border dropdown-toggle" data-bs-toggle="dropdown"
+                aria-expanded="false">
+                <i class="bi bi-download me-2 text-secondary"></i> Export Data
+            </button>
+            <ul class="dropdown-menu shadow-sm border-0">
+                <li><a class="dropdown-item" href="{{ url_for('export_sessions', format='excel') }}"><i
+                            class="bi bi-file-earmark-excel text-success me-2"></i> Excel (.xlsx)</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('export_sessions', format='csv') }}"><i
+                            class="bi bi-filetype-csv text-primary me-2"></i> CSV</a></li>
+            </ul>
+        </div>
+
+        <button class="btn btn-primary shadow-sm btn-hover-lift" id="toggleAutoReportBtn" data-status="true">
+            <i class="bi bi-toggle-on me-2"></i> Auto Report Enabled
+        </button>
+        <button class="btn btn-outline-primary ms-2" id="generateReportNowBtn">
+            <i class="bi bi-file-earmark-bar-graph me-2"></i> Generate Now
+        </button>
+    </div>
+</div>
+
+<!-- Search and Filter Bar -->
+<div class="card card-glass border-0 shadow-sm mb-4">
+    <div class="card-body p-4">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" class="form-control bg-light border-0" id="searchInput"
+                        placeholder="Search by student name...">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select bg-light border-0" id="filterType">
+                    <option value="">All Session Types</option>
+                    <option value="Initial">Initial</option>
+                    <option value="Follow-up">Follow-up</option>
+                    <option value="Crisis">Crisis</option>
+                    <option value="Termination">Termination</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select bg-light border-0" id="filterStatus">
+                    <option value="">All Statuses</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Scheduled">Scheduled</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-light border w-100" onclick="clearFilters()">
+                    <i class="bi bi-x-circle me-1"></i> Clear
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sessions Table -->
+<div class="card card-glass border-0 shadow-lg">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="sessionsTable" style="min-height: 300px;">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4 text-uppercase small fw-bold text-muted border-0">Student</th>
+                        <th class="text-uppercase small fw-bold text-muted border-0">Counsellor</th>
+                        <th class="text-uppercase small fw-bold text-muted border-0">Date & Time</th>
+                        <th class="text-uppercase small fw-bold text-muted border-0">Type</th>
+                        <th class="text-uppercase small fw-bold text-muted border-0">Status</th>
+                        <th class="text-end pe-4 text-uppercase small fw-bold text-muted border-0">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="border-top-0">
+                    {% for session in sessions %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle bg-primary bg-opacity-10 text-primary me-2">
+                                    {{ session.student_name[0] if session.student_name else '?' }}
+                                </div>
+                                <div class="d-flex flex-column">
+                                    <span class="fw-medium text-dark">{{ session.student_name }}</span>
+                                    {% if session.professional_id %}
+                                    <span class="small text-muted">ID: {{ session.professional_id }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="text-secondary">{{ session.Counsellor_name or 'Unassigned' }}</span>
+                        </td>
+                        <td>
+                            <div class="d-flex flex-column">
+                                <span class="fw-bold text-dark">{{ session.date }}</span>
+                                <span class="small text-muted">{{ session.time }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge rounded-pill bg-info bg-opacity-10 text-info">
+                                {{ session.session_type or 'N/A' }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge rounded-pill
+                                {% if session.status == 'Completed' %}bg-success bg-opacity-10 text-success
+                                {% elif session.status == 'Scheduled' %}bg-warning bg-opacity-10 text-warning
+                                {% else %}bg-secondary bg-opacity-10 text-secondary
+                                {% endif %}">
+                                <i class="bi bi-circle-fill me-1 small" style="font-size: 0.5em;"></i>
+                                {{ session.status or 'N/A' }}
+                            </span>
+                        </td>
+                        <td class="text-end pe-4">
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-light border btn-hover-lift"
+                                    onclick="viewSession({{ session.id }})" title="View Details">
+                                    <i class="bi bi-eye text-primary"></i>
+                                </button>
+                                <a href="{{ url_for('print_session', session_id=session.id) }}" target="_blank"
+                                    class="btn btn-sm btn-light border btn-hover-lift" title="Print">
+                                    <i class="bi bi-printer text-secondary"></i>
+                                </a>
+                                <form action="/delete_session/{{ session.id }}" method="POST" style="display:inline;"
+                                    onsubmit="return confirm('Are you sure you want to delete this session for {{ session.student_name }}? This will also delete related referrals. This action cannot be undone!');">
+                                    <button type="submit" class="btn btn-sm btn-light border btn-hover-lift text-danger"
+                                        title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="p-4 border-top">
+            <nav aria-label="Session pagination">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link"
+                            href="{{ url_for('sessions_list', page=pagination.prev_num) }}">Previous</a>
+                    </li>
+                    {% endif %}
+
+                    {% for page_num in pagination.iter_pages() %}
+                    {% if page_num %}
+                    {% if page_num != pagination.page %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('sessions_list', page=page_num) }}">{{ page_num }}</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% endif %}
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('sessions_list', page=pagination.next_num) }}">Next</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+
+<!-- Session Detail Modal -->
+<div class="modal fade" id="sessionModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-light border-bottom-0">
+                <h5 class="modal-title fw-bold">Session Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4" id="sessionModalBody">
+                <!-- Content will be loaded dynamically -->
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                <a href="#" id="printSessionBtn" target="_blank" class="btn btn-primary shadow-sm">
+                    <i class="bi bi-printer me-2"></i> Print Report
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Toggle Auto Report
+    window.addEventListener('DOMContentLoaded', function () {
+        fetch('/toggle_auto_report', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const isEnabled = data.is_enabled;
+                    const toggleBtn = document.getElementById('toggleAutoReportBtn');
+                    toggleBtn.dataset.status = isEnabled;
+                    // Update UI class
+                    toggleBtn.classList.remove('btn-primary', 'btn-secondary');
+                    toggleBtn.classList.add(isEnabled ? 'btn-primary' : 'btn-secondary');
+
+                    toggleBtn.innerHTML = `<i class="bi bi-toggle-${isEnabled ? 'on' : 'off'} me-2"></i> Auto Report ${isEnabled ? 'Enabled' : 'Disabled'}`;
+                }
+            })
+            .catch(error => console.error('Error checking auto report status:', error));
+    });
+
+    document.getElementById('toggleAutoReportBtn').addEventListener('click', function () {
+        const currentStatus = this.dataset.status === 'true';
+        const newStatus = !currentStatus;
+        fetch('/toggle_auto_report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enable: newStatus })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message);
+                    this.dataset.status = newStatus;
+                    // Update UI class
+                    this.classList.remove('btn-primary', 'btn-secondary');
+                    this.classList.add(newStatus ? 'btn-primary' : 'btn-secondary');
+                    this.innerHTML = `<i class="bi bi-toggle-${newStatus ? 'on' : 'off'} me-2"></i> Auto Report ${newStatus ? 'Enabled' : 'Disabled'}`;
+                } else {
+                    alert('Failed: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred.');
+            });
+    });
+
+    document.getElementById('generateReportNowBtn').addEventListener('click', function () {
+        if (confirm('Generate report now?')) {
+            fetch('/generate_report_now', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+                .then(response => response.json())
+                .then(data => alert(data.status === 'success' ? data.message : 'Failed: ' + data.message))
+                .catch(error => alert('An error occurred.'));
+        }
+    });
+
+    function viewSession(sessionId) {
+        // Reset modal content
+        document.getElementById('sessionModalBody').innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>`;
+
+        const modal = new bootstrap.Modal(document.getElementById('sessionModal'));
+        modal.show();
+
+        fetch(`/get_session/${sessionId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('sessionModalBody').innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                    return;
+                }
+
+                const session = data;
+                const notesHtml = (session.notes || 'No notes provided').replace(/\n/g, '<br>');
+                const outcomeHtml = session.outcome && session.outcome !== 'N/A'
+                    ? '<div class="alert alert-success bg-opacity-10 border-0 mt-3"><h6 class="alert-heading text-success mb-2">Outcome</h6><p class="mb-0 small">' + session.outcome + '</p></div>'
+                    : '';
+
+                document.getElementById('sessionModalBody').innerHTML = `
+                <div class="row g-4 mb-4">
+                    <div class="col-md-6 border-end">
+                        <p class="text-muted small text-uppercase fw-bold mb-1">Student</p>
+                        <h6 class="fw-bold mb-3">${session.student_name || 'N/A'}</h6>
+                        
+                        <p class="text-muted small text-uppercase fw-bold mb-1">Counsellor</p>
+                        <h6 class="fw-bold mb-3">${session.Counsellor_name || 'N/A'}</h6>
+                    </div>
+                    <div class="col-md-6 ps-md-4">
+                        <p class="text-muted small text-uppercase fw-bold mb-1">Date & Time</p>
+                        <h6 class="fw-bold mb-3">${session.date || 'N/A'} <span class="text-muted fw-normal mx-1">at</span> ${session.time || ''}</h6>
+
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <p class="text-muted small text-uppercase fw-bold mb-1">Type</p>
+                                <span class="badge bg-info bg-opacity-10 text-info">${session.session_type || 'N/A'}</span>
+                            </div>
+                            <div>
+                                <p class="text-muted small text-uppercase fw-bold mb-1">Status</p>
+                                <span class="badge bg-success bg-opacity-10 text-success">${session.appointment_status || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-light p-3 rounded-3 border">
+                     <p class="text-muted small text-uppercase fw-bold mb-2">Session Notes</p>
+                     <div class="notes-content text-dark">${notesHtml}</div>
+                </div>
+                ${outcomeHtml}
+                <div class="mt-2 text-end text-muted small">
+                    Created: ${session.created_at || 'N/A'}
+                </div>
+            `;
+
+                document.getElementById('printSessionBtn').href = `/print_session/${sessionId}`;
+            })
+            .catch(error => {
+                document.getElementById('sessionModalBody').innerHTML = `<div class="alert alert-danger">Error loading details: ${error.message}</div>`;
+            });
+    }
+
+    function clearFilters() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('filterType').value = '';
+        document.getElementById('filterStatus').value = '';
+        window.location.href = '{{ url_for("sessions_list") }}';
+    }
+
+    // Search & Filter
+    let searchTimeout;
+    document.getElementById('searchInput').addEventListener('input', function () {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            const searchTerm = this.value.toLowerCase();
+            document.querySelectorAll('#sessionsTable tbody tr').forEach(row => {
+                const text = row.querySelector('td:first-child').textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        }, 300);
+    });
+
+    function filterTable() {
+        const typeFilter = document.getElementById('filterType').value.toLowerCase();
+        const statusFilter = document.getElementById('filterStatus').value.toLowerCase();
+
+        document.querySelectorAll('#sessionsTable tbody tr').forEach(row => {
+            const type = row.querySelector('td:nth-child(4)').textContent.trim().toLowerCase();
+            const status = row.querySelector('td:nth-child(5)').textContent.trim().toLowerCase();
+
+            const typeMatch = !typeFilter || type.includes(typeFilter);
+            const statusMatch = !statusFilter || status.includes(statusFilter);
+
+            row.style.display = typeMatch && statusMatch ? '' : 'none';
+        });
+    }
+    document.getElementById('filterType').addEventListener('change', filterTable);
+    document.getElementById('filterStatus').addEventListener('change', filterTable);
+</script>
+{% endblock %}
