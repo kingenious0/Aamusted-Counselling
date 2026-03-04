@@ -1,2 +1,0 @@
-Appointments in DB:
-{'id': 10, 'student_id': 2, 'date': '2026-01-16', 'status': 'scheduled'}

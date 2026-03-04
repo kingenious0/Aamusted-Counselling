@@ -1,0 +1,160 @@
+{% extends "base_modern.html" %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="d-flex align-items-center mb-4">
+            <a href="javascript:history.back()" class="btn btn-light border rounded-circle shadow-sm me-3"
+                style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h2 class="fw-bold mb-0 text-dark">My Profile</h2>
+                <p class="text-muted mb-0">Manage your account settings and preferences.</p>
+            </div>
+        </div>
+
+        <div class="card card-glass border-0 shadow-lg">
+            <div class="card-body p-5">
+                <form action="{{ url_for('profile') }}" method="POST" enctype="multipart/form-data">
+
+                    <div class="text-center mb-5">
+                        <div class="position-relative d-inline-block">
+                            {% if user.profile_pic %}
+                            <img src="{{ url_for('static', filename='profile_pics/' + user.profile_pic) }}"
+                                class="rounded-circle shadow-sm border border-3 border-white"
+                                style="width: 120px; height: 120px; object-fit: cover;" id="profileImagePreview">
+                            {% else %}
+                            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center shadow-inner text-secondary border"
+                                style="width: 120px; height: 120px; font-size: 3rem;" id="profileImagePreview">
+                                {{ user.full_name[:1].upper() }}
+                            </div>
+                            {% endif %}
+                            <label for="profileUpload"
+                                class="position-absolute bottom-0 end-0 bg-primary text-white rounded-circle shadow-sm p-2 cursor-pointer hover-scale"
+                                style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                <i class="bi bi-camera-fill small"></i>
+                            </label>
+                            <input type="file" id="profileUpload" name="profile_pic" class="d-none" accept="image/*"
+                                onchange="previewImage(this)">
+                        </div>
+                        <h4 class="mt-3 fw-bold">{{ user.full_name }}</h4>
+                        <span class="badge bg-secondary bg-opacity-10 text-secondary border rounded-pill px-3">{{
+                            user.role }}</span>
+                    </div>
+
+                    <h5 class="fw-bold text-primary mb-4 text-uppercase small letter-spacing-1">Personal Information
+                    </h5>
+
+                    <div class="row g-4 mb-5">
+                        <div class="col-md-12">
+                            <div class="form-floating">
+                                <input type="text" class="form-control bg-light border-0" id="fullName" name="full_name"
+                                    placeholder="Full Name" value="{{ user.full_name or '' }}" required>
+                                <label for="fullName">Full Name</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                <input type="email" class="form-control bg-light border-0" id="email" name="email"
+                                    placeholder="name@example.com" value="{{ user.email or '' }}">
+                                <label for="email">Email Address</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                <input type="tel" class="form-control bg-light border-0" id="phone" name="phone"
+                                    placeholder="Phone Number" value="{{ user.phone or '' }}">
+                                <label for="phone">Phone Number (for SMS)</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="alert alert-info border-0 bg-info bg-opacity-10 d-flex align-items-center">
+                                <i class="bi bi-info-circle-fill text-info me-3 fs-4"></i>
+                                <div>
+                                    <strong>Note:</strong> Your username <code>{{ user.username }}</code> and role
+                                    <code>{{ user.role }}</code> cannot be changed.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h5 class="fw-bold text-warning mb-4 text-uppercase small letter-spacing-1">Security</h5>
+
+                    <div class="card bg-warning bg-opacity-10 border-0 mb-4">
+                        <div class="card-body">
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="changePasswordSwitch"
+                                    onchange="togglePasswordFields()">
+                                <label class="form-check-label fw-bold" for="changePasswordSwitch">Change
+                                    Password</label>
+                            </div>
+
+                            <div id="passwordFields" style="display: none;">
+                                <div class="form-floating mb-3">
+                                    <input type="password" class="form-control border-0" id="newPassword"
+                                        name="password" placeholder="New Password" minlength="4">
+                                    <label for="newPassword">New Password</label>
+                                </div>
+                                <div class="small text-muted">
+                                    Leave blank if you don't want to change your password.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end pt-3">
+                        <button type="submit" class="btn btn-primary btn-lg shadow-sm px-5 rounded-pill">
+                            <i class="bi bi-save me-2"></i>Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function previewImage(input) {
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+
+            reader.onload = function (e) {
+                // Check if we have an img tag or div
+                var preview = document.getElementById('profileImagePreview');
+
+                // If it's a div (initial state for no image), replace it with an img
+                if (preview.tagName === 'DIV') {
+                    var newImg = document.createElement('img');
+                    newImg.id = 'profileImagePreview';
+                    newImg.className = 'rounded-circle shadow-sm border border-3 border-white';
+                    newImg.style.width = '120px';
+                    newImg.style.height = '120px';
+                    newImg.style.objectFit = 'cover';
+                    preview.parentNode.replaceChild(newImg, preview);
+                    preview = newImg;
+                }
+
+                preview.src = e.target.result;
+            }
+
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function togglePasswordFields() {
+        const passwordFields = document.getElementById('passwordFields');
+        const switchBtn = document.getElementById('changePasswordSwitch');
+
+        if (switchBtn.checked) {
+            passwordFields.style.display = 'block';
+            document.getElementById('newPassword').focus();
+        } else {
+            passwordFields.style.display = 'none';
+            document.getElementById('newPassword').value = '';
+        }
+    }
+</script>
+{% endblock %}
