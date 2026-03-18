@@ -15,6 +15,9 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
 
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <!-- Custom Modern Theme -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modern_theme.css') }}">
 
@@ -72,7 +75,9 @@
                 </a>
             </li>
 
+            {# ── ALL ROLES: Clients & Appointments ── #}
             {% if session.get('role') in ['Secretary', 'Admin', 'Counsellor', 'Counselor'] %}
+            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-1 nav-category-header" style="font-size:0.65rem;">Clients</li>
             <li>
                 <a href="{{ url_for('students') }}"
                     class="nav-link {% if 'student' in request.endpoint and 'intake' not in request.endpoint %}active{% endif %}"
@@ -82,16 +87,19 @@
             </li>
             <li>
                 <a href="{{ url_for('intake') }}"
-                    class="nav-link {% if 'intake' in request.endpoint %}active{% endif %}" title="New Student Intake"
+                    class="nav-link {% if 'intake' in request.endpoint %}active{% endif %}" title="New Client Intake"
                     data-bs-toggle="tooltip" data-bs-placement="right">
-                    <i class="bi bi-person-plus me-2"></i> <span>New Student Intake</span>
+                    <i class="bi bi-person-plus me-2"></i> <span>New Client Intake</span>
                 </a>
             </li>
+
+
+            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-1 nav-category-header" style="font-size:0.65rem;">Appointments</li>
             <li>
                 <a href="{{ url_for('appointment') }}"
-                    class="nav-link {% if 'appointment' in request.endpoint and 'status' not in request.endpoint %}active{% endif %}"
-                    title="Appointments" data-bs-toggle="tooltip" data-bs-placement="right">
-                    <i class="bi bi-calendar-plus me-2"></i> <span>Appointments</span>
+                    class="nav-link {% if request.endpoint == 'appointment' %}active{% endif %}"
+                    title="Schedule Appointment" data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-calendar-plus me-2"></i> <span>Schedule Appt.</span>
                 </a>
             </li>
             <li>
@@ -101,11 +109,23 @@
                     <i class="bi bi-calendar-check me-2"></i> <span>Manage Appts.</span>
                 </a>
             </li>
+            <li>
+                <a href="/admin/bookings"
+                    class="nav-link {% if 'bookings' in request.endpoint %}active{% endif %}" title="Booking Requests"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-calendar2-event me-2"></i>
+                    <span>Booking Requests</span>
+                    {% if latest_booking_count and latest_booking_count > 0 %}
+                    <span class="badge rounded-pill bg-warning text-dark ms-auto" style="font-size:0.65rem;">{{ latest_booking_count }}</span>
+                    {% endif %}
+                </a>
+            </li>
             {% endif %}
 
-            {% if session.get('role') in ['Counsellor', 'Counselor', 'Admin'] %}
-            <!-- Counsellor Specific Links -->
-            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-2 nav-category-header">Clinical</li>
+
+            {% if (session.get('role') or '')|trim in ['Counsellor', 'Counselor', 'Admin'] %}
+            <!-- ── Clinical: Counsellor / Admin ── -->
+            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-1 nav-category-header" style="font-size:0.65rem;">Clinical</li>
             <li>
                 <a href="{{ url_for('my_cases') }}"
                     class="nav-link {% if 'my_cases' in request.endpoint %}active{% endif %}" title="My Cases"
@@ -148,10 +168,36 @@
                     <i class="bi bi-file-earmark-bar-graph me-2"></i> <span>Reports</span>
                 </a>
             </li>
+            <li>
+                <a href="{{ url_for('statistics') }}"
+                    class="nav-link {% if request.endpoint == 'statistics' %}active{% endif %}" title="Statistics"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-bar-chart-line me-2"></i> <span>Statistics</span>
+                </a>
+            </li>
+            {% endif %}
+
+            {% if session.get('role') == 'Secretary' %}
+            <li>
+                <a href="{{ url_for('statistics') }}"
+                    class="nav-link {% if request.endpoint == 'statistics' %}active{% endif %}" title="Statistics"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-bar-chart-line me-2"></i> <span>Statistics</span>
+                </a>
+            </li>
             {% endif %}
 
             {% if session.get('role') in ['Secretary', 'Counsellor', 'Counselor'] %}
-            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-2 nav-category-header">Configuration</li>
+            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-1 nav-category-header" style="font-size:0.65rem;">Configuration</li>
+            {% if session.get('role') in ['Secretary', 'Admin', 'Counsellor', 'Counselor'] %}
+            <li>
+                <a href="{{ url_for('import_csv') }}"
+                    class="nav-link {% if 'import' in request.endpoint %}active{% endif %}" title="Import Data"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-file-earmark-arrow-up me-2"></i> <span>Import Data</span>
+                </a>
+            </li>
+            {% endif %}
             <li>
                 <a href="{{ url_for('admin_settings') }}"
                     class="nav-link {% if 'settings' in request.endpoint %}active{% endif %}" title="Settings"
@@ -162,7 +208,7 @@
             {% endif %}
 
             {% if session.get('role') == 'Admin' %}
-            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-2 nav-category-header">Governance</li>
+            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-1 nav-category-header" style="font-size:0.65rem;">Governance</li>
             <li>
                 <a href="{{ url_for('admin_users') }}"
                     class="nav-link {% if 'users' in request.endpoint %}active{% endif %}" title="Access Control"
@@ -191,6 +237,13 @@
                     <i class="bi bi-gear me-2"></i> <span>System Settings</span>
                 </a>
             </li>
+            <li>
+                <a href="{{ url_for('statistics') }}"
+                    class="nav-link {% if request.endpoint == 'statistics' %}active{% endif %}" title="Global Analytics"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-graph-up-arrow me-2"></i> <span>Global Analytics</span>
+                </a>
+            </li>
             {% endif %}
         </ul>
 
@@ -205,10 +258,13 @@
                     style="width: 32px; height: 32px; min-width: 32px;">
                     {{ session.get('username', 'U')[0] | upper }}
                 </div>
-                <div>
-                    <div class="small fw-bold text-truncate" style="max-width: 140px;">{{ session.get('full_name',
-                        'User') }}</div>
-                    <div class="small text-muted" style="font-size: 0.75rem;">{{ session.get('role', 'Staff') }}</div>
+                    {% set role_labels = {'Secretary': 'Desk Administrator', 'Admin': 'System Administrator', 'Counsellor': 'Counsellor', 'Counselor': 'Counsellor'} %}
+                    {% set display_name = session.get('full_name', 'User') %}
+                    {% if display_name.strip().lower() in ['secretary', 'admin', 'counsellor', 'counselor'] %}
+                        {% set display_name = role_labels.get(session.get('role'), display_name) %}
+                    {% endif %}
+                    <div class="small fw-bold text-truncate" style="max-width: 140px;">{{ display_name }}</div>
+                    <div class="small text-muted" style="font-size: 0.75rem;">{{ role_labels.get(session.get('role'), 'Staff') }}</div>
                 </div>
             </a>
             <ul class="dropdown-menu text-small shadow" aria-labelledby="dropdownUser2">
@@ -329,18 +385,31 @@
             </div>
         </div>
 
-        <!-- Flash Messages -->
+        <!-- Flash Messages via SweetAlert2 -->
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-        {% for category, message in messages %}
-        <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show shadow-sm border-0 rounded-3"
-            role="alert">
-            <i
-                class="bi {% if category == 'success' %}bi-check-circle-fill{% else %}bi-exclamation-triangle-fill{% endif %} me-2"></i>
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        {% endfor %}
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000,
+                    timerProgressBar: true,
+                    didOpen: (toast) => {
+                        toast.addEventListener('mouseenter', Swal.stopTimer)
+                        toast.addEventListener('mouseleave', Swal.resumeTimer)
+                    }
+                });
+
+                {% for category, message in messages %}
+                Toast.fire({
+                    icon: '{{ "success" if category == "success" else "error" if category in ["danger", "error"] else "info" }}',
+                    title: '{{ message }}'
+                });
+                {% endfor %}
+            });
+        </script>
         {% endif %}
         {% endwith %}
 
@@ -356,6 +425,41 @@
         var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl)
         })
+
+        // GCC Core UI Helpers
+        window.GCC = {
+            confirm: function(message, type = 'warning', confirmText = 'Yes, proceed') {
+                return Swal.fire({
+                    title: 'Are you sure?',
+                    text: message,
+                    icon: type,
+                    showCancelButton: true,
+                    confirmButtonColor: 'var(--sage-600, #4f46e5)',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: confirmText,
+                    cancelButtonText: 'Cancel',
+                    padding: '2rem',
+                    borderRadius: '1rem',
+                    customClass: {
+                        popup: 'rounded-4 shadow-lg border-0',
+                        title: 'fw-bold text-dark',
+                        confirmButton: 'btn btn-primary px-4 py-2 fw-semibold',
+                        cancelButton: 'btn btn-light px-4 py-2 text-muted'
+                    },
+                    buttonsStyling: false
+                });
+            },
+            confirmForm: function(event, message, type = 'warning', confirmText = 'Yes, proceed') {
+                event.preventDefault();
+                const form = event.target.closest('form');
+                this.confirm(message, type, confirmText).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+                return false;
+            }
+        };
 
         // Sidebar Collapse Logic
         document.addEventListener('DOMContentLoaded', function () {
@@ -417,23 +521,12 @@
 
         // Notification Sound
         function playNotificationSound() {
-            // Simple beep sequence
-            const context = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = context.createOscillator();
-            const gainNode = context.createGain();
-
-            oscillator.connect(gainNode);
-            gainNode.connect(context.destination);
-
-            oscillator.type = 'sine';
-            oscillator.frequency.value = 800; // Hz
-            gainNode.gain.value = 0.1; // Volume
-
-            oscillator.start();
-            setTimeout(function () {
-                oscillator.stop();
-            }, 100); // 100ms beep
+            const audio = document.getElementById('notificationSound');
+            if (audio) {
+                audio.play().catch(e => console.log('Audio play failed:', e));
+            }
         }
+
 
         // Mark single notification as read
         function markNotificationRead(event, id) {
@@ -490,8 +583,36 @@
                 })
                 .catch(e => console.error('Theme sync error:', e));
         }, 5000); // Check every 5 seconds
+
+        // Automated Sync & New Booking Polling
+        setInterval(() => {
+            fetch('/api/sync/check_alerts')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.new_booking) {
+                        playNotificationSound();
+                        Swal.fire({
+                            toast: true,
+                            position: 'top-end',
+                            icon: 'info',
+                            title: 'New Online Booking Received!',
+                            text: 'A new client has booked via the portal.',
+                            showConfirmButton: false,
+                            timer: 10000,
+                            timerProgressBar: true
+                        });
+                        // Refresh data if on dashboard
+                        if (window.location.pathname.includes('dashboard')) {
+                            // Optionally trigger a silent refresh of the lists
+                        }
+                    }
+                })
+                .catch(e => console.error('Alert sync error:', e));
+        }, 30000); // Check every 30 seconds
     </script>
+    <audio id="notificationSound" src="/assets/ringtone-you-would-be-glad-to-know.mp3" preload="auto"></audio>
     {% block scripts %}{% endblock %}
+
 </body>
 
 </html>

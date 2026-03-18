@@ -3,6 +3,7 @@ import sys
 import sqlite3
 from werkzeug.security import generate_password_hash
 
+
 def init_db():
     """Initialize database - works in both dev and EXE mode"""
     # Determine correct database path (same logic as app.py)
@@ -15,15 +16,15 @@ def init_db():
             base_path = os.path.dirname(os.path.abspath(__file__))
     except:
         base_path = os.path.dirname(os.path.abspath(__file__))
-    
+
     db_path = os.path.join(base_path, 'counseling.db')
     print(f"[DB_SETUP] Initializing database at: {db_path}")
-    
+
     # Connect to SQLite database (creates it if it doesn't exist)
     # Use timeout to prevent locking issues
     conn = sqlite3.connect(db_path, timeout=10.0)
     cursor = conn.cursor()
-    
+
     # Enable WAL mode for better concurrency
     cursor.execute("PRAGMA journal_mode=WAL")
 
@@ -43,6 +44,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS Student (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
+            case_number TEXT UNIQUE,
             age INTEGER,
             gender TEXT,
             contact TEXT,
@@ -51,6 +53,25 @@ def init_db():
             faculty TEXT,
             programme TEXT NOT NULL,
             parent_contact TEXT,
+            hall_of_residence TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Booking Request table (student self-booking portal)
+        CREATE TABLE IF NOT EXISTS BookingRequest (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            reference TEXT UNIQUE,
+            full_name TEXT NOT NULL,
+            index_number TEXT NOT NULL,
+            email TEXT,
+            department TEXT,
+            programme TEXT,
+            phone TEXT,
+            preferred_date DATE,
+            preferred_time TEXT,
+            reason TEXT,
+            status TEXT DEFAULT 'Pending',
+            decline_reason TEXT,
             hall_of_residence TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -71,14 +92,15 @@ def init_db():
             date DATE NOT NULL,
             time TIME NOT NULL,
             purpose TEXT,
-            status TEXT DEFAULT 'Scheduled', -- Standardized default
-            urgency TEXT,                   -- New: Crisis, Urgent, Normal
-            checked_in_at TIMESTAMP,        -- New: Workflow timestamp
-            sent_to_counsellor_at TIMESTAMP,-- New: Workflow timestamp
-            accepted_at TIMESTAMP,          -- New: Workflow timestamp
-            completed_at TIMESTAMP,         -- New: Workflow timestamp
-            referral_reason TEXT,           -- New: Context for handover
-            referral_source TEXT,           -- New: Reporting
+            status TEXT DEFAULT 'Scheduled',
+            urgency TEXT,
+            booking_ref TEXT,               -- New: Link back to portal booking
+            checked_in_at TIMESTAMP,
+            sent_to_counsellor_at TIMESTAMP,
+            accepted_at TIMESTAMP,
+            completed_at TIMESTAMP,
+            referral_reason TEXT,
+            referral_source TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (student_id) REFERENCES Student(id),
             FOREIGN KEY (Counsellor_id) REFERENCES Counsellor(id)
@@ -242,19 +264,21 @@ def init_db():
     # Check if 'outcome' column exists in 'session' table, if not, add it
     # Add outcome column to session table if it doesn't exist
     cursor.execute("PRAGMA foreign_keys = OFF;")
-    
+
     # helper to add column if missing
     def add_column_if_missing(table, column, col_type):
         cursor.execute(f"PRAGMA table_info({table})")
         cols = [info[1] for info in cursor.fetchall()]
         if column not in cols:
             print(f"[DB_SETUP] Adding missing column {column} to {table}")
-            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type};")
+            cursor.execute(
+                f"ALTER TABLE {table} ADD COLUMN {column} {col_type};")
 
     # Session table updates
     add_column_if_missing('session', 'outcome', 'TEXT')
 
     # Appointment table updates for Workflow
+    add_column_if_missing('Appointment', 'booking_ref', 'TEXT')
     add_column_if_missing('Appointment', 'urgency', 'TEXT')
     add_column_if_missing('Appointment', 'checked_in_at', 'TIMESTAMP')
     add_column_if_missing('Appointment', 'sent_to_counsellor_at', 'TIMESTAMP')
@@ -262,17 +286,119 @@ def init_db():
     add_column_if_missing('Appointment', 'completed_at', 'TIMESTAMP')
     add_column_if_missing('Appointment', 'referral_reason', 'TEXT')
     add_column_if_missing('Appointment', 'referral_source', 'TEXT')
+    
+    # BookingRequest updates
+    add_column_if_missing('BookingRequest', 'email', 'TEXT')
+    add_column_if_missing('BookingRequest', 'hall_of_residence', 'TEXT')
 
     # Users table updates
     add_column_if_missing('users', 'phone', 'TEXT')
     add_column_if_missing('users', 'email', 'TEXT')
     add_column_if_missing('users', 'profile_pic', 'TEXT')
 
+    # --- AUTOMATED SYNC SCHEMA UPDATES ---
+    SYNC_TABLES = [
+        'Student', 'Appointment', 'session', 'Referral', 
+        'CaseManagement', 'OutcomeQuestionnaire', 'DASS21', 
+        'Feedback', 'SessionIssue', 'Notification', 'app_settings',
+        'BookingRequest'
+    ]
+
+    for table in SYNC_TABLES:
+        add_column_if_missing(table, 'global_id', 'TEXT')
+        add_column_if_missing(table, 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+        add_column_if_missing(table, 'last_synced_at', 'TIMESTAMP')
+
+        
+    # Backfill global_id for all tables if missing
+    import uuid
+    for table in SYNC_TABLES:
+        try:
+            missing_ids = cursor.execute(f"SELECT id FROM {table} WHERE global_id IS NULL").fetchall()
+            if missing_ids:
+                print(f"[DB_SETUP] Backfilling global_id for {len(missing_ids)} records in {table}...")
+                for row in missing_ids:
+                    row_id = row[0]
+                    cursor.execute(f"UPDATE {table} SET global_id = ? WHERE id = ?", (str(uuid.uuid4()), row_id))
+        except Exception as e:
+            print(f"[DB_SETUP] Warning backfilling {table}: {e}")
+
+    # Add triggers for updated_at
+    for table in SYNC_TABLES:
+        cursor.execute(f'''
+            CREATE TRIGGER IF NOT EXISTS trg_{table}_updated_at
+            AFTER UPDATE ON {table}
+            FOR EACH ROW
+            BEGIN
+                UPDATE {table} SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+            END;
+        ''')
+
+
     # App Settings sync updates
+
+    # Student case number column
+    add_column_if_missing('Student', 'case_number', 'TEXT')
+
+    # Backfill case_number for existing students that don't have one
+    try:
+        students_missing = cursor.execute(
+            "SELECT id FROM Student WHERE case_number IS NULL ORDER BY id"
+        ).fetchall()
+        if students_missing:
+            import uuid as _uuid
+            year = __import__('datetime').datetime.now().year
+            print(
+                f"[DB_SETUP] Backfilling case_number for {len(students_missing)} students...")
+            for row in students_missing:
+                sid = row[0]
+                # Generate GCC-YYYY-XXXX based on id
+                new_code = f"GCC-{year}-{str(sid).zfill(4)}"
+                try:
+                    cursor.execute(
+                        "UPDATE Student SET case_number = ? WHERE id = ?",
+                        (new_code, sid)
+                    )
+                except Exception:
+                    # If duplicate (race condition), assign a UUID-based fallback
+                    fallback = f"GCC-{year}-{str(_uuid.uuid4())[:4].upper()}"
+                    cursor.execute(
+                        "UPDATE Student SET case_number = ? WHERE id = ?",
+                        (fallback, sid)
+                    )
+    except Exception as e:
+        print(f"[DB_SETUP] Warning during case_number backfill: {e}")
+
+    # Ensure BookingRequest table exists (for databases predating the booking portal feature)
+    try:
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS BookingRequest (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                reference TEXT UNIQUE,
+                full_name TEXT NOT NULL,
+                index_number TEXT NOT NULL,
+                email TEXT,
+                department TEXT,
+                programme TEXT,
+                phone TEXT,
+                preferred_date DATE,
+                preferred_time TEXT,
+                reason TEXT,
+                status TEXT DEFAULT 'Pending',
+                decline_reason TEXT,
+                hall_of_residence TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        print("[DB_SETUP] BookingRequest table OK")
+    except Exception as e:
+        print(f"[DB_SETUP] Warning creating BookingRequest table: {e}")
+
     add_column_if_missing('app_settings', 'updated_at', 'TIMESTAMP')
     # Manual backfill since ADD COLUMN DEFAULT CURRENT_TIMESTAMP can be flaky in some SQLite versions
     try:
-        cursor.execute("UPDATE app_settings SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL")
+        cursor.execute(
+            "UPDATE app_settings SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL")
     except:
         pass
     add_column_if_missing('app_settings', 'global_id', 'TEXT')
@@ -280,14 +406,17 @@ def init_db():
 
     # Backfill global_id for app_settings if missing
     try:
-        settings_rows = cursor.execute("SELECT id FROM app_settings WHERE global_id IS NULL").fetchall()
+        settings_rows = cursor.execute(
+            "SELECT id FROM app_settings WHERE global_id IS NULL").fetchall()
         if settings_rows:
             import uuid
-            print(f"[DB_SETUP] Backfilling global_id for {len(settings_rows)} settings...")
+            print(
+                f"[DB_SETUP] Backfilling global_id for {len(settings_rows)} settings...")
             for row in settings_rows:
                 row_id = row[0]
                 new_uuid = str(uuid.uuid4())
-                cursor.execute("UPDATE app_settings SET global_id = ? WHERE id = ?", (new_uuid, row_id))
+                cursor.execute(
+                    "UPDATE app_settings SET global_id = ? WHERE id = ?", (new_uuid, row_id))
     except Exception as e:
         print(f"[DB_SETUP] Warning during backfill: {e}")
 
@@ -300,16 +429,16 @@ def init_db():
             (1, 'Mrs. Gertrude Effeh Brew', '');
     ''')
 
-
-
-
     # Insert default users if not already present
     cursor.execute("SELECT COUNT(*) FROM users")
     if cursor.fetchone()[0] == 0:
         users = [
-            ('admin', generate_password_hash("Admin123"), 'System Administrator', 'Admin'),
-            ('secretary', generate_password_hash("Secretary123"), 'Front Desk Office', 'Secretary'),
-            ('counsellor', generate_password_hash("Counsellor123"), 'Mrs. Gertrude Effeh Brew', 'Counsellor')
+            ('admin', generate_password_hash("Admin123"),
+             'System Administrator', 'Admin'),
+            ('secretary', generate_password_hash(
+                "Secretary123"), 'Front Desk Office', 'Secretary'),
+            ('counsellor', generate_password_hash("Counsellor123"),
+             'Mrs. Gertrude Effeh Brew', 'Counsellor')
         ]
         cursor.executemany(
             "INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)",
@@ -318,7 +447,8 @@ def init_db():
         print("[DB_SETUP] Default users created.")
 
     # Insert default password hash in app_settings (legacy support)
-    cursor.execute("SELECT COUNT(*) FROM app_settings WHERE setting_name = 'password_hash'")
+    cursor.execute(
+        "SELECT COUNT(*) FROM app_settings WHERE setting_name = 'password_hash'")
     if cursor.fetchone()[0] == 0:
         default_password_hash = generate_password_hash("Counsellor123")
         cursor.execute("INSERT INTO app_settings (setting_name, setting_value) VALUES (?, ?)",
@@ -327,6 +457,7 @@ def init_db():
     # Commit the changes and close the connection
     conn.commit()
     conn.close()
+
 
 if __name__ == '__main__':
     init_db()

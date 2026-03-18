@@ -193,6 +193,45 @@
         </div>
         {% endif %}
 
+        <!-- Data Management & Import Section -->
+        {% if (session.get('role') or '')|trim in ['Admin', 'Counsellor', 'Counselor', 'Secretary'] %}
+        <div class="card card-glass border-0 shadow-sm mt-4">
+            <div class="card-header bg-transparent border-0 pt-4 px-4">
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3 text-primary">
+                        <i class="bi bi-file-earmark-arrow-up-fill"></i>
+                    </div>
+                    <h5 class="fw-bold mb-0">Data Management & Import</h5>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted small mb-4">Upload a file to bulk import student records into the registry. Supported formats: <strong>CSV</strong>, <strong>Excel (.xlsx)</strong>.</p>
+                
+                <form action="{{ url_for('import_students') }}" method="POST" enctype="multipart/form-data" class="bg-light p-4 rounded-3 border dashed-border">
+                    <div class="text-center py-2">
+                        <div class="mb-3">
+                            <i class="bi bi-cloud-arrow-up text-primary" style="font-size: 2.5rem;"></i>
+                        </div>
+                        <label for="importFile" class="form-label fw-bold">Select Import File</label>
+                        <input type="file" class="form-control mb-3" id="importFile" name="file" accept=".csv, .xlsx, .xls" required>
+                        <button type="submit" class="btn btn-primary px-5 shadow-sm btn-hover-lift">
+                            <i class="bi bi-box-arrow-in-down me-2"></i> Start Import
+                        </button>
+                    </div>
+                </form>
+
+                <div class="mt-4">
+                    <h6 class="text-uppercase text-muted small fw-bold mb-2">Instructions:</h6>
+                    <ul class="small text-muted mb-0">
+                        <li>Ensure column headers are present (e.g., <strong>Name, Index Number, Department, Programme</strong>).</li>
+                        <li>Case numbers will be automatically generated based on student names.</li>
+                        <li>Duplicate index numbers may cause import errors.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Node Configuration Section -->
         <div class="card card-glass border-0 shadow-sm mt-4">
             <div class="card-header bg-transparent border-0 pt-4 px-4">
@@ -214,7 +253,7 @@
                                 <option value="Unassigned" {% if node_config.node_role=='Unassigned' %}selected{% endif
                                     %}>Unassigned</option>
                                 <option value="SECRETARY" {% if node_config.node_role=='SECRETARY' %}selected{% endif
-                                    %}>Secretary PC</option>
+                                    %}>Desk Administrator PC</option>
                                 <option value="COUNSELLOR" {% if node_config.node_role=='COUNSELLOR' %}selected{% endif
                                     %}>Counsellor Mac</option>
                                 <option value="ADMIN" {% if node_config.node_role=='ADMIN' %}selected{% endif %}>Admin

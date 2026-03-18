@@ -176,17 +176,18 @@ body {
     position: fixed;
     top: 0;
     left: 0;
-    width: 260px;
-    z-index: 1030;
+    width: 240px;
+    z-index: 1040;
     padding-top: 1.5rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     color: var(--text-main);
     overflow-y: auto;
+    box-shadow: 4px 0 15px rgba(0,0,0,0.03);
 }
 
 /* Scrollbar for sidebar */
 .sidebar-glass::-webkit-scrollbar {
-    width: 5px;
+    width: 6px;
 }
 
 .sidebar-glass::-webkit-scrollbar-track {
@@ -194,11 +195,31 @@ body {
 }
 
 .sidebar-glass::-webkit-scrollbar-thumb {
-    background-color: rgba(0, 0, 0, 0.1);
+    background-color: rgba(0, 0, 0, 0.08);
     border-radius: 20px;
 }
 
-/* COLLAPSED STATES - THIS WAS MISSING AND CAUSED ISSUES */
+/* Sticky Action Column for Tables */
+.table-responsive {
+    overflow-x: auto;
+    position: relative;
+}
+
+.table tr th:last-child,
+.table tr td:last-child {
+    position: sticky;
+    right: 0;
+    background: white !important;
+    z-index: 10;
+    box-shadow: -5px 0 10px rgba(0,0,0,0.03);
+}
+
+[data-theme="midnight"] .table tr th:last-child,
+[data-theme="midnight"] .table tr td:last-child {
+    background: #1e293b !important;
+}
+
+/* COLLAPSED STATES */
 .sidebar-collapsed {
     width: 80px !important;
 }
@@ -206,14 +227,15 @@ body {
 .sidebar-collapsed .nav-link span,
 .sidebar-collapsed .dropdown-toggle div,
 .sidebar-collapsed .sidebar-header-text,
-.sidebar-collapsed .nav-category-header {
+.sidebar-collapsed .nav-category-header,
+.sidebar-collapsed .dropdown-toggle .small {
     display: none !important;
 }
 
 .sidebar-collapsed .nav-link {
     justify-content: center;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
 }
 
 .sidebar-collapsed .nav-link i {
@@ -228,11 +250,11 @@ body {
 
 /* MAIN CONTENT LAYOUT */
 .main-content {
-    margin-left: 260px;
+    margin-left: 240px;
     padding: 2rem;
     transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    width: auto;
-    /* Ensure it takes remaining width */
+    width: calc(100% - 240px);
+    max-width: 100vw;
 }
 
 .main-content.expanded {
@@ -336,4 +358,143 @@ body {
     .sidebar-glass {
         transform: none !important;
     }
+}
+
+/* --- PREMIUM PRINT STYLES --- */
+@media print {
+    /* 1. Base Document Setup */
+    @page {
+        size: A4 portrait;
+        margin: 10mm 15mm;
+    }
+    
+    body {
+        margin: 0;
+        padding: 0;
+        background: #fff !important;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+        font-size: 10pt !important;
+        color: #000 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* 2. Hide UI Elements */
+    .sidebar-glass, .navbar, .btn, .no-print, [data-bs-toggle] {
+        display: none !important;
+    }
+
+    /* 3. Reset Main Content Layout */
+    .main-content {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* 4. Card Styling for Print */
+    .card, .card-glass {
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        margin-bottom: 20px !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .card-header {
+        background-color: transparent !important;
+        border-bottom: 2px solid #eee !important;
+        padding: 0 0 10px 0 !important;
+        margin-bottom: 15px !important;
+    }
+
+    /* 5. Flexbox Grid Fixes for Print */
+    .row {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        margin-right: -10px !important;
+        margin-left: -10px !important;
+    }
+    
+    .col-lg-6, .col-md-6 {
+        flex: 0 0 50% !important;
+        max-width: 50% !important;
+        padding-right: 10px !important;
+        padding-left: 10px !important;
+    }
+
+    .col-xl-3, .col-md-6.col-xl-3, .col-md-3 {
+        flex: 0 0 25% !important;
+        max-width: 25% !important;
+        padding-right: 10px !important;
+        padding-left: 10px !important;
+    }
+    
+    .col-lg-12, .col-12 {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* 6. Charts & Canvas Sizing */
+    canvas {
+        max-width: 100% !important;
+        height: auto !important;
+        max-height: 250px !important; /* Prevents huge vertical stretching */
+        page-break-inside: avoid !important;
+    }
+
+    /* 7. Typography Optimization */
+    h1, h2, h3, h4, h5, h6 {
+        page-break-after: avoid !important;
+        color: #1a1a1a !important;
+        margin-top: 10px !important;
+    }
+    
+    p, span, div {
+        color: #333 !important;
+    }
+
+    /* 8. Accents & Badges */
+    .badge {
+        border: 1px solid #ccc !important;
+        color: #111 !important;
+        background: #f8f9fa !important; /* Fallback */
+    }
+    
+    .rounded-circle {
+        border-radius: 50% !important;
+        background: transparent !important;
+        border: 1px solid #eee !important;
+    }
+
+    /* 9. Premium Tables */
+    .table {
+        border-collapse: collapse !important;
+        width: 100% !important;
+        margin-bottom: 20px !important;
+    }
+    
+    .table th {
+        background-color: #f1f5f9 !important;
+        color: #1e293b !important;
+        font-weight: 600 !important;
+        border-bottom: 2px solid #cbd5e1 !important;
+    }
+
+    .table th, .table td {
+        border: 1px solid #e2e8f0 !important;
+        padding: 8px 12px !important;
+    }
+    
+    .table-borderless th, .table-borderless td {
+        border-left: none !important;
+        border-right: none !important;
+    }
+    
+    /* 10. Print-specific Visibility Flags */
+    .d-print-none { display: none !important; }
+    .d-print-block { display: block !important; }
+    .d-print-inline { display: inline !important; }
+    .d-print-inline-block { display: inline-block !important; }
 }

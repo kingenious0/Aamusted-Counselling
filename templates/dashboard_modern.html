@@ -2,129 +2,204 @@
 
 {% block content %}
 <!-- WELCOME BANNER -->
-<div class="row mb-5">
+<div class="row mb-4">
     <div class="col-12">
-        <div class="card card-glass border-0 text-white overflow-hidden position-relative"
-            style="background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-dark) 100%);">
-            <div class="card-body p-5 position-relative z-1">
+        <div class="card border-0 text-white overflow-hidden position-relative"
+            style="background: linear-gradient(135deg, var(--brand-primary, #1a6b3c) 0%, var(--brand-dark, #0d4a29) 100%); border-radius: 1rem;">
+            <div class="card-body p-4 position-relative z-1">
                 <div class="row align-items-center">
                     <div class="col-md-8">
-                        <span
-                            class="badge bg-white bg-opacity-25 text-white mb-2 px-3 rounded-pill border border-white border-opacity-25">
-                            <i class="bi bi-shield-check me-1"></i> {{ role }} Mode
+                        {% set role_labels = {'Secretary': 'Desk Administrator', 'Admin': 'System Administrator', 'Counsellor': 'Counsellor', 'Counselor': 'Counsellor'} %}
+                        <span class="badge bg-white bg-opacity-25 text-white mb-2 px-3 rounded-pill border border-white border-opacity-25">
+                            <i class="bi bi-shield-check me-1"></i> {{ role_labels.get(role, role) }} Mode
                         </span>
-                        <h1 class="display-5 fw-bold mb-2">{{ greeting }}</h1>
-                        <p class="lead text-white text-opacity-75 mb-0">System status is optimal. You have <strong
-                                class="text-white">{{ pending_action|length }} active items</strong> requiring
-                            attention.</p>
+                        <h1 class="display-6 fw-bold mb-1">{{ greeting }}</h1>
+                        <p class="text-white text-opacity-75 mb-0 small">
+                            {% if latest_bookings %}
+                                <i class="bi bi-bell-fill me-1 text-warning"></i>
+                                <strong class="text-white">{{ latest_bookings|length }} new booking{{ 's' if latest_bookings|length != 1 }}</strong> in the last 24 hrs &nbsp;·&nbsp;
+                            {% endif %}
+                            <strong class="text-white">{{ pending_action|length }} item{{ 's' if pending_action|length != 1 }}</strong> needing attention
+                        </p>
                     </div>
-                    <div class="col-md-4 text-center d-none d-md-block">
-                        <i class="bi bi-activity text-white opacity-25" style="font-size: 5rem;"></i>
+                    <div class="col-md-4 text-end d-none d-md-flex align-items-center justify-content-end gap-3">
+                        {% if role in ['Secretary', 'Admin'] %}
+                        <a href="{{ url_for('intake') }}" class="btn btn-warning btn-sm fw-bold shadow-sm text-dark">
+                            <i class="bi bi-lightning-charge-fill me-1"></i> Walk-in
+                        </a>
+                        <a href="{{ url_for('add_student') }}" class="btn btn-white btn-sm fw-bold shadow-sm"
+                           style="background:#fff;color:var(--brand-primary,#1a6b3c);">
+                            <i class="bi bi-person-plus me-1"></i> New Client
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
-
+            <div class="position-absolute top-0 end-0 rounded-circle bg-white opacity-10" style="width:260px;height:260px;transform:translate(30%,-30%);"></div>
         </div>
     </div>
 </div>
 
 <!-- KEY METRICS ROW -->
-<div class="row g-4 mb-5">
-    <!-- Card 1 -->
-    <div class="col-md-3">
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
         <div class="card card-glass h-100 border-0 shadow-sm btn-hover-lift">
             <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="rounded-circle bg-primary bg-opacity-10 p-3 text-primary me-3">
-                        <i class="bi bi-people-fill fs-4"></i>
+                <div class="d-flex align-items-center mb-2">
+                    <div class="rounded-circle bg-primary bg-opacity-10 p-2 text-primary me-3">
+                        <i class="bi bi-people-fill fs-5"></i>
                     </div>
                     <div>
-                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Total
-                            Clients</small>
+                        <small class="text-muted text-uppercase fw-bold" style="font-size:0.65rem;">Total Clients</small>
                         <h3 class="mb-0 fw-bold">{{ stats.total_students }}</h3>
                     </div>
                 </div>
-                <div class="progress" style="height: 4px;">
-                    <div class="progress-bar bg-primary" role="progressbar" style="width: 70%"></div>
+                <div class="progress" style="height:3px;">
+                    <div class="progress-bar bg-primary" style="width:70%"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Card 2 -->
-    <div class="col-md-3">
+    <!-- Card 2: Handover Queue — hidden from UI, code kept for future use -->
+    <!-- DISABLED: Handover queue removed per UX simplification (Google 10 Things #1)
+    <div class="col-6 col-md-3">
         <div class="card card-glass h-100 border-0 shadow-sm btn-hover-lift">
             <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="rounded-circle bg-warning bg-opacity-10 p-3 text-warning me-3">
-                        <i class="bi bi-hourglass-split fs-4"></i>
+                <div class="d-flex align-items-center mb-2">
+                    <div class="rounded-circle bg-warning bg-opacity-10 p-2 text-warning me-3">
+                        <i class="bi bi-hourglass-split fs-5"></i>
                     </div>
                     <div>
-                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Handover
-                            Queue</small>
+                        <small class="text-muted text-uppercase fw-bold" style="font-size:0.65rem;">Handover Queue</small>
                         <h3 class="mb-0 fw-bold">{{ stats.sent_to_counsellor }}</h3>
                     </div>
                 </div>
-                <div class="progress" style="height: 4px;">
-                    <div class="progress-bar bg-warning" role="progressbar"
-                        style="width: {{ stats.sent_to_counsellor * 10 }}%"></div>
+                <div class="progress" style="height:3px;">
+                    <div class="progress-bar bg-warning" style="width:{{ [stats.sent_to_counsellor * 10, 100]|min }}%"></div>
                 </div>
             </div>
         </div>
     </div>
+    END DISABLED -->
 
-    <!-- Card 3 -->
-    <div class="col-md-3">
+    <div class="col-6 col-md-3">
         <div class="card card-glass h-100 border-0 shadow-sm btn-hover-lift">
             <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="rounded-circle bg-success bg-opacity-10 p-3 text-success me-3">
-                        <i class="bi bi-heart-pulse fs-4"></i>
+                <div class="d-flex align-items-center mb-2">
+                    <div class="rounded-circle bg-success bg-opacity-10 p-2 text-success me-3">
+                        <i class="bi bi-heart-pulse fs-5"></i>
                     </div>
                     <div>
-                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Active
-                            Sessions</small>
+                        <small class="text-muted text-uppercase fw-bold" style="font-size:0.65rem;">Active Sessions</small>
                         <h3 class="mb-0 fw-bold">{{ stats.in_session }}</h3>
                     </div>
                 </div>
-                <div class="progress" style="height: 4px;">
-                    <div class="progress-bar bg-success" role="progressbar" style="width: 100%"></div>
+                <div class="progress" style="height:3px;">
+                    <div class="progress-bar bg-success" style="width:100%"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Card 4 -->
-    <div class="col-md-3">
+    <div class="col-6 col-md-3">
+        <a href="{{ url_for('admin_bookings') }}" class="text-decoration-none">
         <div class="card card-glass h-100 border-0 shadow-sm btn-hover-lift">
             <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="rounded-circle bg-info bg-opacity-10 p-3 text-info me-3">
-                        <i class="bi bi-calendar-check fs-4"></i>
+                <div class="d-flex align-items-center mb-2">
+                    <div class="rounded-circle bg-info bg-opacity-10 p-2 text-info me-3">
+                        <i class="bi bi-calendar-check fs-5"></i>
                     </div>
                     <div>
-                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Today's
-                            Volume</small>
+                        <small class="text-muted text-uppercase fw-bold" style="font-size:0.65rem;">Today's Sessions</small>
                         <h3 class="mb-0 fw-bold">{{ stats.today_count }}</h3>
                     </div>
                 </div>
-                <!-- Mini pulse indicator -->
                 <div class="d-flex align-items-center small text-success">
-                    <i class="bi bi-arrow-up-short"></i>
-                    <span>Live Updates</span>
+                    <i class="bi bi-arrow-up-short"></i><span>Live</span>
                 </div>
+            </div>
+        </div>
+        </a>
+    </div>
+</div>
+
+<!-- NEW BOOKINGS ALERT STRIP (last 24 hrs) -->
+{% if latest_bookings %}
+<div class="mb-4">
+    <div class="card border-0 shadow-sm overflow-hidden" style="border-left: 4px solid #f59e0b !important;">
+        <div class="card-header bg-warning bg-opacity-10 border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+            <div>
+                <h6 class="fw-bold mb-0 text-dark">
+                    <i class="bi bi-bell-fill text-warning me-2"></i>New Bookings
+                    <span class="badge bg-warning text-dark rounded-pill ms-2 fw-bold">{{ latest_bookings|length }}</span>
+                </h6>
+                <small class="text-muted">Auto-accepted in the last 24 hours — review and assign as needed</small>
+            </div>
+            <a href="{{ url_for('admin_bookings') }}" class="btn btn-sm btn-outline-warning rounded-pill px-3 fw-semibold">
+                View All <i class="bi bi-arrow-right ms-1"></i>
+            </a>
+        </div>
+        <div class="card-body p-0">
+            <div class="row g-0">
+                {% for bk in latest_bookings[:4] %}
+                <div class="col-12 col-md-6 {% if not loop.last %}border-bottom border-md-end{% endif %} p-3">
+                    <div class="d-flex align-items-start gap-3">
+                        <!-- Avatar -->
+                        <div class="rounded-circle bg-success bg-opacity-10 text-success fw-bold d-flex align-items-center justify-content-center flex-shrink-0"
+                             style="width:44px;height:44px;font-size:1.1rem;">
+                            {{ bk.full_name[0]|upper if bk.full_name else '?' }}
+                        </div>
+                        <!-- Info -->
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="fw-bold text-dark text-truncate">{{ bk.full_name }}</span>
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 small">Auto-accepted</span>
+                            </div>
+                            <div class="small text-muted mb-1">
+                                <i class="bi bi-hash me-1"></i>{{ bk.index_number }}
+                                {% if bk.programme %}&nbsp;·&nbsp;<span class="text-primary">{{ bk.programme }}</span>{% endif %}
+                            </div>
+                            <div class="small text-muted">
+                                <i class="bi bi-calendar3 me-1"></i>{{ bk.preferred_date or 'TBA' }}
+                                &nbsp;·&nbsp;<i class="bi bi-clock me-1"></i>{{ bk.preferred_time or 'Any' }}
+                            </div>
+                            {% if bk.reason %}
+                            <div class="small text-muted mt-1 text-truncate" style="max-width:280px;">
+                                <i class="bi bi-chat-text me-1"></i><em>"{{ bk.reason }}"</em>
+                            </div>
+                            {% endif %}
+                            <!-- Timestamp with case number tracking -->
+                            <div class="mt-1">
+                                <span class="font-monospace small text-primary fw-semibold">{{ bk.reference }}</span>
+                                <br>
+                                <span class="text-muted" style="font-size:0.7rem;">
+                                    <i class="bi bi-clock-history me-1"></i>
+                                    {{ (bk.accepted_at or bk.created_at or '')[:16].replace('T', ' ') if (bk.accepted_at or bk.created_at) else 'Just now' }}
+                                </span>
+                            </div>
+                        </div>
+                        <!-- Phone quick action -->
+                        {% if bk.phone %}
+                        <a href="tel:{{ bk.phone }}" class="btn btn-sm btn-outline-success rounded-circle flex-shrink-0" title="Call {{ bk.full_name }}" style="width:36px;height:36px;padding:0;display:flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-telephone"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
             </div>
         </div>
     </div>
 </div>
+{% endif %}
 
 <!-- MAIN WORKFLOW AREA -->
 <div class="row g-4">
     <!-- LEFT: Main Queue/Workflow -->
     <div class="col-lg-8">
         <div class="card card-glass border-0 shadow-sm">
-            <div
-                class="card-header bg-transparent border-0 pt-4 px-4 pb-2 d-flex justify-content-between align-items-center">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-2 d-flex justify-content-between align-items-center">
                 <div>
                     <h5 class="fw-bold mb-1">
                         {% if role == 'Counsellor' %}
@@ -133,88 +208,76 @@
                         <i class="bi bi-inbox me-2 text-primary"></i>Active Intake Stream
                         {% endif %}
                     </h5>
-                    <p class="text-muted small mb-0">Real-time patient flow management</p>
+                    <p class="text-muted small mb-0">Real-time patient flow</p>
                 </div>
-                <button class="btn btn-sm btn-light rounded-pill border px-3">
-                    <i class="bi bi-sliders me-2"></i>Filter
-                </button>
             </div>
 
             <div class="card-body px-0">
                 {% if pending_action %}
                 <div class="list-group list-group-flush">
                     {% for item in pending_action %}
-                    <!-- Modern List Item -->
                     <div class="list-group-item border-0 px-4 py-3 row-hover">
                         <div class="d-flex w-100 justify-content-between align-items-center">
-
-                            <!-- Left: Profile & Info -->
                             <div class="d-flex align-items-center">
-                                <div class="avatar rounded-circle bg-light text-secondary d-flex justify-content-center align-items-center me-3 fw-bold border"
-                                    style="width: 48px; height: 48px;">
-                                    {{ item.student_name[0] }}
+                                <div class="avatar rounded-circle bg-primary bg-opacity-10 text-primary d-flex justify-content-center align-items-center me-3 fw-bold border"
+                                    style="width:46px;height:46px;font-size:0.72rem;">
+                                    {{ item.case_number[-4:] if item.case_number else '?' }}
                                 </div>
                                 <div>
-                                    <h6 class="mb-1 fw-bold text-dark">{{ item.student_name }}</h6>
-                                    <div class="text-muted small d-flex align-items-center">
+                                    <h6 class="mb-0 fw-bold text-dark">{{ item.case_number or 'No Code' }}</h6>
+                                    <div class="text-muted" style="font-size:0.7rem;">{{ item.created_at[:10] if item.created_at else '' }}</div>
+                                    {% if role in ['Secretary', 'Admin'] %}
+                                    <div class="text-muted small"><i class="bi bi-person me-1"></i>{{ item.student_name }}</div>
+                                    {% endif %}
+                                    <div class="text-muted small d-flex align-items-center mt-1">
                                         <i class="bi bi-clock me-1"></i> {{ item.time }}
                                         <span class="mx-2">•</span>
-                                        <span>{{ item.purpose[:30] }}...</span>
+                                        <span>{{ item.purpose[:35] if item.purpose else '' }}{{ '...' if item.purpose and item.purpose|length > 35 else '' }}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Right: Status & Actions -->
-                            <div class="d-flex align-items-center">
-                                <!-- Status Badge -->
-                                <div class="me-4 text-end">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="me-2 text-end">
                                     {% if item.urgency == 'Crisis' %}
-                                    <span class="badge bg-danger rounded-pill px-3 mb-1">Crisis</span>
+                                    <span class="badge bg-danger rounded-pill px-2 mb-1">Crisis</span>
                                     {% elif item.urgency == 'Urgent' %}
-                                    <span class="badge bg-warning text-dark rounded-pill px-3 mb-1">Urgent</span>
+                                    <span class="badge bg-warning text-dark rounded-pill px-2 mb-1">Urgent</span>
                                     {% endif %}
-                                    <div class="badge-status {{ item.status.lower().replace(' ', '-') }}">
-                                        {{ item.status }}
-                                    </div>
+                                    <div class="badge-status {{ item.status.lower().replace(' ', '-') }}">{{ item.status }}</div>
                                 </div>
-
-                                <!-- Action Buttons -->
                                 <div class="btn-group">
                                     {% if (role == 'Secretary' or role == 'Admin') and item.status == 'Scheduled' %}
                                     <a href="{{ url_for('update_appt_status', appt_id=item.id, new_status='Checked In') }}"
-                                        class="btn btn-outline-primary rounded-pill btn-sm px-4 fw-bold">
+                                        class="btn btn-outline-primary rounded-pill btn-sm px-3 fw-bold">
                                         Check In <i class="bi bi-arrow-right ms-1"></i>
                                     </a>
                                     {% elif item.status == 'Checked In' and (role == 'Secretary' or role == 'Admin') %}
                                     <a href="{{ url_for('update_appt_status', appt_id=item.id, new_status='Sent to Counsellor') }}"
-                                        class="btn btn-primary rounded-pill btn-sm px-4 fw-bold shadow-sm">
-                                        Send to Counsellor <i class="bi bi-send-fill ms-1"></i>
+                                        class="btn btn-primary rounded-pill btn-sm px-3 fw-bold shadow-sm">
+                                        Send <i class="bi bi-send-fill ms-1"></i>
                                     </a>
                                     {% elif item.status == 'Sent to Counsellor' and role == 'Counsellor' %}
                                     <a href="{{ url_for('update_appt_status', appt_id=item.id, new_status='In Session') }}"
-                                        class="btn btn-success rounded-pill btn-sm px-4 fw-bold shadow-sm">
+                                        class="btn btn-success rounded-pill btn-sm px-3 fw-bold shadow-sm">
                                         <i class="bi bi-check-lg me-1"></i> Accept
                                     </a>
                                     {% elif item.status == 'Checked In' and role == 'Counsellor' %}
                                     <a href="{{ url_for('update_appt_status', appt_id=item.id, new_status='In Session') }}"
-                                        class="btn btn-primary rounded-pill btn-sm px-4 fw-bold shadow-sm">
-                                        <i class="bi bi-play-fill me-1"></i> Start Session
+                                        class="btn btn-primary rounded-pill btn-sm px-3 fw-bold shadow-sm">
+                                        <i class="bi bi-play-fill me-1"></i> Start
                                     </a>
                                     {% endif %}
                                 </div>
                             </div>
-
                         </div>
                     </div>
                     {% endfor %}
                 </div>
                 {% else %}
                 <div class="text-center py-5">
-                    <div class="mb-3">
-                        <img src="https://cdn-icons-png.flaticon.com/512/7486/7486744.png" alt="Empty" width="64"
-                            style="opacity: 0.3;">
-                    </div>
-                    <h6 class="text-muted">No pending actions</h6>
+                    <i class="bi bi-check2-circle text-muted opacity-25" style="font-size:3rem;"></i>
+                    <h6 class="text-muted mt-3">No pending actions</h6>
                     <p class="small text-muted mb-0">Everything is fast-tracked and up to date.</p>
                 </div>
                 {% endif %}
@@ -222,115 +285,33 @@
         </div>
     </div>
 
-    <!-- RIGHT: Quick Actions & Timeline -->
+    <!-- RIGHT: Live Feed -->
     <div class="col-lg-4">
-        <!-- Quick Actions -->
-        <div class="card card-glass border-0 shadow-sm mb-4">
-            <div class="card-header bg-transparent border-0 pt-4 px-4">
-                <h6 class="fw-bold mb-0">Quick Actions</h6>
+        <div class="card card-glass border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-2 d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold mb-0"><i class="bi bi-activity me-2 text-success"></i>Live Feed</h6>
+                <a href="{{ url_for('manage_appointments') }}" class="btn btn-link btn-sm text-muted p-0 small">View all</a>
             </div>
             <div class="card-body px-4 pb-4">
-                <div class="d-grid gap-2">
-                    {% if role in ['Secretary', 'Admin'] %}
-                    <a href="{{ url_for('add_student') }}"
-                        class="btn btn-outline-secondary text-start p-3 border-0 bg-white shadow-sm rounded-3 mb-2 btn-hover-lift">
-                        <div class="d-flex align-items-center">
-                            <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3 text-primary">
-                                <i class="bi bi-person-plus-fill"></i>
-                            </div>
-                            <div>
-                                <div class="fw-bold text-dark">Register Student</div>
-                                <div class="small text-muted">New walk-in intake</div>
-                            </div>
-                        </div>
-                    </a>
-                    <a href="{{ url_for('appointment') }}"
-                        class="btn btn-outline-secondary text-start p-3 border-0 bg-white shadow-sm rounded-3 mb-2 btn-hover-lift">
-                        <div class="d-flex align-items-center">
-                            <div class="bg-success bg-opacity-10 p-2 rounded-circle me-3 text-success">
-                                <i class="bi bi-calendar-plus-fill"></i>
-                            </div>
-                            <div>
-                                <div class="fw-bold text-dark">Schedule Appointment</div>
-                                <div class="small text-muted">Book a slot</div>
-                            </div>
-                        </div>
-                    </a>
-                    {% endif %}
-
-                    {% if role in ['Counsellor', 'Counselor', 'Admin'] %}
-                    <a href="{{ url_for('sessions_list') }}"
-                        class="btn btn-outline-secondary text-start p-3 border-0 bg-white shadow-sm rounded-3 mb-2 btn-hover-lift">
-                        <div class="d-flex align-items-center">
-                            <div class="bg-warning bg-opacity-10 p-2 rounded-circle me-3 text-warning">
-                                <i class="bi bi-journal-text"></i>
-                            </div>
-                            <div>
-                                <div class="fw-bold text-dark">Session Notes</div>
-                                <div class="small text-muted">Clinical records</div>
-                            </div>
-                        </div>
-                    </a>
-                    <a href="{{ url_for('all_referrals') }}"
-                        class="btn btn-outline-secondary text-start p-3 border-0 bg-white shadow-sm rounded-3 mb-2 btn-hover-lift">
-                        <div class="d-flex align-items-center">
-                            <div class="bg-info bg-opacity-10 p-2 rounded-circle me-3 text-info">
-                                <i class="bi bi-arrow-up-right-square"></i>
-                            </div>
-                            <div>
-                                <div class="fw-bold text-dark">Referrals</div>
-                                <div class="small text-muted">Track external referrals</div>
-                            </div>
-                        </div>
-                    </a>
-                    {% endif %}
-
-                    <a href="{{ url_for('manage_appointments') }}"
-                        class="btn btn-outline-secondary text-start p-3 border-0 bg-white shadow-sm rounded-3 mb-2 btn-hover-lift">
-                        <div class="d-flex align-items-center">
-                            <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3 text-primary">
-                                <i class="bi bi-calendar-range"></i>
-                            </div>
-                            <div>
-                                <div class="fw-bold text-dark">Manage Appointments</div>
-                                <div class="small text-muted">View all schedules</div>
-                            </div>
-                        </div>
-                    </a>
-
-                    <button
-                        class="btn btn-outline-secondary text-start p-3 border-0 bg-white shadow-sm rounded-3 mt-2 btn-hover-lift">
-                        <div class="d-flex align-items-center">
-                            <div class="bg-info bg-opacity-10 p-2 rounded-circle me-3 text-info">
-                                <i class="bi bi-search"></i>
-                            </div>
-                            <div>
-                                <div class="fw-bold text-dark">Global Search</div>
-                                <div class="small text-muted">Find records instantly</div>
-                            </div>
-                        </div>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Recent Activity Feed -->
-        <div class="card card-glass border-0 shadow-sm">
-            <div class="card-header bg-transparent border-0 pt-4 px-4">
-                <h6 class="fw-bold mb-0">Live Feed</h6>
-            </div>
-            <div class="card-body px-4">
                 <div class="timeline ps-2">
                     {% if recent_activity %}
                     {% for item in recent_activity %}
                     <div class="timeline-item pb-3">
                         <div class="small text-muted mb-1">{{ item.time }}</div>
-                        <div class="mb-1 fw-bold">{{ item.status.replace('_',' ').title() }}</div>
-                        <div class="small">{{ item.student_name }}</div>
+                        <div class="mb-1 fw-bold small">{{ item.status.replace('_',' ').title() }}</div>
+                        <div class="small text-primary fw-semibold">
+                            {{ item.case_number if item.case_number else (item.student_name if role == 'Admin' else 'Client') }}
+                        </div>
+                        {% if item.created_at %}
+                        <div class="text-muted" style="font-size:0.68rem;">{{ item.created_at[:16] if item.created_at else '' }}</div>
+                        {% endif %}
                     </div>
                     {% endfor %}
                     {% else %}
-                    <p class="text-muted small">No recent activity recorded today.</p>
+                    <div class="text-center py-4">
+                        <i class="bi bi-hourglass text-muted opacity-25" style="font-size:2rem;"></i>
+                        <p class="text-muted small mt-2 mb-0">No recent activity today.</p>
+                    </div>
                     {% endif %}
                 </div>
             </div>

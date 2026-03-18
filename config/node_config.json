@@ -2,7 +2,9 @@
     "node_id": "NODE_8DEAC5EF",
     "node_role": "SECRETARY",
     "peer_ip": "10.251.98.166",
+    "cloud_api_url": "https://aamusted-counselling-cloud-bridge.vercel.app/sync",
+    "cloud_api_key": "sb_bridge_AnEpYo_2026",
     "sync_enabled": true,
-    "sync_interval_seconds": 60,
-    "last_sync_with_10.251.98.166": "2026-01-16 19:09:59"
+    "sync_interval_seconds": 30,
+    "last_cloud_sync": "1970-01-01 00:00:00"
 }

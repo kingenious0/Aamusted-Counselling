@@ -32,7 +32,9 @@
                             <option value="">choose a session...</option>
                             {% for s in sessions %}
                             <option value="{{ s.id }}">
-                                {{ s.created_at.split(' ')[0] }} - {{ s.student_name }} ({{ s.professional_id }})
+                                {{ s.created_at.split(' ')[0] }} — 
+                                {{ s.student_name }} 
+                                ({{ s.case_number or s.professional_id }})
                             </option>
                             {% endfor %}
                         </select>

@@ -53,10 +53,10 @@
                         <td>
                             {% if user.role == 'Admin' %}
                             <span
-                                class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-10 rounded-pill px-3">Admin</span>
+                                class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-10 rounded-pill px-3">System Administrator</span>
                             {% elif user.role == 'Secretary' %}
                             <span
-                                class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-10 rounded-pill px-3">Secretary</span>
+                                class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-10 rounded-pill px-3">Desk Administrator</span>
                             {% else %}
                             <span
                                 class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-10 rounded-pill px-3">Counsellor</span>
@@ -103,7 +103,7 @@
                                     </li>
                                     <li>
                                         <form action="{{ url_for('admin_delete_user', user_id=user.id) }}" method="POST"
-                                            onsubmit="return confirm('Are you sure you want to delete this user? This action cannot be undone.');">
+                                            onsubmit="return GCC.confirmForm(event, 'Are you sure you want to delete this user? This action cannot be undone and will revoke their system access immediately.', 'warning', 'Yes, Delete User');">
                                             <button type="submit" class="dropdown-item text-danger">
                                                 <i class="bi bi-trash me-2"></i>Delete User
                                             </button>

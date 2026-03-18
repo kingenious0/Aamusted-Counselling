@@ -64,8 +64,8 @@
             <table class="table table-hover align-middle table-borderless mb-0" id="studentsTable">
                 <thead class="bg-light bg-opacity-50 border-bottom">
                     <tr class="text-uppercase text-muted small">
-                        <th class="ps-4">Student</th>
-                        <th>Professional ID</th>
+                        <th class="ps-4">Case / Student</th>
+                        <th>ID</th>
                         <th>Contact</th>
                         <th>Program</th>
                         <th>Status</th>
@@ -77,13 +77,13 @@
                     <tr class="row-hover border-bottom">
                         <td class="ps-4 py-3">
                             <div class="d-flex align-items-center">
-                                <div class="avatar-circle bg-primary bg-opacity-10 text-primary fw-bold me-3">
-                                    {{ student.name[:2].upper() }}
+                                <div class="avatar-circle bg-primary bg-opacity-10 text-primary fw-bold me-3" style="font-size:0.75rem;">
+                                    {{ (student.case_number or 'XX')[-4:] }}
                                 </div>
                                 <div>
-                                    <h6 class="fw-bold mb-0 text-dark">{{ student.name }}</h6>
-                                    <small class="text-muted" style="font-size: 0.75rem;">{{ student.index_number or 'No
-                                        Index' }}</small>
+                                    <h6 class="fw-bold mb-0 text-dark font-monospace">{{ student.case_number or 'Unassigned' }}</h6>
+                                    <div class="text-primary fw-medium small">{{ student.name }}</div>
+                                    <small class="text-muted" style="font-size: 0.75rem;">{{ student.index_number or 'No Index' }}</small>
                                 </div>
                             </div>
                         </td>
@@ -100,8 +100,9 @@
                             {% endif %}
                         </td>
                         <td>
-                            <span class="badge bg-light text-dark fw-normal border">{{ student.programme or 'General'
-                                }}</span>
+                            <span class="badge bg-light text-dark fw-normal border text-wrap text-start" style="max-width: 220px; line-height: 1.4;">
+                                {{ student.programme or 'General' }}
+                            </span>
                         </td>
                         <td>
                             {% if student.session_count > 0 %}
@@ -112,29 +113,36 @@
                             {% endif %}
                         </td>
                         <td class="text-end pe-4">
-                            <div class="dropdown">
-                                <button class="btn btn-light btn-sm rounded-circle" data-bs-toggle="dropdown">
-                                    <i class="bi bi-three-dots-vertical"></i>
+                            <div class="d-flex align-items-center justify-content-end">
+                                <button class="btn btn-primary btn-sm rounded-pill px-3 me-2 shadow-sm btn-hover-lift" 
+                                    onclick='handleStartSession({{ student.id }}, {{ student.name | tojson }})'>
+                                    <i class="bi bi-play-circle-fill me-1"></i> Start Session
                                 </button>
-                                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
-                                    <li><a class="dropdown-item"
-                                            href="{{ url_for('student_profile', id=student.id) }}"><i
-                                                class="bi bi-person-lines-fill me-2 text-primary"></i> View Profile</a>
-                                    </li>
-                                    <li><a class="dropdown-item" href="/add_student?edit={{ student.id }}"><i
-                                                class="bi bi-pencil me-2"></i> Edit Details</a></li>
-                                    <li>
-                                        <hr class="dropdown-divider">
-                                    </li>
-                                    <li>
-                                        <form action="/delete_student/{{ student.id }}" method="POST"
-                                            onsubmit="return confirm('Delete {{ student.name }}? This is irreversable.');"
-                                            class="d-inline">
-                                            <button type="submit" class="dropdown-item text-danger"><i
-                                                    class="bi bi-trash me-2"></i> Delete Record</button>
-                                        </form>
-                                    </li>
-                                </ul>
+                                
+                                <div class="dropdown">
+                                    <button class="btn btn-light btn-sm rounded-circle border shadow-sm" data-bs-toggle="dropdown">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                        <li><a class="dropdown-item"
+                                                href="{{ url_for('student_profile', id=student.id) }}"><i
+                                                    class="bi bi-person-lines-fill me-2 text-primary"></i> View Profile</a>
+                                        </li>
+                                        <li><a class="dropdown-item" href="/add_student?edit={{ student.id }}"><i
+                                                    class="bi bi-pencil me-2"></i> Edit Details</a></li>
+                                        <li>
+                                            <hr class="dropdown-divider">
+                                        </li>
+                                        <li>
+                                            <form action="/delete_student/{{ student.id }}" method="POST"
+                                                onsubmit="return GCC.confirmForm(event, 'Are you sure you want to delete the record for {{ student.case_number or student.professional_id }}? This action cannot be undone.', 'warning', 'Yes, Delete');"
+                                                class="d-inline">
+                                                <button type="submit" class="dropdown-item text-danger"><i
+                                                        class="bi bi-trash me-2"></i> Delete Record</button>
+                                            </form>
+                                        </li>
+                                    </ul>
+                                </div>
                             </div>
                         </td>
                     </tr>
@@ -200,5 +208,69 @@
             }
         });
     });
+    
+    function handleStartSession(studentId, studentName) {
+        // Show loading state
+        Swal.fire({
+            title: 'Checking Appointments...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        // Check for today's appointment via API
+        fetch(`/api/check_appointment/${studentId}`)
+            .then(response => response.json())
+            .then(data => {
+                Swal.close();
+                
+                if (data.status === 'found') {
+                    // Appointment found! Inform user and go to create_session
+                    Swal.fire({
+                        title: 'Appointment Found',
+                        html: `<b>${studentName}</b> has a scheduled appointment today at <b>${data.time}</b>.<br><br>Proceed to session log?`,
+                        icon: 'info',
+                        showCancelButton: true,
+                        confirmButtonText: 'Yes, Start Session',
+                        cancelButtonText: 'Cancel',
+                        reverseButtons: true,
+                        customClass: { popup: 'rounded-4' }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = `/create_session?appointment_id=${data.appointment_id}`;
+                        }
+                    });
+                } else if (data.status === 'not_found') {
+                    // No appointment found. Prompt for Walk-in or Schedule
+                    Swal.fire({
+                        title: 'No Appointment Found',
+                        html: `<b>${studentName}</b> has no appointment scheduled for today.<br><br>What would you like to do?`,
+                        icon: 'question',
+                        showCancelButton: true,
+                        showDenyButton: true,
+                        confirmButtonText: 'Start Walk-in Session',
+                        denyButtonText: 'Schedule Appointment First',
+                        cancelButtonText: 'Cancel',
+                        reverseButtons: true,
+                        customClass: { popup: 'rounded-4' }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Go to create_session with student_id and walk-in mode
+                            window.location.href = `/create_session?student_id=${studentId}&mode=walkin`;
+                        } else if (result.isDenied) {
+                            // Go to schedule appointment page
+                            window.location.href = `/appointment?student_id=${studentId}`;
+                        }
+                    });
+                } else {
+                    Swal.fire('Error', 'Could not verify student status. Please try again.', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Network Error', 'Failed to connect to the system.', 'error');
+            });
+    }
 </script>
 {% endblock %}

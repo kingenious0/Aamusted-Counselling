@@ -10,18 +10,17 @@
 
     <style>
         :root {
-            /* Blue Theme */
             --primary-gradient: linear-gradient(135deg, #0d6efd, #0a58ca);
             --gold-gradient: linear-gradient(45deg, #0dcaf0, #3d8bfd);
-            --glass-bg: rgba(255, 255, 255, 0.1);
-            --glass-border: rgba(255, 255, 255, 0.2);
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.15);
             --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
 
+        * { box-sizing: border-box; }
+
         body {
-            background: linear-gradient(135deg, #0f172a, #1e293b);
-            position: relative;
-            /* background-image removed for offline compatibility */
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -29,177 +28,179 @@
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
             color: white;
             overflow-x: hidden;
+            position: relative;
         }
 
-        .overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, rgba(13, 110, 253, 0.85), rgba(15, 23, 42, 0.9));
-            z-index: 0;
+        /* Animated orbs in background */
+        body::before, body::after {
+            content: '';
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.15;
+            animation: float 8s ease-in-out infinite;
+            pointer-events: none;
+        }
+        body::before {
+            width: 500px; height: 500px;
+            background: #0d6efd;
+            top: -100px; left: -100px;
+        }
+        body::after {
+            width: 400px; height: 400px;
+            background: #0dcaf0;
+            bottom: -100px; right: -100px;
+            animation-delay: -4s;
         }
 
-        .main-container {
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(30px, 30px); }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .login-wrapper {
             position: relative;
             z-index: 1;
             width: 100%;
-            max-width: 1200px;
-            padding: 2rem;
-            animation: fadeIn 1s ease-out;
+            max-width: 440px;
+            padding: 1.5rem;
+            animation: fadeInUp 0.7s ease-out;
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .header-section {
+        /* Logo area */
+        .logo-section {
             text-align: center;
-            margin-bottom: 4rem;
+            margin-bottom: 2rem;
         }
-
         .system-logo {
-            width: 120px;
-            height: 120px;
+            width: 90px;
+            height: 90px;
             object-fit: contain;
-            margin-bottom: 1.5rem;
-            filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.3));
-            transition: transform 0.5s ease;
+            filter: drop-shadow(0 0 20px rgba(13, 110, 253, 0.5));
+            transition: transform 0.4s ease;
+            margin-bottom: 1.2rem;
         }
+        .system-logo:hover { transform: scale(1.05); }
 
-        .system-logo:hover {
-            transform: scale(1.05) rotate(2deg);
-        }
-
-        .welcome-text h1 {
+        .logo-section h1 {
+            font-size: 1.8rem;
             font-weight: 800;
-            font-size: 3rem;
-            margin-bottom: 0.5rem;
-            background: linear-gradient(to right, #fff, #e2e8f0);
+            margin: 0 0 0.25rem;
+            background: linear-gradient(to right, #fff, #94a3b8);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .logo-section p {
+            font-size: 0.88rem;
+            color: rgba(255,255,255,0.5);
+            margin: 0;
         }
 
-        .welcome-text p {
-            font-size: 1.2rem;
-            color: rgba(255, 255, 255, 0.7);
-            font-weight: 300;
-        }
-
-        .role-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-
-        .role-card {
+        /* Card */
+        .login-card {
             background: var(--glass-bg);
-            backdrop-filter: blur(16px);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 2.5rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            position: relative;
-            overflow: hidden;
+            border-radius: 24px;
+            padding: 2.5rem 2rem;
             box-shadow: var(--glass-shadow);
         }
 
-        .role-card:hover {
-            transform: translateY(-10px);
-            background: rgba(255, 255, 255, 0.2);
-            border-color: rgba(255, 255, 255, 0.5);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-        }
-
-        .role-icon {
-            font-size: 3.5rem;
-            margin-bottom: 1.5rem;
-            background: var(--gold-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            display: inline-block;
-            transition: transform 0.3s ease;
-        }
-
-        .role-card:hover .role-icon {
-            transform: scale(1.1);
-        }
-
-        .role-title {
-            font-size: 1.5rem;
+        .login-card h5 {
+            font-size: 1rem;
             font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: white;
+            color: rgba(255,255,255,0.7);
+            text-align: center;
+            margin-bottom: 1.8rem;
+            letter-spacing: 0.03em;
         }
 
-        .role-desc {
-            font-size: 0.9rem;
-            color: rgba(255, 255, 255, 0.6);
+        /* Inputs */
+        .input-group-wrapper {
+            position: relative;
+            margin-bottom: 1.2rem;
         }
-
-        /* Modal Styles */
-        .modal-content {
-            background: rgba(30, 41, 59, 0.95);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
-            border-radius: 20px;
+        .input-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255,255,255,0.4);
+            font-size: 1rem;
+            z-index: 2;
+            pointer-events: none;
         }
-
-        .modal-header {
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .modal-footer {
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
         .form-control {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             color: white;
-            border-radius: 10px;
-            padding: 12px;
-        }
-
-        .form-control:focus {
-            background: rgba(255, 255, 255, 0.15);
-            border-color: #FFD700;
-            color: white;
-            box-shadow: 0 0 0 0.25rem rgba(255, 215, 0, 0.25);
-        }
-
-        .btn-primary {
-            background: var(--gold-gradient);
-            border: none;
-            color: #800000;
-            font-weight: 700;
-            padding: 12px 30px;
-            border-radius: 10px;
+            border-radius: 12px;
+            padding: 14px 14px 14px 42px;
+            font-size: 0.95rem;
             transition: all 0.3s ease;
+            width: 100%;
+        }
+        .form-control::placeholder { color: rgba(255,255,255,0.3); }
+        .form-control:focus {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: #3d8bfd;
+            color: white;
+            box-shadow: 0 0 0 3px rgba(61, 139, 253, 0.2);
+            outline: none;
         }
 
-        .btn-primary:hover {
+        /* Password toggle */
+        .toggle-password {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255,255,255,0.35);
+            cursor: pointer;
+            font-size: 1rem;
+            transition: color 0.2s;
+            z-index: 2;
+            border: none;
+            background: none;
+            padding: 0;
+        }
+        .toggle-password:hover { color: rgba(255,255,255,0.7); }
+
+        /* Submit button */
+        .btn-login {
+            background: var(--primary-gradient);
+            border: none;
+            color: white;
+            font-weight: 700;
+            font-size: 1rem;
+            padding: 14px;
+            border-radius: 12px;
+            width: 100%;
+            margin-top: 0.5rem;
+            transition: all 0.3s ease;
+            letter-spacing: 0.03em;
+            cursor: pointer;
+        }
+        .btn-login:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
-            background: linear-gradient(45deg, #FDB931, #FFD700);
-            color: #5c0000;
+            box-shadow: 0 8px 25px rgba(13, 110, 253, 0.5);
+            background: linear-gradient(135deg, #3d8bfd, #0d6efd);
+        }
+        .btn-login:active { transform: translateY(0); }
+
+        /* Loading state */
+        .btn-login.loading {
+            opacity: 0.8;
+            pointer-events: none;
         }
 
+        /* Flash alerts */
         .alert-floating {
             position: fixed;
             top: 20px;
@@ -208,31 +209,28 @@
             min-width: 300px;
             animation: slideInRight 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-
         @keyframes slideInRight {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
+            from { transform: translateX(110%); opacity: 0; }
+            to   { transform: translateX(0);    opacity: 1; }
+        }
 
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+        .footer-text {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 0.78rem;
+            color: rgba(255,255,255,0.25);
         }
     </style>
 </head>
 
 <body>
-    <div class="overlay"></div>
-
     <!-- Flash Messages -->
     {% with messages = get_flashed_messages() %}
     {% if messages %}
     <div class="alert-floating">
         {% for message in messages %}
         <div class="alert alert-danger shadow-lg border-0 d-flex align-items-center mb-2" role="alert">
-            <i class="bi bi-exclamation-triangle-fill me-3 fs-4"></i>
+            <i class="bi bi-exclamation-triangle-fill me-3 fs-5"></i>
             <div>{{ message }}</div>
         </div>
         {% endfor %}
@@ -240,130 +238,85 @@
     {% endif %}
     {% endwith %}
 
-    <div class="main-container">
-        <div class="header-section">
-            <img src="{{ url_for('static', filename='aamusted system_logo.png') }}" class="system-logo"
-                onerror="this.src='https://via.placeholder.com/150/ffffff/000000?text=LOGO'">
-            <div class="welcome-text">
-                <h1>AAMUSTED</h1>
-                <p>Guidance & Counselling Management System</p>
-                <p class="small text-white-50 mt-2">Select your role to access the secure portal</p>
-            </div>
+    <div class="login-wrapper">
+        <!-- Logo + Title -->
+        <div class="logo-section">
+            <img src="{{ url_for('static', filename='aamusted system_logo.png') }}"
+                 class="system-logo"
+                 onerror="this.style.display='none'">
+            <h1>AAMUSTED</h1>
+            <p>Guidance &amp; Counselling Management System</p>
         </div>
 
-        <div class="role-grid">
-            <!-- Secretary Role -->
-            <div class="role-card" onclick="openLogin('Secretary')">
-                <i class="bi bi-person-lines-fill role-icon"></i>
-                <h3 class="role-title">Secretary</h3>
-                <p class="role-desc">Front desk operations, student intake, and scheduling.</p>
-            </div>
+        <!-- Login Card -->
+        <div class="login-card">
+            <h5><i class="bi bi-shield-lock me-2" style="color:#3d8bfd;"></i>Sign in to your account</h5>
 
-            <!-- Counsellor Role -->
-            <div class="role-card" onclick="openLogin('Counsellor')">
-                <i class="bi bi-heart-pulse-fill role-icon"></i>
-                <h3 class="role-title">Counsellor</h3>
-                <p class="role-desc">Clinical sessions, case management, and referrals.</p>
-            </div>
-
-            <!-- Admin Role -->
-            <div class="role-card" onclick="openLogin('Admin')">
-                <i class="bi bi-shield-lock-fill role-icon"></i>
-                <h3 class="role-title">Administrator</h3>
-                <p class="role-desc">System governance, user management, and settings.</p>
-            </div>
-        </div>
-
-        <div class="text-center mt-5 text-white-50 small">
-            &copy; 2026 AAMUSTED COUNSELLING SYSTEM.
-        </div>
-    </div>
-
-    <!-- Login Modal -->
-    <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content text-center p-4">
-                <div class="modal-header border-0 justify-content-center">
-                    <h5 class="modal-title fw-bold fs-4">
-                        Login as <span id="roleDisplay" class="text-warning">User</span>
-                    </h5>
+            <form method="POST" action="{{ url_for('login') }}" id="loginForm">
+                <!-- Username -->
+                <div class="input-group-wrapper">
+                    <i class="bi bi-person-fill input-icon"></i>
+                    <input type="text"
+                           class="form-control"
+                           name="username"
+                           id="usernameInput"
+                           placeholder="Username"
+                           autocomplete="username"
+                           required>
                 </div>
-                <div class="modal-body">
-                    <form method="POST" action="{{ url_for('login') }}" id="loginForm">
-                        <!-- Hidden field to store selected username/role to simplify user input -->
-                        <!-- But actually we still need username because multiple people might have same role. -->
-                        <!-- However, user requested: "Select roles then popup to enter password". -->
-                        <!-- Assuming typical setup where role map to specific accounts or we just assume generic accounts for demo? -->
-                        <!-- For safety, let's keep Username field but pre-fill it or focus password if we want to simplify. -->
-                        <!-- Based on user request "Select role... enter password", implying maybe username is implied? -->
-                        <!-- To be safe and compatible with existing backend (username/password), I will Auto-fill the username based on role for the demo flow,
-                             OR show the username field pre-filled. -->
 
-                        <div class="mb-4">
-                            <div class="avatar-circle mx-auto mb-3 bg-light bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center"
-                                style="width: 80px; height: 80px;">
-                                <i class="bi bi-person-circle fs-1 text-white"></i>
-                            </div>
-                            <p class="text-muted small">Please enter your credentials to verify your identity.</p>
-                        </div>
-
-                        <div class="form-floating mb-3 text-start">
-                            <input type="text" class="form-control" name="username" id="usernameInput"
-                                placeholder="Username" required>
-                            <label for="usernameInput" class="text-white">Username</label>
-                        </div>
-
-                        <div class="form-floating mb-4 text-start">
-                            <input type="password" class="form-control" name="password" id="passwordInput"
-                                placeholder="Password" required>
-                            <label for="passwordInput" class="text-white">Password</label>
-                            <i class="bi bi-eye-slash position-absolute top-50 end-0 translate-middle-y me-3"
-                                id="togglePassword" style="cursor: pointer; color: #333;"></i>
-                        </div>
-
-                        <button type="submit" class="btn btn-primary w-100 py-3 shadow-lg">
-                            <i class="bi bi-box-arrow-in-right me-2"></i> Authenticate
-                        </button>
-                    </form>
+                <!-- Password -->
+                <div class="input-group-wrapper">
+                    <i class="bi bi-lock-fill input-icon"></i>
+                    <input type="password"
+                           class="form-control"
+                           name="password"
+                           id="passwordInput"
+                           placeholder="Password"
+                           autocomplete="current-password"
+                           required>
+                    <button type="button" class="toggle-password" id="togglePassword" tabindex="-1">
+                        <i class="bi bi-eye-slash" id="toggleIcon"></i>
+                    </button>
                 </div>
-            </div>
+
+                <button type="submit" class="btn-login" id="loginBtn">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
+                </button>
+            </form>
         </div>
+
+        <div class="footer-text">&copy; 2026 AAMUSTED Counselling System</div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
-        const roleDisplay = document.getElementById('roleDisplay');
-        const usernameInput = document.getElementById('usernameInput');
-        const passwordInput = document.getElementById('passwordInput');
-
-        function openLogin(role) {
-            roleDisplay.textContent = role;
-
-            // Auto-fill username based on role for demo convenience, users can edit
-            if (role === 'Admin') usernameInput.value = 'admin';
-            if (role === 'Secretary') usernameInput.value = 'secretary';
-            if (role === 'Counsellor') usernameInput.value = 'counsellor';
-
-            loginModal.show();
-
-            // Focus password after a short delay to ensure modal is visible
-            setTimeout(() => {
-                passwordInput.focus();
-            }, 500);
-        }
-
-        // Password Toggle Logic
+        // Password show/hide toggle
         const togglePassword = document.getElementById('togglePassword');
-        togglePassword.addEventListener('click', function () {
-            // Toggle the type attribute
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
+        const passwordInput  = document.getElementById('passwordInput');
+        const toggleIcon     = document.getElementById('toggleIcon');
 
-            // Toggle the eye icon
-            this.classList.toggle('bi-eye');
-            this.classList.toggle('bi-eye-slash');
+        togglePassword.addEventListener('click', function () {
+            const isHidden = passwordInput.type === 'password';
+            passwordInput.type = isHidden ? 'text' : 'password';
+            toggleIcon.className = isHidden ? 'bi bi-eye' : 'bi bi-eye-slash';
         });
+
+        // Loading state on submit
+        document.getElementById('loginForm').addEventListener('submit', function () {
+            const btn = document.getElementById('loginBtn');
+            btn.classList.add('loading');
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Signing in...';
+        });
+
+        // Auto-dismiss flash alerts after 4 seconds
+        setTimeout(() => {
+            document.querySelectorAll('.alert-floating .alert').forEach(el => {
+                el.style.transition = 'opacity 0.5s';
+                el.style.opacity = '0';
+                setTimeout(() => el.remove(), 500);
+            });
+        }, 4000);
     </script>
 </body>
 

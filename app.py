@@ -1,3 +1,5 @@
+import threading
+import time
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, Response, send_file, make_response
 from functools import wraps
 import sqlite3
@@ -12,15 +14,23 @@ from werkzeug.utils import secure_filename
 from auto_report_writer import scheduler, toggle_scheduler, manual_generate_report
 import uuid
 import node_config  # Import the new node config utility
-from sync_engine import sync_bp, trigger_sync # Import sync engine
+from sync_engine import sync_bp, sync_manager, trigger_sync_immediate  # Import sync engine
+
 
 # Initialize Node Config on Startup
 current_node_config = node_config.load_config()
-print(f"--- Node Identity: {current_node_config['node_id']} ({current_node_config['node_role']}) ---")
+print(
+    f"--- Node Identity: {current_node_config['node_id']} ({current_node_config['node_role']}) ---")
 
 app = Flask(__name__)
 # Register Sync Blueprint
 app.register_blueprint(sync_bp)
+
+# Start Automated Sync Background Thread
+sync_manager.start()
+
+
+
 
 app.secret_key = 'super_secret_key_for_dev_only'  # Change for production
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -30,14 +40,15 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
 _db_initialization_lock = False
 _db_initialized = False
 
+
 def ensure_database_initialized():
     """Ensure database exists and has all required tables - atomic, single-call initialization"""
     global _db_initialization_lock, _db_initialized
-    
+
     # If already initialized successfully, skip
     if _db_initialized:
         return
-    
+
     # If currently initializing, wait (prevent concurrent calls)
     if _db_initialization_lock:
         import time
@@ -47,10 +58,10 @@ def ensure_database_initialized():
             wait_count += 1
         if _db_initialized:
             return
-    
+
     # Set lock to prevent concurrent initialization
     _db_initialization_lock = True
-    
+
     try:
         # Determine database path
         try:
@@ -60,15 +71,16 @@ def ensure_database_initialized():
                 base_path = os.path.dirname(os.path.abspath(__file__))
         except:
             base_path = os.path.dirname(os.path.abspath(__file__))
-        
+
         db_path = os.path.join(base_path, 'counseling.db')
-        
+
         # Required tables for the application
-        required_tables = ['Appointment', 'Student', 'Counsellor', 'session', 'app_settings', 'Referral']
-        
+        required_tables = ['Appointment', 'Student',
+                           'Counsellor', 'session', 'app_settings', 'Referral']
+
         # Check if database exists and has all required tables
         needs_init = False
-        
+
         if not os.path.exists(db_path):
             print(f"[STARTUP] Database not found at: {db_path}")
             needs_init = True
@@ -77,28 +89,30 @@ def ensure_database_initialized():
             try:
                 check_conn = sqlite3.connect(db_path, timeout=5.0)
                 cursor = check_conn.cursor()
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                cursor.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'")
                 existing_tables = {row[0].lower() for row in cursor.fetchall()}
                 check_conn.close()
-                
+
                 # Check if all required tables exist (case-insensitive)
                 missing_tables = []
                 for req_table in required_tables:
                     if req_table.lower() not in existing_tables:
                         missing_tables.append(req_table)
-                
+
                 if missing_tables:
                     print(f"[STARTUP] Missing tables: {missing_tables}")
                     needs_init = True
                 else:
-                    print(f"[STARTUP] Database check passed - all required tables exist")
+                    print(
+                        f"[STARTUP] Database check passed - all required tables exist")
                     _db_initialized = True
                     _db_initialization_lock = False
                     return
             except Exception as e:
                 print(f"[STARTUP] Error checking database: {e}")
                 needs_init = True
-        
+
         # Initialize database if needed (only once, atomically)
         if needs_init:
             print(f"[STARTUP] Initializing database at: {db_path}")
@@ -106,46 +120,89 @@ def ensure_database_initialized():
                 # Import and run initialization (uses same path logic)
                 import db_setup
                 db_setup.init_db()
-                
+
                 # Verify initialization succeeded - check for Appointment table
                 verify_conn = sqlite3.connect(db_path, timeout=5.0)
                 verify_cursor = verify_conn.cursor()
-                verify_cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                verify_tables = {row[0].lower() for row in verify_cursor.fetchall()}
+                verify_cursor.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'")
+                verify_tables = {row[0].lower()
+                                 for row in verify_cursor.fetchall()}
                 verify_conn.close()
-                
+
                 # Check if all required tables now exist (case-insensitive check)
                 missing_after_init = []
                 for req_table in required_tables:
                     if req_table.lower() not in verify_tables:
                         missing_after_init.append(req_table)
-                
+
                 if missing_after_init:
-                    print(f"[STARTUP] ERROR: Initialization incomplete! Missing tables: {missing_after_init}")
+                    print(
+                        f"[STARTUP] ERROR: Initialization incomplete! Missing tables: {missing_after_init}")
                     print(f"[STARTUP] Available tables: {verify_tables}")
-                    raise Exception(f"Database initialization incomplete. Missing tables: {missing_after_init}")
+                    raise Exception(
+                        f"Database initialization incomplete. Missing tables: {missing_after_init}")
                 else:
-                    print("[STARTUP] Database initialized successfully - all required tables verified")
+                    print(
+                        "[STARTUP] Database initialized successfully - all required tables verified")
                     _db_initialized = True
-                    
+
             except Exception as e:
                 print(f"[STARTUP] ERROR initializing database: {e}")
                 import traceback
                 traceback.print_exc()
                 # Don't set _db_initialized = True so it can retry
                 raise
-    
+
     finally:
         _db_initialization_lock = False
+
 
 # Initialize database when module is loaded
 ensure_database_initialized()
 
+# ── One-time migration: add accepted_at to BookingRequest if not present ──
+try:
+    _migration_conn = sqlite3.connect(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'counseling.db'),
+        timeout=5.0
+    )
+    _migration_conn.execute("ALTER TABLE BookingRequest ADD COLUMN accepted_at TEXT")
+    _migration_conn.commit()
+    _migration_conn.close()
+    print("[MIGRATION] Added accepted_at column to BookingRequest")
+except Exception:
+    pass  # Column already exists or table not yet created — ignore
+
+
 @app.context_processor
 def inject_now():
-    return {'now': datetime.utcnow()}
+    """Inject common variables into all templates."""
+    ctx = {'now': datetime.utcnow()}
+    # Inject live booking count (for sidebar badge) — only when logged in
+    try:
+        from flask import session as _s
+        if _s.get('logged_in'):
+            _conn = get_db_connection()
+            count = _conn.execute(
+                """SELECT COUNT(*) FROM BookingRequest
+                   WHERE status = 'Accepted'
+                   AND (
+                       accepted_at IS NULL
+                       OR datetime(accepted_at) >= datetime('now', '-24 hours')
+                       OR (accepted_at IS NULL AND datetime(created_at) >= datetime('now', '-24 hours'))
+                   )"""
+            ).fetchone()[0]
+            _conn.close()
+            ctx['latest_booking_count'] = count
+    except Exception:
+        ctx['latest_booking_count'] = 0
+    return ctx
+
 
 # Add custom Jinja2 filters
+
+
 @app.template_filter('nl2br')
 def nl2br(value):
     if value:
@@ -154,7 +211,15 @@ def nl2br(value):
         return value.replace('\n', '<br>')
     return ''
 
+@app.route('/assets/<path:filename>')
+def serve_assets(filename):
+    """Serve files from the root assets directory."""
+    return send_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', filename))
+
 # ---------- Helper Functions ----------
+
+
+
 def resource_path(relative_path):
     """Get absolute path to resource, works for dev and PyInstaller"""
     try:
@@ -162,14 +227,15 @@ def resource_path(relative_path):
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.dirname(os.path.abspath(__file__))
-    
+
     return os.path.join(base_path, relative_path)
+
 
 def get_db_connection():
     """Get database connection - works in both dev and EXE mode"""
     # Ensure database is initialized first (only once)
     ensure_database_initialized()
-    
+
     # Get database path
     try:
         if getattr(sys, 'frozen', False):
@@ -180,17 +246,18 @@ def get_db_connection():
             base_path = os.path.dirname(os.path.abspath(__file__))
     except:
         base_path = os.path.dirname(os.path.abspath(__file__))
-    
+
     db_path = os.path.join(base_path, 'counseling.db')
-    
+
     # Connect with timeout to prevent locking issues
     conn = sqlite3.connect(db_path, timeout=10.0)
     conn.row_factory = sqlite3.Row
-    
+
     # Quick verification that Student table exists (most critical table)
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND (name='Student' OR name='student')")
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND (name='Student' OR name='student')")
         if not cursor.fetchone():
             print("[GET_DB_CONNECTION] Student table missing! Reinitializing...")
             conn.close()
@@ -204,8 +271,9 @@ def get_db_connection():
     except Exception as verify_error:
         print(f"[GET_DB_CONNECTION] Error verifying tables: {verify_error}")
         # Continue anyway - let the query fail and be caught by route handlers
-    
+
     return conn
+
 
 def login_required(f):
     @wraps(f)
@@ -215,10 +283,71 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
+def generate_case_number(conn, name=None):
+    """Generate a unique INITIALS-YYYY-XXXX case number for a new student."""
+    year = datetime.now().year
+    
+    initials = "GCC"
+    if name:
+        parts = [p.strip() for p in name.split() if p.strip()]
+        if len(parts) >= 2:
+            initials = (parts[0][0] + parts[-1][0]).upper()
+        elif len(parts) == 1:
+            initials = parts[0][:2].upper()
+            
+        # Ensure alphabetic characters only
+        initials = "".join([c for c in initials if c.isalpha()])
+        if not initials:
+            initials = "GCC"
+
+    try:
+        # Find the max existing number for this year based on the year layout
+        row = conn.execute(
+            "SELECT case_number FROM Student WHERE case_number LIKE ? ORDER BY id DESC LIMIT 1",
+            (f"%{year}-%",)
+        ).fetchone()
+        
+        last_num = 0
+        if row and row[0]:
+            try:
+                # E.g. KM-2026-0003 -> split gives ['KM', '2026', '0003']
+                last_num = int(row[0].split('-')[-1])
+            except (ValueError, IndexError):
+                pass
+                
+        new_num = last_num + 1
+        return f"{initials}-{year}-{str(new_num).zfill(4)}"
+    except Exception as e:
+        print(f"[CASE_NUMBER] Error generating: {e}")
+        # Fallback: count total students
+        total = conn.execute("SELECT COUNT(*) FROM Student").fetchone()[0]
+        return f"{initials}-{year}-{str(total + 1).zfill(4)}"
+
+
+def generate_booking_ref(conn):
+    """Generate a unique BK-YYYY-XXXX booking reference."""
+    year = datetime.now().year
+    try:
+        row = conn.execute(
+            "SELECT reference FROM BookingRequest WHERE reference LIKE ? ORDER BY id DESC LIMIT 1",
+            (f"BK-{year}-%",)
+        ).fetchone()
+        if row and row[0]:
+            last_num = int(row[0].split('-')[-1])
+        else:
+            last_num = 0
+        return f"BK-{year}-{str(last_num + 1).zfill(4)}"
+    except Exception as e:
+        print(f"[BOOKING_REF] Error generating: {e}")
+        return f"BK-{year}-{str(uuid.uuid4())[:4].upper()}"
+
+
 @app.context_processor
 def inject_node_info():
     """Inject node info into all templates"""
     return dict(node_config=node_config.load_config())
+
 
 @app.route('/admin/settings/node', methods=['POST'])
 @login_required
@@ -229,28 +358,29 @@ def update_node_settings():
     if session.get('role') not in allowed_roles:
         flash('Unauthorized access', 'error')
         return redirect(url_for('dashboard'))
-    
+
     try:
         new_role = request.form.get('node_role')
         peer_ip = request.form.get('peer_ip')
-        
+
         config = node_config.load_config()
         config['node_role'] = new_role
         config['peer_ip'] = peer_ip
         node_config.save_config(config)
-        
+
         flash('Node settings updated successfully', 'success')
     except Exception as e:
         flash(f'Error updating settings: {str(e)}', 'error')
-        
+
     return redirect(url_for('admin_settings'))
+
 
 @app.route('/admin/set_theme', methods=['POST'])
 @login_required
 def set_theme():
     if session.get('role') != 'Admin':
         return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
-    
+
     try:
         theme = request.form.get('theme', 'default')
         conn = get_db_connection()
@@ -269,16 +399,19 @@ def set_theme():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+
 @app.route('/api/get_theme')
 def get_theme():
     try:
         conn = get_db_connection()
-        row = conn.execute("SELECT setting_value FROM app_settings WHERE setting_name = 'active_theme'").fetchone()
+        row = conn.execute(
+            "SELECT setting_value FROM app_settings WHERE setting_name = 'active_theme'").fetchone()
         conn.close()
         theme = row['setting_value'] if row else 'default'
         return jsonify({'theme': theme})
     except:
         return jsonify({'theme': 'default'})
+
 
 @app.route('/admin/sync/now')
 @login_required
@@ -292,11 +425,12 @@ def manual_sync():
         flash(f"Sync failed: {result.get('message')}", 'error')
     return redirect(url_for('admin_settings'))
 
+
 @app.context_processor
 def inject_notifications():
     if not session.get('logged_in'):
         return {}
-    
+
     try:
         user_id = session.get('user_id')
         conn = get_db_connection()
@@ -306,27 +440,31 @@ def inject_notifications():
             WHERE user_id = ? AND is_read = 0 
             ORDER BY created_at DESC LIMIT 5
         ''', (user_id,)).fetchall()
-        
+
         unread_count = conn.execute('''
             SELECT COUNT(*) FROM Notification 
             WHERE user_id = ? AND is_read = 0
         ''', (user_id,)).fetchone()[0]
-        
+
         conn.close()
         return {'notifications': notifs, 'unread_count': unread_count}
     except:
         return {'notifications': [], 'unread_count': 0}
 
+
 @app.context_processor
 def inject_settings():
     try:
         conn = get_db_connection()
-        settings_rows = conn.execute("SELECT setting_name, setting_value FROM app_settings").fetchall()
+        settings_rows = conn.execute(
+            "SELECT setting_name, setting_value FROM app_settings").fetchall()
         conn.close()
-        settings = {row['setting_name']: row['setting_value'] for row in settings_rows}
+        settings = {row['setting_name']: row['setting_value']
+                    for row in settings_rows}
         return {'settings': settings}
     except:
         return {'settings': {}}
+
 
 @app.route('/audit_logs')
 @login_required
@@ -334,7 +472,7 @@ def audit_logs():
     if session.get('role') != 'Admin':
         flash("Unauthorized access to audit trails.", "error")
         return redirect(url_for('dashboard'))
-    
+
     try:
         conn = get_db_connection()
         logs = conn.execute('''
@@ -354,6 +492,8 @@ def audit_logs():
         return redirect(url_for('dashboard'))
 
 # ---------- NOTIFICATION SYSTEM ----------
+
+
 @app.route('/notifications/mark_read/<int:notification_id>', methods=['POST'])
 @login_required
 def mark_notification_read(notification_id):
@@ -361,7 +501,8 @@ def mark_notification_read(notification_id):
         conn = get_db_connection()
         user_id = session.get('user_id')
         # Only allow user to mark their own notifications
-        conn.execute("UPDATE Notification SET is_read = 1 WHERE id = ? AND user_id = ?", (notification_id, user_id))
+        conn.execute("UPDATE Notification SET is_read = 1 WHERE id = ? AND user_id = ?",
+                     (notification_id, user_id))
         conn.commit()
         conn.close()
         return jsonify({'status': 'success'})
@@ -369,13 +510,15 @@ def mark_notification_read(notification_id):
         print(f"[NOTIFICATION] Error marking read: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+
 @app.route('/notifications/mark_all_read', methods=['POST'])
 @login_required
 def mark_all_notifications_read():
     try:
         conn = get_db_connection()
         user_id = session.get('user_id')
-        conn.execute("UPDATE Notification SET is_read = 1 WHERE user_id = ?", (user_id,))
+        conn.execute(
+            "UPDATE Notification SET is_read = 1 WHERE user_id = ?", (user_id,))
         conn.commit()
         conn.close()
         return jsonify({'status': 'success'})
@@ -383,24 +526,25 @@ def mark_all_notifications_read():
         print(f"[NOTIFICATION] Error marking all read: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+
 def create_notification(user_id, message, link=None, type='in_app', sender_info=None):
     """Create a notification for a user."""
     try:
         conn = get_db_connection()
-        
+
         # Append sender info if provided and accessible
         final_message = message
         if sender_info:
-             final_message = f"{message} (Sent by {sender_info})"
+            final_message = f"{message} (Sent by {sender_info})"
         elif session and session.get('role'):
-             # If we are in a request context with a session
-             try:
-                 sender_role = session.get('role')
-                 if sender_role:
+            # If we are in a request context with a session
+            try:
+                sender_role = session.get('role')
+                if sender_role:
                     final_message = f"{message} (Sent by {sender_role})"
-             except:
-                 pass
-             
+            except:
+                pass
+
         conn.execute(
             "INSERT INTO Notification (user_id, message, link, type) VALUES (?, ?, ?, ?)",
             (user_id, final_message, link, type)
@@ -410,16 +554,17 @@ def create_notification(user_id, message, link=None, type='in_app', sender_info=
     except Exception as e:
         print(f"[NOTIFICATION] Error: {e}")
 
+
 def notify_role(role, message, link=None):
     """Notify all users with a specific role."""
     try:
         conn = get_db_connection()
         # Case insensitive role matching
         users = conn.execute(
-            "SELECT id FROM users WHERE LOWER(role) = LOWER(?)", 
+            "SELECT id FROM users WHERE LOWER(role) = LOWER(?)",
             (role,)
         ).fetchall()
-        
+
         sender_info = None
         try:
             if session:
@@ -428,16 +573,20 @@ def notify_role(role, message, link=None):
             pass
 
         for user in users:
-            create_notification(user['id'], message, link, sender_info=sender_info)
+            create_notification(user['id'], message,
+                                link, sender_info=sender_info)
         conn.close()
     except Exception as e:
         print(f"[NOTIFICATION_BROADCAST] Error: {e}")
 # ---------- Routes ----------
+
+
 @app.route('/')
 def home():
     if session.get('logged_in'):
         return redirect(url_for('dashboard'))
     return redirect(url_for('welcome'))
+
 
 @app.route('/welcome', methods=['GET'])
 def welcome():
@@ -447,18 +596,18 @@ def welcome():
             # Check if already visited today
             last_visit_date = session.get('last_visit_date')
             today = datetime.now().date().isoformat()
-            
+
             # If already visited today, go to dashboard
             if last_visit_date == today:
                 return redirect(url_for('dashboard'))
-        
+
         # Ensure database is initialized before showing welcome page
         try:
             ensure_database_initialized()
         except Exception as e:
             print(f"[WELCOME] Database init error: {e}")
             # Still show welcome page, but log the error
-        
+
         # Show welcome screen (for login page)
         return render_template('welcome.html')
     except Exception as e:
@@ -476,25 +625,27 @@ def welcome():
         </html>
         ''', 500
 
+
 @app.route('/login', methods=['POST'])
 def login():
     try:
         username = request.form.get('username', '').strip().lower()
         password = request.form.get('password', '')
-        
+
         # Ensure database is initialized before connection
         try:
             ensure_database_initialized()
         except Exception as db_init_error:
             print(f"[LOGIN] Database init error: {db_init_error}")
-            flash('Database initialization error. Please restart the application.', 'error')
+            flash(
+                'Database initialization error. Please restart the application.', 'error')
             return redirect(url_for('welcome'))
-        
+
         conn = get_db_connection()
         if conn is None:
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('welcome'))
-        
+
         user = None
         try:
             # Check user against the users table
@@ -509,7 +660,8 @@ def login():
                 conn.close()
                 ensure_database_initialized()
                 conn = get_db_connection()
-                user = conn.execute("SELECT * FROM users WHERE LOWER(username) = ?", (username,)).fetchone()
+                user = conn.execute(
+                    "SELECT * FROM users WHERE LOWER(username) = ?", (username,)).fetchone()
             else:
                 flash('Database error. Please restart the application.', 'error')
                 return redirect(url_for('welcome'))
@@ -530,35 +682,37 @@ def login():
         session['logged_in'] = True
         session['user_id'] = user['id']
         session['username'] = user['username']
-        session['role'] = user['role']
+        session['role'] = str(user['role']).strip()
         session['full_name'] = user['full_name']
         session.permanent = True
-        
+
         # Track visit for daily greeting
         today = datetime.now().date().isoformat()
         last_visit = session.get('last_visit_date')
         session['first_visit_today'] = (last_visit != today)
         session['last_visit_date'] = today
-        
+
         # Log the login in audit_logs
         try:
             conn = get_db_connection()
             conn.execute(
                 "INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)",
-                (user['id'], 'LOGIN', f"User logged in successfully", request.remote_addr)
+                (user['id'], 'LOGIN',
+                 f"User logged in successfully", request.remote_addr)
             )
             conn.commit()
             conn.close()
         except Exception as log_error:
             print(f"[LOGIN] Audit log error: {log_error}")
-            
+
         print(f"[LOGIN] Success: {username} logged in as {user['role']}")
         return redirect(url_for('dashboard'))
     else:
         print(f"[LOGIN] Failed attempt for username: {username}")
         flash('Invalid username or password.', 'error')
-    
+
     return redirect(url_for('welcome'))
+
 
 @app.route('/dashboard')
 @login_required
@@ -566,16 +720,16 @@ def dashboard():
     try:
         user_role = session.get('role', 'Counsellor')
         user_name = session.get('full_name', 'Counsellor')
-        
+
         # Check if this is first visit today
         show_welcome_message = session.pop('first_visit_today', False)
-        
+
         ensure_database_initialized()
         conn = get_db_connection()
         if conn is None:
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('welcome'))
-        
+
         # Initialize variables with defaults
         stats = {
             'total_students': 0,
@@ -587,17 +741,23 @@ def dashboard():
         today_appts = []
         pending_action = []  # Role-specific workload
         recent_activity = []
-        
+
         # 1. Get GLOBAL stats for dashboard counters
         try:
-            stats['total_students'] = conn.execute('SELECT COUNT(*) FROM Student').fetchone()[0]
-            stats['today_count'] = conn.execute("SELECT COUNT(*) FROM Appointment WHERE date = DATE('now')").fetchone()[0]
-            stats['total_sessions'] = conn.execute('SELECT COUNT(*) FROM session').fetchone()[0]
-            stats['total_users'] = conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
-            
+            stats['total_students'] = conn.execute(
+                'SELECT COUNT(*) FROM Student').fetchone()[0]
+            stats['today_count'] = conn.execute(
+                "SELECT COUNT(*) FROM Appointment WHERE date = DATE('now')").fetchone()[0]
+            stats['total_sessions'] = conn.execute(
+                'SELECT COUNT(*) FROM session').fetchone()[0]
+            stats['total_users'] = conn.execute(
+                'SELECT COUNT(*) FROM users').fetchone()[0]
+
             # Workflow specific stats for the counters
-            stats['sent_to_counsellor'] = conn.execute("SELECT COUNT(*) FROM Appointment WHERE status = 'Sent to Counsellor'").fetchone()[0]
-            stats['in_session'] = conn.execute("SELECT COUNT(*) FROM Appointment WHERE status = 'In Session'").fetchone()[0]
+            stats['sent_to_counsellor'] = conn.execute(
+                "SELECT COUNT(*) FROM Appointment WHERE status = 'Sent to Counsellor'").fetchone()[0]
+            stats['in_session'] = conn.execute(
+                "SELECT COUNT(*) FROM Appointment WHERE status = 'In Session'").fetchone()[0]
         except Exception as e:
             print(f"[DASHBOARD] Stats error: {e}")
 
@@ -606,41 +766,60 @@ def dashboard():
             try:
                 # Cases awaiting handover (Secretary's queue) - Show ALL scheduled items
                 pending_action = conn.execute('''
-                    SELECT a.*, s.name as student_name 
+                    SELECT a.*, s.name as student_name, s.case_number as case_number
                     FROM Appointment a JOIN Student s ON a.student_id = s.id 
                     WHERE a.status = 'Scheduled'
                     ORDER BY a.date ASC, a.time ASC
                 ''').fetchall()
-                
+
                 # Recently sent activity
                 recent_activity = conn.execute('''
-                    SELECT a.*, s.name as student_name 
+                    SELECT a.*, s.name as student_name, s.case_number as case_number
                     FROM Appointment a JOIN Student s ON a.student_id = s.id 
                     WHERE a.status = 'Sent to Counsellor'
                     ORDER BY a.created_at DESC LIMIT 5
                 ''').fetchall()
             except Exception as e:
                 print(f"[DASHBOARD] Workload query error: {e}")
-        
+
         elif user_role == 'Counsellor':
             try:
                 # Incoming Case Referrals (Counsellor's queue)
                 pending_action = conn.execute('''
-                    SELECT a.*, s.name as student_name 
+                    SELECT a.*, s.name as student_name, s.case_number as case_number
                     FROM Appointment a JOIN Student s ON a.student_id = s.id 
                     WHERE a.status = 'Sent to Counsellor' OR a.status = 'Checked In'
                     ORDER BY a.date ASC, a.time ASC
                 ''').fetchall()
-                
+
                 # Active Sessions for the current Counsellor
                 today_appts = conn.execute('''
-                    SELECT a.*, s.name as student_name 
+                    SELECT a.*, s.name as student_name, s.case_number as case_number
                     FROM Appointment a JOIN Student s ON a.student_id = s.id 
                     WHERE a.status = 'In Session'
                     ORDER BY a.time ASC
                 ''').fetchall()
             except Exception as e:
                 print(f"[DASHBOARD] Counsellor query error: {e}")
+
+        # 3. Latest auto-accepted bookings (for dashboard booking alert panel)
+        latest_bookings = []
+        try:
+            latest_bookings = conn.execute('''
+                SELECT * FROM BookingRequest
+                WHERE status = 'Accepted'
+                AND (
+                    accepted_at IS NULL
+                    OR datetime(accepted_at) >= datetime('now', '-24 hours')
+                    OR (accepted_at IS NULL AND datetime(created_at) >= datetime('now', '-24 hours'))
+                )
+                ORDER BY COALESCE(accepted_at, created_at) DESC
+                LIMIT 10
+            ''').fetchall()
+            latest_bookings = [dict(b) for b in latest_bookings]
+        except Exception as e:
+            print(f"[DASHBOARD] Bookings query error: {e}")
+            latest_bookings = []
 
         # Generate greeting
         current_hour = datetime.now().hour
@@ -651,7 +830,20 @@ def dashboard():
         else:
             time_greeting = "Good evening"
 
-        greeting = f"{time_greeting}, {user_name}"
+        # Professional display name mapping
+        role_label_map = {
+            'Secretary': 'Desk Administrator',
+            'Admin': 'System Administrator',
+            'Counsellor': 'Counsellor',
+            'Counselor': 'Counsellor'
+        }
+
+        display_name = user_name
+        # If the name is generic (same as role), use the professional label
+        if user_name.strip().lower() in ['secretary', 'admin', 'counsellor', 'counselor']:
+            display_name = role_label_map.get(user_role, user_name)
+
+        greeting = f"{time_greeting}, {display_name}"
         if show_welcome_message:
             greeting += " - Welcome Back! 👋"
 
@@ -663,28 +855,32 @@ def dashboard():
 
         # Pass all template variables
         if user_role == 'Admin':
-            return render_template('admin_dashboard.html', 
-                                stats=stats, 
-                                greeting=greeting, 
-                                pending_action=pending_action,
-                                recent_activity=recent_activity,
-                                show_welcome_message=show_welcome_message)
+            return render_template('admin_dashboard.html',
+                                   stats=stats,
+                                   greeting=greeting,
+                                   pending_action=pending_action,
+                                   recent_activity=recent_activity,
+                                   latest_bookings=latest_bookings,
+                                   show_welcome_message=show_welcome_message)
         else:
             # SWITCH TO MODERN DASHBOARD
-            return render_template('dashboard_modern.html', 
-                                role=user_role,
-                                greeting=greeting,
-                                stats=stats,
-                                today_appts=today_appts,
-                                pending_action=pending_action,
-                                recent_activity=recent_activity,
-                                show_welcome_message=show_welcome_message)
-                             
+            return render_template('dashboard_modern.html',
+                                   role=user_role,
+                                   greeting=greeting,
+                                   stats=stats,
+                                   today_appts=today_appts,
+                                   pending_action=pending_action,
+                                   recent_activity=recent_activity,
+                                   latest_bookings=latest_bookings,
+                                   show_welcome_message=show_welcome_message)
+
     except Exception as e:
         print(f"[DASHBOARD] Critical error: {e}")
         import traceback
         traceback.print_exc()
         return redirect(url_for('welcome'))
+
+
 
 @app.route('/appointment/update_status/<int:appt_id>/<new_status>')
 @login_required
@@ -694,47 +890,49 @@ def update_appt_status(appt_id, new_status):
         'scheduled': 'Scheduled',
         'checked_in': 'Checked In',
         'sent_to_counsellor': 'Sent to Counsellor',
-        'accepted': 'Accepted', # Intermediate state
+        'accepted': 'Accepted',  # Intermediate state
         'in_session': 'In Session',
         'completed': 'Completed',
         'cancelled': 'Cancelled'
     }
-    
-    clean_status = status_map.get(new_status.lower().replace(' ', '_'), new_status)
-    
+
+    clean_status = status_map.get(
+        new_status.lower().replace(' ', '_'), new_status)
+
     user_role = session.get('role')
     conn = get_db_connection()
-    
+
     # Get current status
-    appt = conn.execute("SELECT status, student_id FROM Appointment WHERE id = ?", (appt_id,)).fetchone()
+    appt = conn.execute(
+        "SELECT status, student_id FROM Appointment WHERE id = ?", (appt_id,)).fetchone()
     if not appt:
         conn.close()
         flash("Appointment not found.", "error")
         return redirect(url_for('dashboard'))
-        
+
     current_status = appt['status']
-    student_name = conn.execute("SELECT name FROM Student WHERE id = ?", (appt['student_id'],)).fetchone()['name']
+    student_name = conn.execute(
+        "SELECT name FROM Student WHERE id = ?", (appt['student_id'],)).fetchone()['name']
 
     # --- STRICT WORKFLOW ENGINE ---
     allowed = False
     error_msg = "Invalid workflow transition."
-    
-    # 1. Secretary: Scheduled -> Checked In (Step 1)
-    if current_status == 'Scheduled' and clean_status == 'Checked In':
+
+    # 1. Secretary: Scheduled/Accepted -> Checked In (Step 1)
+    if current_status in ['Scheduled', 'Accepted'] and clean_status == 'Checked In':
         if user_role in ['Secretary', 'Admin']:
             allowed = True
         else:
             error_msg = "Only Secretary can check in students."
 
-    # 1.5. Secretary: Scheduled -> Sent to Counsellor (Direct Handover)
-    elif current_status == 'Scheduled' and clean_status == 'Sent to Counsellor':
+    # 1.5. Secretary: Scheduled/Accepted -> Sent to Counsellor (Direct Handover)
+    elif current_status in ['Scheduled', 'Accepted'] and clean_status == 'Sent to Counsellor':
         if user_role in ['Secretary', 'Admin']:
             allowed = True
-            # Notify Counsellors
             notify_role('Counsellor', f"Incoming Patient: {student_name}", url_for('dashboard'))
             notify_role('Counselor', f"Incoming Patient: {student_name}", url_for('dashboard'))
         else:
-             error_msg = "Only Secretary can handover students."
+            error_msg = "Only Secretary can handover students."
 
     # 2. Secretary: Checked In -> Sent to Counsellor (Step 2)
     elif current_status == 'Checked In' and clean_status == 'Sent to Counsellor':
@@ -745,84 +943,92 @@ def update_appt_status(appt_id, new_status):
         else:
             error_msg = "Only Secretary can handover students."
 
-    # 3. Counsellor: Sent to Counsellor -> In Session
-    elif (current_status == 'Sent to Counsellor' or current_status == 'Checked In') and clean_status == 'In Session':
+    # 3. Counsellor: Sent/Checked In/Scheduled -> In Session
+    elif current_status in ['Sent to Counsellor', 'Checked In', 'Scheduled', 'Accepted'] and clean_status == 'In Session':
         if user_role in ['Counsellor', 'Counselor', 'Admin']:
             allowed = True
         else:
-             error_msg = "Only Counsellor can start a session."
+            error_msg = "Only Counsellor can start a session."
 
-    # 4. Counsellor: In Session -> Completed
-    elif current_status == 'In Session' and clean_status == 'Completed':
+    # 4. Counsellor: In Session/Scheduled/Accepted -> Completed
+    elif current_status in ['In Session', 'Scheduled', 'Accepted'] and clean_status == 'Completed':
         if user_role in ['Counsellor', 'Counselor', 'Admin']:
             allowed = True
         else:
-             error_msg = "Only Counsellor can complete a session."
+            error_msg = "Only clinical staff can mark an appointment as completed."
 
     # 4.5. Counsellor: Completed -> In Session (Re-open case)
     elif current_status == 'Completed' and clean_status == 'In Session':
         if user_role in ['Counsellor', 'Counselor', 'Admin']:
             allowed = True
         else:
-             error_msg = "Only Counsellor can re-open a session."
-             
+            error_msg = "Only Counsellor can re-open a session."
+
     # 5. Anyone: -> Scheduled (Send Back/Reset)
     elif clean_status == 'Scheduled':
-         allowed = True # Allow reset
+        allowed = True  # Allow reset
 
     if not allowed:
         conn.close()
-        flash(f"Workflow Error: {error_msg} ({current_status} -> {clean_status})", "error")
+        flash(
+            f"Workflow Error: {error_msg} ({current_status} -> {clean_status})", "error")
         return redirect(url_for('dashboard'))
 
     # Update DB
     try:
         # Update status and timestamps
         timestamp_col = None
-        if clean_status == 'Checked In': timestamp_col = 'checked_in_at'
-        if clean_status == 'Sent to Counsellor': timestamp_col = 'sent_to_counsellor_at'
-        if clean_status == 'In Session': timestamp_col = 'accepted_at'
-        if clean_status == 'Completed': timestamp_col = 'completed_at'
-        
+        if clean_status == 'Checked In':
+            timestamp_col = 'checked_in_at'
+        if clean_status == 'Sent to Counsellor':
+            timestamp_col = 'sent_to_counsellor_at'
+        if clean_status == 'In Session':
+            timestamp_col = 'accepted_at'
+        if clean_status == 'Completed':
+            timestamp_col = 'completed_at'
+
         sql = "UPDATE Appointment SET status = ?"
         params = [clean_status]
-        
+
         if timestamp_col:
             sql += f", {timestamp_col} = CURRENT_TIMESTAMP"
-        
+
         # If jumping from Scheduled to Sent to Counsellor, ensure checked_in_at is also set if null
         if current_status == 'Scheduled' and clean_status == 'Sent to Counsellor':
             sql += ", checked_in_at = COALESCE(checked_in_at, CURRENT_TIMESTAMP)"
-            
+
         sql += " WHERE id = ?"
         params.append(appt_id)
-        
+
         conn.execute(sql, params)
-        
+
         conn.execute(
             "INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)",
-            (session.get('user_id'), 'WORKFLOW', f"Moved {student_name} from {current_status} to {clean_status}")
+            (session.get('user_id'), 'WORKFLOW',
+             f"Moved {student_name} from {current_status} to {clean_status}")
         )
         conn.commit()
+        trigger_sync_immediate()
         conn.close()
-        
+
         # Success Feedback
         flash(f"Moved {student_name} to {clean_status}", "success")
-        
+
         # If starting a session, redirect to the session notes page
         if clean_status == 'In Session':
             return redirect(url_for('create_session', appointment_id=appt_id))
-            
+
         return redirect(url_for('dashboard'))
-        
+
     except Exception as e:
         print(f"[WORKFLOW] Error updating status: {e}")
         conn.close()
         flash(f"Database Error: {str(e)}", "error")
-        
+
     return redirect(url_for('dashboard'))
 
 # ---------- ADMIN USER MANAGEMENT ----------
+
 
 @app.route('/admin/users')
 @login_required
@@ -830,37 +1036,40 @@ def admin_users():
     if session.get('role') != 'Admin':
         flash('Unauthorized access.', 'error')
         return redirect(url_for('dashboard'))
-    
+
     conn = get_db_connection()
-    users = conn.execute('SELECT * FROM users ORDER BY created_at DESC').fetchall()
+    users = conn.execute(
+        'SELECT * FROM users ORDER BY created_at DESC').fetchall()
     conn.close()
     return render_template('admin_users.html', users=users)
+
 
 @app.route('/admin/users/add', methods=['GET', 'POST'])
 @login_required
 def admin_add_user():
     if session.get('role') != 'Admin':
         return redirect(url_for('dashboard'))
-        
+
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
         full_name = request.form.get('full_name')
         role = request.form.get('role')
-        
+
         if not username or not password or not role:
             flash('All fields are required', 'error')
             return redirect(url_for('admin_add_user'))
-            
+
         hashed_pw = generate_password_hash(password)
-        
+
         try:
             conn = get_db_connection()
             conn.execute('INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)',
-                        (username, hashed_pw, full_name, role))
+                         (username, hashed_pw, full_name, role))
             conn.execute('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)',
-                        (session.get('user_id'), 'USER_CREATE', f"Created user {username} ({role})"))
+                         (session.get('user_id'), 'USER_CREATE', f"Created user {username} ({role})"))
             conn.commit()
+            trigger_sync_immediate()
             conn.close()
             flash(f'User {username} created successfully!', 'success')
             return redirect(url_for('admin_users'))
@@ -868,96 +1077,105 @@ def admin_add_user():
             flash('Username already exists', 'error')
         except Exception as e:
             flash(f'Error creating user: {e}', 'error')
-            
+
     return render_template('admin_add_user.html')
+
 
 @app.route('/admin/users/delete/<int:user_id>', methods=['POST'])
 @login_required
 def admin_delete_user(user_id):
     if session.get('role') != 'Admin':
         return redirect(url_for('dashboard'))
-        
+
     if user_id == session.get('user_id'):
         flash('You cannot delete your own account.', 'error')
         return redirect(url_for('admin_users'))
-        
+
     try:
         conn = get_db_connection()
         conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
         conn.execute('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)',
-                    (session.get('user_id'), 'USER_DELETE', f"Deleted user ID {user_id}"))
+                     (session.get('user_id'), 'USER_DELETE', f"Deleted user ID {user_id}"))
         conn.commit()
+        trigger_sync_immediate()
         conn.close()
         flash('User deleted successfully.', 'success')
     except Exception as e:
         flash(f'Error deleting user: {e}', 'error')
-        
+
     return redirect(url_for('admin_users'))
+
 
 @app.route('/admin/users/reset_password', methods=['POST'])
 @login_required
 def admin_reset_password():
     if session.get('role') != 'Admin':
         return redirect(url_for('dashboard'))
-        
+
     user_id = request.form.get('user_id')
     new_password = request.form.get('new_password')
-    
+
     if not user_id or not new_password:
         flash('Missing data for password reset.', 'error')
         return redirect(url_for('admin_users'))
-        
+
     try:
         conn = get_db_connection()
         hashed_pw = generate_password_hash(new_password)
-        conn.execute('UPDATE users SET password_hash = ? WHERE id = ?', (hashed_pw, user_id))
+        conn.execute(
+            'UPDATE users SET password_hash = ? WHERE id = ?', (hashed_pw, user_id))
         conn.execute('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)',
-                    (session.get('user_id'), 'PASSWORD_RESET', f"Reset password for user ID {user_id}"))
+                     (session.get('user_id'), 'PASSWORD_RESET', f"Reset password for user ID {user_id}"))
         conn.commit()
+        trigger_sync_immediate()
         conn.close()
         flash('Password reset successfully.', 'success')
     except Exception as e:
         flash(f'Error resetting password: {e}', 'error')
-        
+
     return redirect(url_for('admin_users'))
+
 
 @app.route('/admin/users/edit', methods=['POST'])
 @login_required
 def admin_edit_user():
     if session.get('role') != 'Admin':
         return redirect(url_for('dashboard'))
-        
+
     user_id = request.form.get('user_id')
     full_name = request.form.get('full_name')
-    
+
     if not user_id or not full_name:
         flash('Missing data for user update.', 'error')
         return redirect(url_for('admin_users'))
-        
+
     try:
         conn = get_db_connection()
-        conn.execute('UPDATE users SET full_name = ? WHERE id = ?', (full_name, user_id))
+        conn.execute('UPDATE users SET full_name = ? WHERE id = ?',
+                     (full_name, user_id))
         conn.execute('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)',
-                    (session.get('user_id'), 'USER_UPDATE', f"Updated name for user ID {user_id} to {full_name}"))
+                     (session.get('user_id'), 'USER_UPDATE', f"Updated name for user ID {user_id} to {full_name}"))
         conn.commit()
+        trigger_sync_immediate()
         conn.close()
         flash('User updated successfully.', 'success')
     except Exception as e:
         flash(f'Error updating user: {e}', 'error')
-        
+
     return redirect(url_for('admin_users'))
+
 
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
     conn = get_db_connection()
-    
+
     if request.method == 'POST':
         full_name = request.form.get('full_name')
         phone = request.form.get('phone')
         email = request.form.get('email')
         new_password = request.form.get('password')
-        
+
         try:
             # Update basic info
             conn.execute('''
@@ -965,79 +1183,90 @@ def profile():
                 SET full_name = ?, phone = ?, email = ?
                 WHERE id = ?
             ''', (full_name, phone, email, session.get('user_id')))
-            
+
             # Handle Profile Picture
             if 'profile_pic' in request.files:
                 file = request.files['profile_pic']
                 if file and file.filename != '':
-                    filename = secure_filename(f"user_{session.get('user_id')}_{file.filename}")
-                    
+                    filename = secure_filename(
+                        f"user_{session.get('user_id')}_{file.filename}")
+
                     # Ensure directory exists
                     try:
                         if getattr(sys, 'frozen', False):
                             base_path = os.path.dirname(sys.executable)
                         else:
-                            base_path = os.path.dirname(os.path.abspath(__file__))
+                            base_path = os.path.dirname(
+                                os.path.abspath(__file__))
                     except:
                         base_path = os.path.dirname(os.path.abspath(__file__))
-                        
-                    upload_dir = os.path.join(base_path, 'static', 'profile_pics')
+
+                    upload_dir = os.path.join(
+                        base_path, 'static', 'profile_pics')
                     os.makedirs(upload_dir, exist_ok=True)
-                    
+
                     file.save(os.path.join(upload_dir, filename))
-                    
+
                     # Update DB (store relative path for static serving)
-                    conn.execute('UPDATE users SET profile_pic = ? WHERE id = ?', 
-                               (filename, session.get('user_id')))
-                    
+                    conn.execute('UPDATE users SET profile_pic = ? WHERE id = ?',
+                                 (filename, session.get('user_id')))
+
                     session['profile_pic'] = filename
 
             # Update password if provided
             if new_password:
                 hashed_pw = generate_password_hash(new_password)
-                conn.execute('UPDATE users SET password_hash = ? WHERE id = ?', 
-                           (hashed_pw, session.get('user_id')))
+                conn.execute('UPDATE users SET password_hash = ? WHERE id = ?',
+                             (hashed_pw, session.get('user_id')))
                 flash('Profile and password updated successfully!', 'success')
             else:
                 flash('Profile updated successfully!', 'success')
-                
+
             # Update session info
             session['full_name'] = full_name
-            
+
             conn.commit()
-            
+            trigger_sync_immediate()
+
             # Log it
             conn.execute('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)',
-                        (session.get('user_id'), 'PROFILE_UPDATE', "User updated their profile"))
+                         (session.get('user_id'), 'PROFILE_UPDATE', "User updated their profile"))
             conn.commit()
-            
+            trigger_sync_immediate()
+
+
         except Exception as e:
             flash(f'Error updating profile: {e}', 'error')
-            
+
     # Get current user data
-    user = conn.execute('SELECT * FROM users WHERE id = ?', (session.get('user_id'),)).fetchone()
+    user = conn.execute('SELECT * FROM users WHERE id = ?',
+                        (session.get('user_id'),)).fetchone()
     conn.close()
-    
+
     return render_template('profile.html', user=user)
+
 
 @app.route('/admin/workflow')
 @login_required
 def admin_workflow():
     if session.get('role') != 'Admin':
         return redirect(url_for('dashboard'))
-    
+
     conn = get_db_connection()
     # Fetch settings or set defaults
-    auto_notify = conn.execute("SELECT setting_value FROM app_settings WHERE setting_name = 'workflow_auto_notify'").fetchone()
-    lock_notes = conn.execute("SELECT setting_value FROM app_settings WHERE setting_name = 'workflow_lock_notes'").fetchone()
+    auto_notify = conn.execute(
+        "SELECT setting_value FROM app_settings WHERE setting_name = 'workflow_auto_notify'").fetchone()
+    lock_notes = conn.execute(
+        "SELECT setting_value FROM app_settings WHERE setting_name = 'workflow_lock_notes'").fetchone()
     conn.close()
-    
+
     settings = {
         'auto_notify': auto_notify['setting_value'] == 'true' if auto_notify else True,
         'lock_notes': lock_notes['setting_value'] == 'true' if lock_notes else True
     }
-    
+
     return render_template('admin_workflow.html', settings=settings)
+
 
 @app.route('/admin/settings')
 @login_required
@@ -1045,16 +1274,19 @@ def admin_settings():
     # Access control: All roles can access for Node Config; Admin checks handled in template
     # if session.get('role') != 'Admin':
     #     return redirect(url_for('dashboard'))
-    
+
     conn = get_db_connection()
     # Fetch all settings
-    settings_rows = conn.execute("SELECT setting_name, setting_value FROM app_settings").fetchall()
+    settings_rows = conn.execute(
+        "SELECT setting_name, setting_value FROM app_settings").fetchall()
     conn.close()
-    
+
     # Convert list of rows to dictionary
-    settings = {row['setting_name']: row['setting_value'] for row in settings_rows}
-    
+    settings = {row['setting_name']: row['setting_value']
+                for row in settings_rows}
+
     return render_template('admin_settings.html', settings=settings)
+
 
 @app.route('/admin/settings/update', methods=['POST'])
 @login_required
@@ -1062,13 +1294,13 @@ def admin_update_settings():
     if session.get('role') != 'Admin':
         flash("Unauthorized", "error")
         return redirect(url_for('dashboard'))
-        
+
     try:
         conn = get_db_connection()
-        
+
         # List of settings to update
         setting_keys = ['system_name', 'logo_url', 'theme_color']
-        
+
         for key in setting_keys:
             val = request.form.get(key)
             if val is not None:
@@ -1077,43 +1309,50 @@ def admin_update_settings():
                 # Simplest for SQLite: INSERT OR REPLACE if primary key is set, but we don't have PK on name maybe?
                 # Let's check schema. Assuming key-value pair uniqueness is enforced or not,
                 # let's try to update, if 0 rows, insert.
-                
+
                 cursor = conn.cursor()
-                cursor.execute("UPDATE app_settings SET setting_value = ? WHERE setting_name = ?", (val, key))
+                cursor.execute(
+                    "UPDATE app_settings SET setting_value = ? WHERE setting_name = ?", (val, key))
                 if cursor.rowcount == 0:
-                    cursor.execute("INSERT INTO app_settings (setting_name, setting_value) VALUES (?, ?)", (key, val))
-                    
+                    cursor.execute(
+                        "INSERT INTO app_settings (setting_name, setting_value) VALUES (?, ?)", (key, val))
+
         conn.commit()
+        trigger_sync_immediate()
         conn.close()
         flash("System configuration updated successfully.", "success")
     except Exception as e:
         flash(f"Error saving settings: {e}", "error")
-        
+
     return redirect(url_for('admin_settings'))
+
 
 @app.route('/admin/workflow/save', methods=['POST'])
 @login_required
 def save_workflow_settings():
     if session.get('role') != 'Admin':
         return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-        
+
     try:
         data = request.get_json()
         conn = get_db_connection()
-        
+
         # Upsert logic (delete then insert is easier for simple KV)
-        conn.execute("DELETE FROM app_settings WHERE setting_name IN ('workflow_auto_notify', 'workflow_lock_notes')")
-        
-        conn.execute("INSERT INTO app_settings (setting_name, setting_value) VALUES (?, ?)", 
+        conn.execute(
+            "DELETE FROM app_settings WHERE setting_name IN ('workflow_auto_notify', 'workflow_lock_notes')")
+
+        conn.execute("INSERT INTO app_settings (setting_name, setting_value) VALUES (?, ?)",
                      ('workflow_auto_notify', 'true' if data.get('auto_notify') else 'false'))
-        conn.execute("INSERT INTO app_settings (setting_name, setting_value) VALUES (?, ?)", 
+        conn.execute("INSERT INTO app_settings (setting_name, setting_value) VALUES (?, ?)",
                      ('workflow_lock_notes', 'true' if data.get('lock_notes') else 'false'))
-                     
+
         conn.commit()
+        trigger_sync_immediate()
         conn.close()
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+
 
 @app.route('/admin/forms')
 @login_required
@@ -1122,9 +1361,9 @@ def admin_forms():
         return redirect(url_for('dashboard'))
     return render_template('admin_forms.html')
 
+
 @app.route('/admin/export/master')
 @login_required
-
 def admin_export_master():
     if session.get('role') != 'Admin':
         return redirect(url_for('dashboard'))
@@ -1139,25 +1378,26 @@ def admin_export_master():
         return redirect(url_for('dashboard'))
 
     conn = get_db_connection()
-    
+
     # 1. Fetch Datasets
     students = conn.execute("SELECT * FROM Student").fetchall()
     appointments = conn.execute("SELECT * FROM Appointment").fetchall()
     intake_forms = conn.execute("SELECT * FROM intake_forms").fetchall()
-    users = conn.execute("SELECT id, username, full_name, role, last_login, created_at FROM users").fetchall()
-    
+    users = conn.execute(
+        "SELECT id, username, full_name, role, last_login, created_at FROM users").fetchall()
+
     conn.close()
 
     # 2. Create Workbook
     wb = openpyxl.Workbook()
-    
+
     # Helper to write sheet
     def write_sheet(wb, sheet_name, data, columns=None):
         if sheet_name in wb.sheetnames:
             ws = wb[sheet_name]
         else:
             ws = wb.create_sheet(sheet_name)
-            
+
         if not data:
             ws.append(["No Data Available"])
             return
@@ -1165,11 +1405,12 @@ def admin_export_master():
         # Headers
         if not columns:
             columns = data[0].keys()
-        
+
         # Style headers
         header_font = Font(bold=True, color="FFFFFFFF")
-        header_fill = PatternFill(start_color="FF4F81BD", end_color="FF4F81BD", fill_type="solid")
-        
+        header_fill = PatternFill(
+            start_color="FF4F81BD", end_color="FF4F81BD", fill_type="solid")
+
         for col_num, col_title in enumerate(columns, 1):
             cell = ws.cell(row=1, column=col_num, value=str(col_title).upper())
             cell.font = header_font
@@ -1179,11 +1420,11 @@ def admin_export_master():
         for row_data in data:
             row_values = [row_data[col] for col in columns]
             ws.append(row_values)
-            
+
         # Autosize columns
         for col in ws.columns:
             max_length = 0
-            column = col[0].column_letter # Get the column name
+            column = col[0].column_letter  # Get the column name
             for cell in col:
                 try:
                     if len(str(cell.value)) > max_length:
@@ -1197,7 +1438,7 @@ def admin_export_master():
     # Remove default sheet
     if 'Sheet' in wb.sheetnames:
         del wb['Sheet']
-        
+
     write_sheet(wb, "Students", students)
     write_sheet(wb, "Appointments", appointments)
     write_sheet(wb, "Intake Records", intake_forms)
@@ -1207,18 +1448,21 @@ def admin_export_master():
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)
-    
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
     response = make_response(output.getvalue())
     response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    response.headers['Content-Disposition'] = f'attachment; filename=Master_Data_Export_{timestamp}.xlsx'
+    response.headers[
+        'Content-Disposition'] = f'attachment; filename=Master_Data_Export_{timestamp}.xlsx'
     return response
+
 
 @app.route('/logout')
 def logout():
     session.clear()
     flash('You have been logged out successfully.')
     return redirect(url_for('welcome'))
+
 
 @app.route('/add_student', methods=['GET', 'POST'])
 @login_required
@@ -1238,7 +1482,10 @@ def add_student():
             gender = request.form.get('gender')
             index_number = request.form.get('index_number')
             department = request.form.get('department')
-            programme = request.form.get('programme')
+            programme_base = request.form.get('programme')
+            programme_other = request.form.get('programme_other')
+            programme = programme_other if programme_base == 'Other' else programme_base
+            
             contact = request.form.get('contact')
             parent_contact = request.form.get('parent_contact')
             hall_of_residence = request.form.get('hall_of_residence')
@@ -1251,23 +1498,28 @@ def add_student():
                         SET name=?, age=?, gender=?, index_number=?, department=?, faculty=?, 
                             programme=?, contact=?, parent_contact=?, hall_of_residence=?
                         WHERE id=?
-                    ''', (name, age if age else None, gender, index_number, department, faculty, 
+                    ''', (name, age if age else None, gender, index_number, department, faculty,
                           programme, contact, parent_contact, hall_of_residence, edit_id))
                     flash('Student updated successfully!', 'success')
                 else:
+                    case_num = generate_case_number(conn, name)
                     conn.execute(
-                        'INSERT INTO Student (name, age, gender, index_number, department, faculty, programme, contact, parent_contact, hall_of_residence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                        (name, age if age else None, gender, index_number, department, faculty, programme, contact, parent_contact, hall_of_residence)
+                        'INSERT INTO Student (name, case_number, age, gender, index_number, department, faculty, programme, contact, parent_contact, hall_of_residence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                        (name, case_num, age if age else None, gender, index_number, department,
+                         faculty, programme, contact, parent_contact, hall_of_residence)
                     )
-                    flash('Student added successfully!', 'success')
+                    flash(
+                        f'Student registered! Case Number: {case_num}', 'success')
                 conn.commit()
+                trigger_sync_immediate()
                 return redirect(url_for('students'))
             except sqlite3.IntegrityError:
                 conn.rollback()
                 flash('Error: Index number already exists.', 'error')
                 if edit_id:
                     try:
-                        student = conn.execute('SELECT * FROM Student WHERE id = ?', (edit_id,)).fetchone()
+                        student = conn.execute(
+                            'SELECT * FROM Student WHERE id = ?', (edit_id,)).fetchone()
                         return render_template('add_student.html', student=student)
                     except Exception:
                         pass
@@ -1278,14 +1530,17 @@ def add_student():
                 traceback.print_exc()
                 # Check if it's a table missing error and reinitialize
                 if 'no such table' in str(e).lower() or 'Student' in str(e):
-                    print("[ADD_STUDENT] Table missing error detected, reinitializing database...")
+                    print(
+                        "[ADD_STUDENT] Table missing error detected, reinitializing database...")
                     try:
                         ensure_database_initialized()
                         conn = get_db_connection()
                         flash('Database was reinitialized. Please try again.', 'info')
                     except Exception as init_error:
-                        print(f"[ADD_STUDENT] Error reinitializing: {init_error}")
-                        flash(f'Database error: {str(e)}. Please restart the application.', 'error')
+                        print(
+                            f"[ADD_STUDENT] Error reinitializing: {init_error}")
+                        flash(
+                            f'Database error: {str(e)}. Please restart the application.', 'error')
                 else:
                     flash(f'Error saving student: {str(e)}', 'error')
             finally:
@@ -1298,20 +1553,24 @@ def add_student():
             edit_id = request.args.get('edit')
             if edit_id:
                 try:
-                    student = conn.execute('SELECT * FROM Student WHERE id = ?', (edit_id,)).fetchone()
+                    student = conn.execute(
+                        'SELECT * FROM Student WHERE id = ?', (edit_id,)).fetchone()
                 except Exception as e:
                     print(f"[ADD_STUDENT] Error loading student for edit: {e}")
                     import traceback
                     traceback.print_exc()
                     # Check if it's a table missing error and reinitialize
                     if 'no such table' in str(e).lower() or 'Student' in str(e):
-                        print("[ADD_STUDENT] Table missing error detected in GET, reinitializing database...")
+                        print(
+                            "[ADD_STUDENT] Table missing error detected in GET, reinitializing database...")
                         try:
                             ensure_database_initialized()
                             conn = get_db_connection()
-                            student = conn.execute('SELECT * FROM Student WHERE id = ?', (edit_id,)).fetchone()
+                            student = conn.execute(
+                                'SELECT * FROM Student WHERE id = ?', (edit_id,)).fetchone()
                         except Exception as init_error:
-                            print(f"[ADD_STUDENT] Error reinitializing: {init_error}")
+                            print(
+                                f"[ADD_STUDENT] Error reinitializing: {init_error}")
                             student = None
                     else:
                         student = None
@@ -1344,7 +1603,7 @@ def sessions_list():
             # Get sessions with full details including student, counsellor, and appointment info
             sessions_raw = conn.execute('''
                 SELECT sess.id, sess.session_type, sess.notes, sess.created_at,
-                       s.id as student_db_id, s.name as student_name,
+                       s.id as student_db_id, s.name as student_name, s.case_number,
                        c.name as Counsellor_name,
                        a.date, a.time, a.status,
                        sess.appointment_id
@@ -1362,15 +1621,15 @@ def sessions_list():
                 conn.close()
             except Exception:
                 pass
-        
+
         # Convert to list and add professional IDs
         sessions = []
         for sess in sessions_raw:
             sess_dict = dict(sess)
-            student_db_id = sess_dict.get('student_db_id', 0)
-            sess_dict['professional_id'] = f"C{student_db_id:03d}" if student_db_id else 'N/A'
+            # Add case number as professional ID
+            sess_dict['professional_id'] = sess_dict.get('case_number') or 'N/A'
             sessions.append(sess_dict)
-        
+
         # Create a simple pagination object to prevent template errors
         class SimplePagination:
             has_prev = False
@@ -1378,9 +1637,10 @@ def sessions_list():
             page = 1
             prev_num = None
             next_num = None
+
             def iter_pages(self):
                 return []
-        
+
         pagination = SimplePagination()
         return render_template('sessions.html', sessions=sessions, pagination=pagination)
     except Exception as e:
@@ -1389,6 +1649,7 @@ def sessions_list():
         traceback.print_exc()
         flash('Error loading sessions. Please try again.', 'error')
         return redirect(url_for('dashboard'))
+
 
 @app.route('/create_session', methods=['GET', 'POST'])
 @login_required
@@ -1402,43 +1663,64 @@ def create_session():
 
         if request.method == 'POST':
             appointment_id = request.form.get('appointment_id')
+            student_id = request.form.get('student_id')
             session_type = request.form.get('session_type')
             notes = request.form.get('notes')
             outcome = request.form.get('outcome', '')
 
             try:
-                # Get appointment details
-                appointment = conn.execute('''
-                    SELECT student_id, status 
-                    FROM Appointment 
-                    WHERE id = ?
-                ''', (appointment_id,)).fetchone()
-
-                if appointment:
-                    student_id = appointment['student_id']
-                    appointment_status = appointment['status']
-
-                    # Insert new session - use appointment_id as the foreign key
-                    conn.execute('''
-                        INSERT INTO session (appointment_id, session_type, notes, outcome, created_at)
-                        VALUES (?, ?, ?, ?, ?)
-                    ''', (appointment_id, session_type, notes, outcome, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-
-                    # Update appointment status to completed only if it's currently scheduled
-                    if appointment_status == 'scheduled':
-                        conn.execute('UPDATE Appointment SET status = ? WHERE id = ?', 
-                                     ('Completed', appointment_id))
-
-                    conn.commit()
-                    flash('Session created successfully!')
+                # If no appointment selected but student is selected, create a walk-in appointment
+                if not appointment_id and student_id:
+                    print(f"[CREATE_SESSION] Creating walk-in appointment for student {student_id}")
+                    # Use the first counsellor as default for walk-ins
+                    counsellor = conn.execute("SELECT id FROM Counsellor LIMIT 1").fetchone()
+                    counsellor_id = counsellor['id'] if counsellor else 1
                     
-                    # Check for follow-up scheduling
-                    if request.form.get('schedule_followup'):
-                         return redirect(url_for('appointment', student_id=student_id))
-                         
-                    return redirect(url_for('sessions_list'))
+                    cursor = conn.execute('''
+                        INSERT INTO Appointment (student_id, Counsellor_id, date, time, purpose, status, urgency, referral_source, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (student_id, counsellor_id, datetime.now().strftime('%Y-%m-%d'), 
+                          datetime.now().strftime('%H:%M'), 'Walk-in Session', 'Completed', 'Normal', 'None',
+                          datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+                    appointment_id = cursor.lastrowid
+                    print(f"[CREATE_SESSION] Walk-in appointment created: ID {appointment_id}")
+
+                if appointment_id:
+                    # Get appointment details
+                    appointment = conn.execute('''
+                        SELECT student_id, status 
+                        FROM Appointment 
+                        WHERE id = ?
+                    ''', (appointment_id,)).fetchone()
+
+                    if appointment:
+                        student_id = appointment['student_id']
+                        appointment_status = appointment['status']
+
+                        # Insert new session
+                        conn.execute('''
+                            INSERT INTO session (appointment_id, session_type, notes, outcome, created_at)
+                            VALUES (?, ?, ?, ?, ?)
+                        ''', (appointment_id, session_type, notes, outcome, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+
+                        # Update appointment status
+                        if appointment_status.lower() in ['scheduled', 'sent to counsellor']:
+                            conn.execute('UPDATE Appointment SET status = ? WHERE id = ?',
+                                         ('Completed', appointment_id))
+
+                        conn.commit()
+                        trigger_sync_immediate()
+                        flash('Session created successfully!', 'success')
+
+                        if request.form.get('schedule_followup'):
+                            return redirect(url_for('appointment', student_id=student_id))
+
+                        return redirect(url_for('sessions_list'))
+                    else:
+                        flash('Invalid appointment selected.', 'error')
+                        return redirect(url_for('create_session'))
                 else:
-                    flash('Invalid appointment selected.')
+                    flash('Please select either an appointment or a student for a walk-in.', 'error')
                     return redirect(url_for('create_session'))
             except Exception as e:
                 conn.rollback()
@@ -1451,8 +1733,9 @@ def create_session():
                     pass
             return redirect(url_for('create_session'))
 
-        # GET: load appointments for dropdown and potential context
+        # GET: load appointments and students
         appointments = []
+        students = []
         try:
             appointments = conn.execute('''
                 SELECT a.id, a.date as date, a.time as time, a.status, s.name as student_name,
@@ -1463,9 +1746,12 @@ def create_session():
                 WHERE a.status IN ('scheduled', 'Scheduled', 'In Session', 'Completed', 'completed', 'Sent to Counsellor')
                 ORDER BY a.date DESC, a.time DESC
             ''').fetchall()
+            
+            students = conn.execute('SELECT id, name, index_number, case_number FROM Student ORDER BY name').fetchall()
         except Exception as e:
-            print(f"[CREATE_SESSION] Error getting appointments: {e}")
+            print(f"[CREATE_SESSION] Error getting data: {e}")
             appointments = []
+            students = []
         finally:
             try:
                 conn.close()
@@ -1474,13 +1760,20 @@ def create_session():
 
         # Check if specific appointment_id is passed in args (from Dashboard or Queue)
         selected_appt_id = request.args.get('appointment_id')
-        return render_template('create_session.html', appointments=appointments, selected_appt_id=selected_appt_id)
+        selected_student_id = request.args.get('student_id')
+        return render_template('create_session.html', 
+                             appointments=appointments, 
+                             students=students,
+                             selected_appt_id=selected_appt_id,
+                             selected_student_id=selected_student_id)
     except Exception as e:
         print(f"[CREATE_SESSION] Unexpected error: {e}")
         import traceback
         traceback.print_exc()
         flash('Error loading session creation page. Please try again.', 'error')
         return redirect(url_for('dashboard'))
+
+
 @app.route('/case_note', methods=['GET', 'POST'])
 @login_required
 def case_note():
@@ -1504,15 +1797,16 @@ def case_note():
             if not session_id:
                 flash('Please select a session', 'error')
                 return redirect(url_for('case_note'))
-            
+
             if not all([client_appearance, problems, interventions, recommendations]):
                 flash('Please fill in all required fields', 'error')
                 return redirect(url_for('case_note'))
 
             try:
                 # Check if case management record already exists for this session
-                existing = conn.execute('SELECT id FROM CaseManagement WHERE session_id = ?', (session_id,)).fetchone()
-                
+                existing = conn.execute(
+                    'SELECT id FROM CaseManagement WHERE session_id = ?', (session_id,)).fetchone()
+
                 if existing:
                     # Update existing record
                     conn.execute('''
@@ -1520,7 +1814,7 @@ def case_note():
                         SET client_appearance = ?, problems = ?, interventions = ?, recommendations = ?,
                             next_visit_date = ?, counsellor_signature = ?
                         WHERE session_id = ?
-                    ''', (client_appearance, problems, interventions, recommendations, 
+                    ''', (client_appearance, problems, interventions, recommendations,
                           next_visit_date, counsellor_signature, session_id))
                 else:
                     # Insert new record
@@ -1531,8 +1825,9 @@ def case_note():
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (session_id, client_appearance, problems, interventions, recommendations,
                           next_visit_date, counsellor_signature, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-                
+
                 conn.commit()
+                trigger_sync_immediate()
                 flash('Case notes saved successfully!', 'success')
                 return redirect(url_for('sessions_list'))
             except Exception as e:
@@ -1552,18 +1847,27 @@ def case_note():
         sessions = []
         try:
             sessions_raw = conn.execute('''
-                SELECT s.id, st.id as student_db_id, st.name as student_name, s.created_at
+                SELECT s.id, st.id as student_db_id, st.name as student_name, 
+                       st.case_number, s.created_at
                 FROM session s
                 JOIN Appointment a ON s.appointment_id = a.id
                 JOIN Student st ON a.student_id = st.id
                 ORDER BY s.created_at DESC
             ''').fetchall()
-            # Convert to list and add professional IDs
+            # Convert to list and add professional IDs with initials
             sessions = []
             for sess in sessions_raw:
                 sess_dict = dict(sess)
                 student_db_id = sess_dict.get('student_db_id', 0)
-                sess_dict['professional_id'] = f"C{student_db_id:03d}"
+                s_name = sess_dict.get('student_name', 'GCC')
+                parts = [p.strip() for p in s_name.split() if p.strip()]
+                if len(parts) >= 2:
+                    initials = (parts[0][0] + parts[-1][0]).upper()
+                elif len(parts) == 1:
+                    initials = parts[0][:2].upper()
+                else:
+                    initials = "C"
+                sess_dict['professional_id'] = f"{initials}-{student_db_id:03d}"
                 sessions.append(sess_dict)
         except Exception as e:
             print(f"[CASE_NOTE] Error getting sessions: {e}")
@@ -1583,6 +1887,8 @@ def case_note():
         return redirect(url_for('dashboard'))
 
 # ---------- Reports Routes ----------
+
+
 @app.route('/reports')
 @login_required
 def reports_list():
@@ -1618,6 +1924,7 @@ def reports_list():
         flash('Error loading reports. Please try again.', 'error')
         return redirect(url_for('dashboard'))
 
+
 @app.route('/generate_report_manual', methods=['POST'], endpoint='generate_report_manual')
 @login_required
 def generate_report_manual():
@@ -1625,19 +1932,21 @@ def generate_report_manual():
     report_type = request.form.get('report_type', 'manual')
     start_date = request.form.get('start_date')
     end_date = request.form.get('end_date')
-    
+
     try:
         if report_type == 'custom' and start_date and end_date:
             # Custom date range - modify the generate_report function to accept dates
             manual_generate_report()  # For now, use manual generation
-            flash('Custom report generation is being prepared. Report generated successfully!', 'success')
+            flash(
+                'Custom report generation is being prepared. Report generated successfully!', 'success')
         else:
             manual_generate_report()
             flash('Report generated successfully!', 'success')
     except Exception as e:
         flash(f'Error generating report: {str(e)}', 'error')
-    
+
     return redirect(url_for('reports_list'))
+
 
 @app.route('/toggle_auto_report', methods=['GET', 'POST'])
 @login_required
@@ -1646,7 +1955,7 @@ def toggle_auto_report():
     if request.method == 'POST':
         data = request.get_json()
         enable = data.get('enable', False)
-        
+
         try:
             toggle_scheduler(enable)
             return jsonify({
@@ -1667,6 +1976,7 @@ def toggle_auto_report():
             'is_enabled': is_running
         })
 
+
 @app.route('/generate_report_now', methods=['POST'])
 @login_required
 def generate_report_now():
@@ -1682,88 +1992,121 @@ def generate_report_now():
             'status': 'error',
             'message': f'Error generating report: {str(e)}'
         }), 500
+
+
 @app.route('/my_cases')
 @login_required
 def my_cases():
-    # Only for Clinical roles
-    if session.get('role') not in ['Counsellor', 'Counselor', 'Admin']:
-        flash("Access restricted to clinical staff.", "error")
+    user_role = (session.get('role') or '').strip().lower()
+    if user_role not in ['counsellor', 'counselor', 'admin']:
+        flash(f"Access restricted to clinical staff (Current Role: {user_role.capitalize() or 'Unknown'}).", "error")
         return redirect(url_for('dashboard'))
-        
+
     try:
         conn = get_db_connection()
-        user_full_name = session.get('full_name')
-        
-        # 1. Find Counsellor ID based on User Name
-        counsellor = conn.execute("SELECT id FROM Counsellor WHERE name = ?", (user_full_name,)).fetchone()
-        
+        user_full_name = session.get('full_name') or session.get('username', '')
+        username = session.get('username', '')
+
+        # 1. Find Counsellor record — try full_name first, then username
+        counsellor = conn.execute(
+            "SELECT id FROM Counsellor WHERE name = ? OR name = ?",
+            (user_full_name, username)).fetchone()
+
         if not counsellor:
-            # Fallback for Admin - show all
-            if session.get('role') == 'Admin':
-                 students = conn.execute("SELECT * FROM Student ORDER BY name").fetchall()
-                 conn.close()
-                 return render_template('students.html', students=students, programs=[], page_title="All Cases (Admin View)")
-            
-            # Auto-heal: If logged-in user is a Counsellor but missing from Counsellor table, add them
-            if session.get('role') in ['Counsellor', 'Counselor']:
+            if user_role == 'admin':
+                return redirect(url_for('students'))
+
+            # Auto-heal: create Counsellor profile from session data
+            if user_role in ['counsellor', 'counselor']:
                 try:
-                    conn.execute("INSERT INTO Counsellor (name, contact) VALUES (?, '')", (user_full_name,))
+                    conn.execute(
+                        "INSERT INTO Counsellor (name, contact) VALUES (?, '')", (user_full_name,))
                     conn.commit()
-                    # Fetch again
-                    counsellor = conn.execute("SELECT id FROM Counsellor WHERE name = ?", (user_full_name,)).fetchone()
+                    trigger_sync_immediate()
+                    counsellor = conn.execute(
+                        "SELECT id FROM Counsellor WHERE name = ?", (user_full_name,)).fetchone()
                 except Exception as e:
-                    print(f"[MY_CASES] Auto-create failed: {e}")
-            
+                    print(f"[MY_CASES] Auto-create counsellor record failed: {e}")
+
             if not counsellor:
-                flash(f"Error: Professional profile not found for '{user_full_name}'. Please contact Admin.", "error")
-                conn.close()
-                return redirect(url_for('dashboard'))
-            
+                # Last resort — redirect to student registry (safer than rendering raw)
+                flash(f"Professional profile not fully registered. Viewing all clients.", "info")
+                return redirect(url_for('students'))
+
         counsellor_id = counsellor['id']
-        
+
         # 2. Find students who have appointments with this counsellor (Past or Future)
-        # We use DISTINCT to avoid duplicates
-        students = conn.execute('''
-            SELECT DISTINCT s.* 
+        students_raw = conn.execute('''
+            SELECT s.*, 
+                   COUNT(DISTINCT sess.id) as session_count
             FROM Student s
             JOIN Appointment a ON s.id = a.student_id
+            LEFT JOIN session sess ON a.id = sess.appointment_id
             WHERE a.Counsellor_id = ?
-            ORDER BY a.date DESC
+            GROUP BY s.id
+            ORDER BY MAX(a.date) DESC
         ''', (counsellor_id,)).fetchall()
-        
+
         conn.close()
-        
-        return render_template('students.html', students=students, programs=[], page_title="My Calls List")
-        
+
+        students = []
+        for student in students_raw:
+            student_dict = dict(student)
+            student_db_id = student_dict.get('id', 0)
+            
+            # Generate professional_id
+            s_name = student_dict.get('name', 'GCC')
+            parts = [p.strip() for p in s_name.split() if p.strip()]
+            if len(parts) >= 2:
+                initials = (parts[0][0] + parts[-1][0]).upper()
+            elif len(parts) == 1:
+                initials = parts[0][:2].upper()
+            else:
+                initials = "GC"
+                
+            # Use case number as first priority for ID display
+            if not student_dict.get('case_number'):
+                student_dict['case_number'] = f"GCC-{datetime.now().year}-{student_db_id:04d}"
+            student_dict['professional_id'] = student_dict['case_number']
+                
+            students.append(student_dict)
+
+        return render_template('students.html', students=students, programs=[], page_title="My Cases")
+
     except Exception as e:
         print(f"[MY_CASES] Error: {e}")
+        flash(f"Error accessing cases: {str(e)}", "error")
         return redirect(url_for('dashboard'))
+
+
 @app.route('/download_report_file/<int:report_id>')
 @login_required
 def download_report_file(report_id):
     """Download the actual report file (DOCX)"""
     conn = get_db_connection()
-    
-    report = conn.execute('SELECT * FROM reports WHERE id = ?', (report_id,)).fetchone()
+
+    report = conn.execute(
+        'SELECT * FROM reports WHERE id = ?', (report_id,)).fetchone()
     conn.close()
-    
+
     if not report:
         flash('Report not found', 'error')
         return redirect(url_for('reports_list'))
-    
+
     # Convert Row to dict for easier access
     report_dict = dict(report)
     file_path = report_dict.get('file_path')
-    
+
     if not file_path:
         flash('Report file path not found', 'error')
         return redirect(url_for('reports_list'))
-    
+
     if os.path.exists(file_path):
         return send_file(file_path, as_attachment=True, download_name=os.path.basename(file_path))
     else:
         flash('Report file not found on disk', 'error')
         return redirect(url_for('reports_list'))
+
 
 @app.route('/students')
 @login_required
@@ -1786,11 +2129,12 @@ def students():
                 LEFT JOIN Appointment a ON s.id = a.student_id
                 LEFT JOIN session sess ON a.id = sess.appointment_id
                 GROUP BY s.id
-                ORDER BY s.name
+                ORDER BY s.id DESC
             ''').fetchall()
 
             # Get all unique programs for the filter dropdown (extract as strings, not Row objects)
-            program_rows = conn.execute("SELECT DISTINCT programme FROM Student WHERE programme IS NOT NULL AND programme != '' ORDER BY programme").fetchall()
+            program_rows = conn.execute(
+                "SELECT DISTINCT programme FROM Student WHERE programme IS NOT NULL AND programme != '' ORDER BY programme").fetchall()
         except Exception as e:
             print(f"[STUDENTS] Error getting students: {e}")
             students_raw = []
@@ -1801,16 +2145,32 @@ def students():
             except Exception:
                 pass
 
-        # Convert to list and add professional IDs
+        # Convert to list and add professional IDs with initials
         students = []
         for student in students_raw:
             student_dict = dict(student)
             student_db_id = student_dict.get('id', 0)
-            student_dict['professional_id'] = f"C{student_db_id:03d}"
+            
+            # Generate prefix based on initials
+            s_name = student_dict.get('name', 'GCC')
+            parts = [p.strip() for p in s_name.split() if p.strip()]
+            if len(parts) >= 2:
+                initials = (parts[0][0] + parts[-1][0]).upper()
+            elif len(parts) == 1:
+                initials = parts[0][:2].upper()
+            else:
+                initials = "C"
+            initials = "".join([c for c in initials if c.isalpha()])
+            if not initials: initials = "C"
+                
+            # Standardize professional ID to use the new case_number format
+            student_dict['professional_id'] = student_dict.get('case_number') or f"GCC-{datetime.now().year}-{student_db_id:04d}"
             students.append(student_dict)
 
-        programs = [row['programme'] for row in program_rows] if program_rows else []  # Convert Row objects to strings
-        
+        # Convert Row objects to strings
+        programs = [row['programme']
+                    for row in program_rows] if program_rows else []
+
         return render_template('students.html', students=students, programs=programs)
     except Exception as e:
         print(f"[STUDENTS] Unexpected error: {e}")
@@ -1818,6 +2178,120 @@ def students():
         traceback.print_exc()
         flash('Error loading students. Please try again.', 'error')
         return redirect(url_for('dashboard'))
+
+
+@app.route('/import_students', methods=['POST'])
+@login_required
+def import_students():
+    user_role = (session.get('role') or '').strip().lower()
+    if user_role not in ['admin', 'counsellor', 'counselor', 'secretary']:
+        flash("You do not have permission to import data.", "error")
+        return redirect(url_for('admin_settings'))
+
+    if 'file' not in request.files:
+        flash('No file part', 'error')
+        return redirect(url_for('admin_settings'))
+    
+    file = request.files['file']
+    if file.filename == '':
+        flash('No selected file', 'error')
+        return redirect(url_for('admin_settings'))
+
+    if file:
+        filename = secure_filename(file.filename)
+        extension = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+        
+        try:
+            conn = get_db_connection()
+            import_count = 0
+            
+            if extension == 'csv':
+                stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+                csv_input = csv.DictReader(stream)
+                for row in csv_input:
+                    # Clean and validate row data
+                    name = row.get('Name', row.get('name', '')).strip()
+                    index_number = row.get('Index Number', row.get('index_number', '')).strip()
+                    department = row.get('Department', row.get('department', '')).strip()
+                    programme = row.get('Programme', row.get('programme', '')).strip()
+                    
+                    if not name or not index_number:
+                        continue
+                        
+                    # Generate case number
+                    case_number = generate_case_number(conn, name)
+                    
+                    conn.execute('''
+                        INSERT INTO Student (name, case_number, age, gender, contact, index_number, department, faculty, programme)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        name,
+                        case_number,
+                        row.get('Age', row.get('age')),
+                        row.get('Gender', row.get('gender')),
+                        row.get('Contact', row.get('contact', row.get('Phone', ''))),
+                        index_number,
+                        department,
+                        row.get('Faculty', row.get('faculty')),
+                        programme
+                    ))
+                    import_count += 1
+                    
+            elif extension in ['xlsx', 'xls']:
+                import openpyxl
+                wb = openpyxl.load_workbook(file)
+                sheet = wb.active
+                
+                # Assume first row is header
+                headers = [cell.value for cell in sheet[1]]
+                # Map headers to column indices
+                header_map = {str(h).strip().lower(): i for i, h in enumerate(headers) if h}
+                
+                for row in sheet.iter_rows(min_row=2, values_only=True):
+                    def get_val(key):
+                        idx = header_map.get(key.lower())
+                        return str(row[idx]).strip() if idx is not None and row[idx] is not None else ''
+
+                    name = get_val('name') or get_val('Student Name')
+                    index_number = get_val('index number') or get_val('index_number')
+                    department = get_val('department')
+                    programme = get_val('programme')
+                    
+                    if not name or not index_number:
+                        continue
+                        
+                    case_number = generate_case_number(conn, name)
+                    
+                    conn.execute('''
+                        INSERT INTO Student (name, case_number, age, gender, contact, index_number, department, faculty, programme)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        name,
+                        case_number,
+                        get_val('age'),
+                        get_val('gender'),
+                        get_val('contact') or get_val('phone'),
+                        index_number,
+                        department,
+                        get_val('faculty'),
+                        programme
+                    ))
+                    import_count += 1
+            else:
+                flash('Unsupported file format. Please use CSV or Excel (.xlsx).', 'error')
+                return redirect(url_for('admin_settings'))
+
+            conn.commit()
+            trigger_sync_immediate()
+            conn.close()
+            flash(f'Successfully imported {import_count} student records.', 'success')
+            
+        except Exception as e:
+            flash(f'Import failed: {str(e)}', 'error')
+            print(f"[IMPORT] Error: {e}")
+            
+        return redirect(url_for('admin_settings'))
+
 
 @app.route('/student_profile/<int:id>')
 @login_required
@@ -1834,7 +2308,8 @@ def student_profile(id):
         sessions = []
         referrals = []
         try:
-            student = conn.execute('SELECT * FROM Student WHERE id = ?', (id,)).fetchone()
+            student = conn.execute(
+                'SELECT * FROM Student WHERE id = ?', (id,)).fetchone()
         except Exception as e:
             print(f"[STUDENT_PROFILE] Error getting student: {e}")
 
@@ -1910,18 +2385,19 @@ def student_profile(id):
         except Exception:
             pass
 
-        return render_template('student_profile.html', 
-                             student=student, 
-                             sessions=sessions,
-                             referrals=referrals,
-                             dass21_scores=dass21_scores,
-                             oq_scores=oq_scores)
+        return render_template('student_profile.html',
+                               student=student,
+                               sessions=sessions,
+                               referrals=referrals,
+                               dass21_scores=dass21_scores,
+                               oq_scores=oq_scores)
     except Exception as e:
         print(f"[STUDENT_PROFILE] Unexpected error: {e}")
         import traceback
         traceback.print_exc()
         flash('Error loading student profile. Please try again.', 'error')
         return redirect(url_for('students'))
+
 
 @app.route('/export_students')
 @login_required
@@ -1931,12 +2407,12 @@ def export_students():
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
     from openpyxl.utils import get_column_letter
-    
+
     # Get format parameter (default to csv for backward compatibility)
     export_format = request.args.get('format', 'csv').lower()
-    
+
     conn = get_db_connection()
-    
+
     # Get all students data with professional ID
     students_raw = conn.execute('''
         SELECT s.*, 
@@ -1947,50 +2423,68 @@ def export_students():
         GROUP BY s.id
         ORDER BY s.name
     ''').fetchall()
-    
+
     conn.close()
-    
-    # Generate professional IDs
+
+    # Generate professional IDs (same logic as the students page)
     students = []
     for student in students_raw:
         student_dict = dict(student)
         student_db_id = student_dict.get('id', 0)
-        student_dict['professional_id'] = f"C{student_db_id:03d}"
+        s_name = student_dict.get('name', 'GCC')
+        parts = [p.strip() for p in s_name.split() if p.strip()]
+        if len(parts) >= 2:
+            initials = (parts[0][0] + parts[-1][0]).upper()
+        elif len(parts) == 1:
+            initials = parts[0][:2].upper()
+        else:
+            initials = "C"
+        initials = "".join([c for c in initials if c.isalpha()])
+        if not initials:
+            initials = "C"
+        # Standardize professional ID to use the new case_number format
+        student_dict['professional_id'] = student_dict.get('case_number') or f"GCC-{datetime.now().year}-{student_db_id:04d}"
         students.append(student_dict)
-    
+
     if export_format == 'excel':
         # Create Excel workbook
         wb = Workbook()
         ws = wb.active
         ws.title = "Students"
-        
+
         # Define header style
-        header_fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
+        header_fill = PatternFill(
+            start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
         header_font = Font(bold=True)
-        
-        # Write headers
-        headers = ['ID', 'Professional ID', 'Name', 'Index Number', 'Age', 'Gender', 'Email', 'Phone', 'Program', 'Department', 'Session Count', 'Created Date']
+
+        # Write headers (matching the app's column labels)
+        headers = ['Case Number', 'Client ID', 'Name', 'Index Number', 'Age', 'Gender',
+                   'Email', 'Phone', 'Program', 'Department', 'Sessions', 'Registered Date']
         for col_num, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col_num, value=header)
             cell.fill = header_fill
             cell.font = header_font
             cell.alignment = Alignment(horizontal='center', vertical='center')
-        
+
         # Write data rows
         for row_num, student in enumerate(students, 2):
-            ws.cell(row=row_num, column=1, value=student['id'])
+            ws.cell(row=row_num, column=1, value=student.get('case_number') or 'N/A')
             ws.cell(row=row_num, column=2, value=student['professional_id'])
             ws.cell(row=row_num, column=3, value=student['name'])
-            ws.cell(row=row_num, column=4, value=student['index_number'] or 'N/A')
+            ws.cell(row=row_num, column=4,
+                    value=student['index_number'] or 'N/A')
             ws.cell(row=row_num, column=5, value=student.get('age') or 'N/A')
-            ws.cell(row=row_num, column=6, value=student.get('gender') or 'N/A')
+            ws.cell(row=row_num, column=6,
+                    value=student.get('gender') or 'N/A')
             ws.cell(row=row_num, column=7, value=student.get('email') or 'N/A')
             ws.cell(row=row_num, column=8, value=student['contact'] or 'N/A')
-            ws.cell(row=row_num, column=9, value=student.get('programme') or student.get('program') or 'N/A')
-            ws.cell(row=row_num, column=10, value=student.get('department') or 'N/A')
+            ws.cell(row=row_num, column=9, value=student.get(
+                'programme') or student.get('program') or 'N/A')
+            ws.cell(row=row_num, column=10,
+                    value=student.get('department') or 'N/A')
             ws.cell(row=row_num, column=11, value=student['session_count'])
             ws.cell(row=row_num, column=12, value=student['created_at'])
-        
+
         # Auto-adjust column widths
         for col in ws.columns:
             max_length = 0
@@ -2003,12 +2497,12 @@ def export_students():
                     pass
             adjusted_width = min(max_length + 2, 50)
             ws.column_dimensions[col_letter].width = adjusted_width
-        
+
         # Save to BytesIO
         output = io.BytesIO()
         wb.save(output)
         output.seek(0)
-        
+
         response = make_response(output.getvalue())
         response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         response.headers['Content-Disposition'] = 'attachment; filename=students_export.xlsx'
@@ -2018,13 +2512,14 @@ def export_students():
         output = io.StringIO()
         writer = csv.writer(output)
 
-        # Write header
-        writer.writerow(['ID', 'Professional ID', 'Name', 'Index Number', 'Email', 'Phone', 'Program', 'Session Count', 'Created Date'])
+        # Write header (matching the app's column labels)
+        writer.writerow(['Case Number', 'Client ID', 'Name', 'Index Number',
+                        'Email', 'Phone', 'Program', 'Sessions', 'Registered Date'])
 
         # Write data rows
         for student in students:
             writer.writerow([
-                student['id'],
+                student.get('case_number') or 'N/A',
                 student['professional_id'],
                 student['name'],
                 student['index_number'] or 'N/A',
@@ -2043,6 +2538,34 @@ def export_students():
 
         return response
 
+
+@app.route('/api/check_appointment/<int:student_id>')
+@login_required
+def check_appointment(student_id):
+    try:
+        conn = get_db_connection()
+        today = datetime.now().strftime('%Y-%m-%d')
+        # Check for any scheduled or in-progress appointments for today
+        appt = conn.execute('''
+            SELECT id, date, time FROM Appointment 
+            WHERE student_id = ? AND date = ? 
+            AND status IN ('scheduled', 'Scheduled', 'Sent to Counsellor', 'In Session')
+            LIMIT 1
+        ''', (student_id, today)).fetchone()
+        conn.close()
+        
+        if appt:
+            return jsonify({
+                'status': 'found',
+                'appointment_id': appt['id'],
+                'time': appt['time']
+            })
+        else:
+            return jsonify({'status': 'not_found'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+
+
 @app.route('/export_sessions')
 @login_required
 def export_sessions():
@@ -2051,16 +2574,16 @@ def export_sessions():
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
     from openpyxl.utils import get_column_letter
-    
+
     # Get format parameter (default to csv for backward compatibility)
     export_format = request.args.get('format', 'csv').lower()
-    
+
     conn = get_db_connection()
-    
+
     # Get all sessions with full details
     sessions = conn.execute('''
         SELECT sess.id, sess.session_type, sess.notes, sess.created_at,
-               s.name as student_name, s.id as student_db_id,
+               s.name as student_name, s.case_number, s.id as student_db_id,
                c.name as Counsellor_name,
                a.date, a.time, a.status as appointment_status
         FROM session sess
@@ -2069,43 +2592,51 @@ def export_sessions():
         LEFT JOIN Counsellor c ON a.Counsellor_id = c.id
         ORDER BY sess.created_at DESC
     ''').fetchall()
-    
+
     conn.close()
-    
+
     if export_format == 'excel':
         # Create Excel workbook
         wb = Workbook()
         ws = wb.active
         ws.title = "Sessions"
-        
+
         # Define header style
-        header_fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
+        header_fill = PatternFill(
+            start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
         header_font = Font(bold=True)
-        
+
         # Write headers
-        headers = ['ID', 'Date', 'Time', 'Student Name', 'Student ID', 'Counsellor', 'Session Type', 'Status', 'Notes', 'Created At']
+        headers = ['ID', 'Date', 'Time', 'Student Name', 'Student ID',
+                   'Counsellor', 'Session Type', 'Status', 'Notes', 'Created At']
         for col_num, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col_num, value=header)
             cell.fill = header_fill
             cell.font = header_font
             cell.alignment = Alignment(horizontal='center', vertical='center')
-        
+
         # Write data rows
         for row_num, session in enumerate(sessions, 2):
-            student_db_id = session.get('student_db_id', 0) if session.get('student_db_id') else 0
-            professional_id = f"C{student_db_id:03d}" if student_db_id else 'N/A'
-            
+            student_db_id = session.get(
+                'student_db_id', 0) if session.get('student_db_id') else 0
+            # Use case number for student ID in export
+            professional_id = session.get('case_number') or (f"GCC-{datetime.now().year}-{student_db_id:04d}" if student_db_id else 'N/A')
+
             ws.cell(row=row_num, column=1, value=session['id'])
             ws.cell(row=row_num, column=2, value=session['date'] or 'N/A')
             ws.cell(row=row_num, column=3, value=session['time'] or 'N/A')
-            ws.cell(row=row_num, column=4, value=session['student_name'] or 'N/A')
+            ws.cell(row=row_num, column=4,
+                    value=session['student_name'] or 'N/A')
             ws.cell(row=row_num, column=5, value=professional_id)
-            ws.cell(row=row_num, column=6, value=session['Counsellor_name'] or 'N/A')
-            ws.cell(row=row_num, column=7, value=session['session_type'] or 'N/A')
-            ws.cell(row=row_num, column=8, value=session['appointment_status'] or 'N/A')
+            ws.cell(row=row_num, column=6,
+                    value=session['Counsellor_name'] or 'N/A')
+            ws.cell(row=row_num, column=7,
+                    value=session['session_type'] or 'N/A')
+            ws.cell(row=row_num, column=8,
+                    value=session['appointment_status'] or 'N/A')
             ws.cell(row=row_num, column=9, value=session['notes'] or 'N/A')
             ws.cell(row=row_num, column=10, value=session['created_at'])
-        
+
         # Auto-adjust column widths
         for col in ws.columns:
             max_length = 0
@@ -2118,12 +2649,12 @@ def export_sessions():
                     pass
             adjusted_width = min(max_length + 2, 50)
             ws.column_dimensions[col_letter].width = adjusted_width
-        
+
         # Save to BytesIO
         output = io.BytesIO()
         wb.save(output)
         output.seek(0)
-        
+
         response = make_response(output.getvalue())
         response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         response.headers['Content-Disposition'] = 'attachment; filename=sessions_export.xlsx'
@@ -2134,12 +2665,15 @@ def export_sessions():
         writer = csv.writer(output)
 
         # Write header
-        writer.writerow(['ID', 'Date', 'Time', 'Student Name', 'Student ID', 'Counsellor', 'Session Type', 'Status', 'Notes', 'Created At'])
+        writer.writerow(['ID', 'Date', 'Time', 'Student Name', 'Student ID',
+                        'Counsellor', 'Session Type', 'Status', 'Notes', 'Created At'])
 
         # Write data rows
         for session in sessions:
-            student_db_id = session.get('student_db_id', 0) if session.get('student_db_id') else 0
-            professional_id = f"C{student_db_id:03d}" if student_db_id else 'N/A'
+            student_db_id = session.get(
+                'student_db_id', 0) if session.get('student_db_id') else 0
+            # Use case number for student ID in export
+            professional_id = session.get('case_number') or (f"GCC-{datetime.now().year}-{student_db_id:04d}" if student_db_id else 'N/A')
 
             writer.writerow([
                 session['id'],
@@ -2159,15 +2693,16 @@ def export_sessions():
         response = make_response(output.getvalue())
         response.headers['Content-Type'] = 'text/csv'
     response.headers['Content-Disposition'] = 'attachment; filename=sessions_export.csv'
-    
+
     return response
+
 
 @app.route('/referral', methods=['GET', 'POST'])
 @login_required
 def referral():
     try:
         ensure_database_initialized()
-        
+
         if request.method == 'POST':
             # Get form data
             session_id = request.form.get('session_id')
@@ -2178,7 +2713,8 @@ def referral():
 
             # Get selected referral reasons (checkboxes)
             selected_reasons = request.form.getlist('referral_reasons')
-            other_reason_text = request.form.get('other_reason_text', '').strip()
+            other_reason_text = request.form.get(
+                'other_reason_text', '').strip()
 
             # Combine reasons
             reasons_list = selected_reasons.copy()
@@ -2191,17 +2727,20 @@ def referral():
             if reasons_list:
                 reasons = ', '.join(reasons_list)
             else:
-                reasons = request.form.get('reasons', '')  # Fallback to old textarea
+                # Fallback to old textarea
+                reasons = request.form.get('reasons', '')
 
             # Validate required fields
             if not all([session_id, referred_by, contact]) or not reasons:
-                flash('Please fill in all required fields and select at least one reason', 'error')
+                flash(
+                    'Please fill in all required fields and select at least one reason', 'error')
                 return redirect(url_for('referral'))
 
             # Insert referral into database
             conn = get_db_connection()
             if conn is None:
-                flash('Database connection failed. Please restart the application.', 'error')
+                flash(
+                    'Database connection failed. Please restart the application.', 'error')
                 return redirect(url_for('dashboard'))
 
             try:
@@ -2210,6 +2749,7 @@ def referral():
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 ''', (session_id, referred_by, contact, reasons, action_taken, outcome, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
                 conn.commit()
+                trigger_sync_immediate()
                 flash('Referral created successfully!', 'success')
                 return redirect(url_for('dashboard'))
             except Exception as e:
@@ -2222,7 +2762,7 @@ def referral():
                     conn.close()
                 except Exception:
                     pass
-    
+
         # GET request - display referral form
         conn = get_db_connection()
         if conn is None:
@@ -2231,14 +2771,18 @@ def referral():
 
         sessions = []
         try:
-            sessions = conn.execute('''
-                SELECT s.id, s.created_at, st.name as student_name, st.index_number, c.name as Counsellor_name
+            sessions_raw = conn.execute('''
+                SELECT s.id, s.created_at, st.name as student_name, st.case_number, st.index_number, c.name as Counsellor_name
                 FROM session s
-                JOIN Appointment a ON s.appointment_id = a.id
-                JOIN Student st ON a.student_id = st.id
+                LEFT JOIN Appointment a ON s.appointment_id = a.id
+                LEFT JOIN Student st ON a.student_id = st.id
                 LEFT JOIN Counsellor c ON a.Counsellor_id = c.id
                 ORDER BY s.created_at DESC
             ''').fetchall()
+            
+            # Convert to list of dicts to avoid 'sqlite3.Row' has no attribute 'get' error
+            sessions = [dict(row) for row in sessions_raw]
+            
         except Exception as e:
             print(f"[REFERRAL] Error getting sessions: {e}")
             sessions = []
@@ -2256,6 +2800,7 @@ def referral():
         flash('Error loading referral page. Please try again.', 'error')
         return redirect(url_for('dashboard'))
 
+
 @app.route('/all_referrals')
 @login_required
 def all_referrals():
@@ -2265,28 +2810,27 @@ def all_referrals():
         if conn is None:
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('dashboard'))
-        
+
         referrals = []
         try:
-            # Get all referrals with student information
             referrals_raw = conn.execute('''
                 SELECT r.id, r.session_id, r.referred_by, r.contact, r.reasons, r.created_at,
-                               st.id as student_db_id, st.name as student_name, st.contact as student_contact, st.index_number
+                                st.id as student_db_id, st.name as student_name, st.case_number, st.contact as student_contact, st.index_number
                 FROM Referral r
-                JOIN session sess ON r.session_id = sess.id
-                JOIN Appointment a ON sess.appointment_id = a.id
-                JOIN Student st ON a.student_id = st.id
+                LEFT JOIN session sess ON r.session_id = sess.id
+                LEFT JOIN Appointment a ON sess.appointment_id = a.id
+                LEFT JOIN Student st ON a.student_id = st.id
                 ORDER BY r.created_at DESC
             ''').fetchall()
-            
+
             # Convert to list and add professional ID
             referrals = []
             for ref in referrals_raw:
                 ref_dict = dict(ref)
-                # Generate professional ID: C001, C002, etc. based on student database ID
+                ref_dict = dict(ref)
+                # Use standardized case number format
                 student_db_id = ref_dict.get('student_db_id', 0)
-                professional_id = f"C{student_db_id:03d}"  # C001, C002, etc.
-                ref_dict['professional_id'] = professional_id
+                ref_dict['professional_id'] = ref_dict.get('case_number') or (f"GCC-{datetime.now().year}-{student_db_id:04d}" if student_db_id else 'N/A')
                 referrals.append(ref_dict)
         except Exception as e:
             print(f"[REFERRALS] Error getting referrals: {e}")
@@ -2305,6 +2849,7 @@ def all_referrals():
         flash('Error loading referrals. Please try again.', 'error')
         return redirect(url_for('dashboard'))
 
+
 @app.route('/export_referrals')
 @login_required
 def export_referrals():
@@ -2313,60 +2858,66 @@ def export_referrals():
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
     from openpyxl.utils import get_column_letter
-    
+
     # Get format parameter (default to csv for backward compatibility)
     export_format = request.args.get('format', 'csv').lower()
-    
+
     conn = get_db_connection()
-    
+
     # Get all referrals with full details
     referrals_raw = conn.execute('''
         SELECT r.id, r.session_id, r.referred_by, r.contact, r.reasons, 
                r.action_taken, r.outcome, r.created_at,
-               st.id as student_db_id, st.name as student_name, st.contact as student_contact
+               st.id as student_db_id, st.name as student_name, st.case_number, st.contact as student_contact
         FROM Referral r
         JOIN session sess ON r.session_id = sess.id
         JOIN Appointment a ON sess.appointment_id = a.id
         JOIN Student st ON a.student_id = st.id
         ORDER BY r.created_at DESC
     ''').fetchall()
-    
+
     conn.close()
-    
+
     if export_format == 'excel':
         # Create Excel workbook
         wb = Workbook()
         ws = wb.active
         ws.title = "Referrals"
-        
+
         # Define header style
-        header_fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
+        header_fill = PatternFill(
+            start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
         header_font = Font(bold=True)
-        
+
         # Write headers
-        headers = ['ID', 'Date', 'Student Name', 'Student ID', 'Referred By', 'Contact', 'Reasons', 'Action Taken', 'Outcome']
+        headers = ['ID', 'Date', 'Student Name', 'Student ID',
+                   'Referred By', 'Contact', 'Reasons', 'Action Taken', 'Outcome']
         for col_num, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col_num, value=header)
             cell.fill = header_fill
             cell.font = header_font
             cell.alignment = Alignment(horizontal='center', vertical='center')
-        
+
         # Write data rows with professional IDs
         for row_num, referral in enumerate(referrals_raw, 2):
             ref_dict = dict(referral)
             student_db_id = ref_dict.get('student_db_id', 0)
-            professional_id = f"C{student_db_id:03d}"
-            
+            # Use standardized case number format
+            professional_id = ref_dict.get('case_number') or (f"GCC-{datetime.now().year}-{student_db_id:04d}" if student_db_id else 'N/A')
+
             ws.cell(row=row_num, column=1, value=referral['id'])
             ws.cell(row=row_num, column=2, value=referral['created_at'])
-            ws.cell(row=row_num, column=3, value=referral['student_name'] or 'N/A')
+            ws.cell(row=row_num, column=3,
+                    value=referral['student_name'] or 'N/A')
             ws.cell(row=row_num, column=4, value=professional_id)
-            ws.cell(row=row_num, column=5, value=referral['referred_by'] or 'N/A')
+            ws.cell(row=row_num, column=5,
+                    value=referral['referred_by'] or 'N/A')
             ws.cell(row=row_num, column=6, value=referral['contact'] or 'N/A')
             ws.cell(row=row_num, column=7, value=referral['reasons'] or 'N/A')
-            ws.cell(row=row_num, column=8, value=referral['action_taken'] or 'N/A')
+            ws.cell(row=row_num, column=8,
+                    value=referral['action_taken'] or 'N/A')
             ws.cell(row=row_num, column=9, value=referral['outcome'] or 'N/A')
-        
+
         # Auto-adjust column widths
         for col in ws.columns:
             max_length = 0
@@ -2379,12 +2930,12 @@ def export_referrals():
                     pass
             adjusted_width = min(max_length + 2, 50)
             ws.column_dimensions[col_letter].width = adjusted_width
-        
+
         # Save to BytesIO
         output = io.BytesIO()
         wb.save(output)
         output.seek(0)
-        
+
         response = make_response(output.getvalue())
         response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         response.headers['Content-Disposition'] = 'attachment; filename=referrals_export.xlsx'
@@ -2395,14 +2946,15 @@ def export_referrals():
         writer = csv.writer(output)
 
         # Write header - using "Student ID" instead of "Student Contact"
-        writer.writerow(['ID', 'Date', 'Student Name', 'Student ID', 'Referred By', 'Contact', 'Reasons', 'Action Taken', 'Outcome'])
+        writer.writerow(['ID', 'Date', 'Student Name', 'Student ID',
+                        'Referred By', 'Contact', 'Reasons', 'Action Taken', 'Outcome'])
 
         # Write data rows with professional IDs
         for referral in referrals_raw:
             ref_dict = dict(referral)
-            # Generate professional ID: C001, C002, etc.
+            # Use standardized case number format
             student_db_id = ref_dict.get('student_db_id', 0)
-            professional_id = f"C{student_db_id:03d}"
+            professional_id = ref_dict.get('case_number') or (f"GCC-{datetime.now().year}-{student_db_id:04d}" if student_db_id else 'N/A')
 
             writer.writerow([
                 referral['id'],
@@ -2411,7 +2963,8 @@ def export_referrals():
                 professional_id,  # Use professional ID instead of phone number
                 referral['referred_by'] or 'N/A',
                 referral['contact'] or 'N/A',
-                (referral['reasons'] or '').replace('\n', ' ')[:200],  # Limit length and replace newlines
+                (referral['reasons'] or '').replace('\n', ' ')[
+                    :200],  # Limit length and replace newlines
                 (referral['action_taken'] or '').replace('\n', ' ')[:200],
                 (referral['outcome'] or '').replace('\n', ' ')[:200]
             ])
@@ -2420,9 +2973,10 @@ def export_referrals():
         output.seek(0)
         response = make_response(output.getvalue())
         response.headers['Content-Type'] = 'text/csv'
-        response.headers['Content-Disposition'] = 'attachment; filename=referrals_export.csv'
+    response.headers['Content-Disposition'] = 'attachment; filename=referrals_export.csv'
 
-        return response
+    return response
+
 
 @app.route('/outcome_questionnaire', methods=['GET', 'POST'])
 @login_required
@@ -2433,7 +2987,7 @@ def outcome_questionnaire():
         if conn is None:
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('dashboard'))
-        
+
         if request.method == 'POST':
             # Get form data
             student_id = request.form.get('student_id')
@@ -2469,6 +3023,7 @@ def outcome_questionnaire():
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (student_id, session_id, age if age else None, sex if sex else None, *item_scores, total_score, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
                 conn.commit()
+                trigger_sync_immediate()
                 flash('Outcome questionnaire submitted successfully!', 'success')
                 return redirect(url_for('dashboard'))
             except Exception as e:
@@ -2486,9 +3041,10 @@ def outcome_questionnaire():
         students_raw = []
         sessions_raw = []
         try:
-            students_raw = conn.execute('SELECT id, name, programme FROM Student ORDER BY name').fetchall()
+            students_raw = conn.execute(
+                'SELECT id, name, case_number, programme FROM Student ORDER BY name').fetchall()
             sessions_raw = conn.execute('''
-                SELECT sess.id, sess.created_at, a.student_id, s.id as student_db_id, s.name as student_name
+                SELECT sess.id, sess.created_at, a.student_id, s.id as student_db_id, s.name as student_name, s.case_number
                 FROM session sess
                 LEFT JOIN Appointment a ON sess.appointment_id = a.id
                 LEFT JOIN Student s ON a.student_id = s.id
@@ -2504,12 +3060,12 @@ def outcome_questionnaire():
                 conn.close()
             except Exception:
                 pass
-        
+
         # Convert students to list
         students = []
         for student in students_raw:
             students.append(dict(student))
-        
+
         # Convert sessions to list and format dates
         sessions = []
         for sess in sessions_raw:
@@ -2517,18 +3073,20 @@ def outcome_questionnaire():
             # Format created_at for display
             if sess_dict.get('created_at'):
                 try:
-                    dt = datetime.strptime(sess_dict['created_at'], '%Y-%m-%d %H:%M:%S')
-                    sess_dict['created_at_formatted'] = dt.strftime('%Y-%m-%d %H:%M')
+                    dt = datetime.strptime(
+                        sess_dict['created_at'], '%Y-%m-%d %H:%M:%S')
+                    sess_dict['created_at_formatted'] = dt.strftime(
+                        '%Y-%m-%d %H:%M')
                 except:
                     sess_dict['created_at_formatted'] = sess_dict['created_at']
             else:
                 sess_dict['created_at_formatted'] = 'N/A'
-            
-            # Add professional ID
+
+            # Add consistent professional ID (case_number)
             student_db_id = sess_dict.get('student_db_id', 0)
-            sess_dict['professional_id'] = f"C{student_db_id:03d}" if student_db_id else 'N/A'
+            sess_dict['professional_id'] = sess_dict.get('case_number') or (f"GCC-{datetime.now().year}-{student_db_id:04d}" if student_db_id else 'N/A')
             sessions.append(sess_dict)
-        
+
         return render_template('outcome_questionnaire.html', students=students, sessions=sessions)
     except Exception as e:
         print(f"[OUTCOME_QUESTIONNAIRE] Unexpected error: {e}")
@@ -2536,6 +3094,7 @@ def outcome_questionnaire():
         traceback.print_exc()
         flash('Error loading outcome questionnaire page. Please try again.', 'error')
         return redirect(url_for('dashboard'))
+
 
 @app.route('/dass21', methods=['GET', 'POST'])
 @login_required
@@ -2546,19 +3105,20 @@ def dass21():
         if conn is None:
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('dashboard'))
-        
+
         if request.method == 'POST':
             # Get form data
             student_id = request.form.get('student_id', '').strip()
             depression_score = request.form.get('depression_score', '0')
             anxiety_score = request.form.get('anxiety_score', '0')
             stress_score = request.form.get('stress_score', '0')
-            
+
             # Validate required fields
             if not student_id or student_id == '':
                 flash('Please select a student', 'error')
                 try:
-                    students_raw = conn.execute('SELECT id, name, programme FROM Student ORDER BY name').fetchall()
+                    students_raw = conn.execute(
+                        'SELECT id, name, case_number, programme FROM Student ORDER BY name').fetchall()
                     students = [dict(s) for s in students_raw]
                 except Exception as e:
                     print(f"[DASS21] Error getting students: {e}")
@@ -2569,7 +3129,7 @@ def dass21():
                     except Exception:
                         pass
                 return render_template('dass21.html', students=students)
-            
+
             try:
                 depression_score = float(depression_score)
                 anxiety_score = float(anxiety_score)
@@ -2577,7 +3137,8 @@ def dass21():
             except ValueError:
                 flash('Please enter valid numeric scores', 'error')
                 try:
-                    students_raw = conn.execute('SELECT id, name, programme FROM Student ORDER BY name').fetchall()
+                    students_raw = conn.execute(
+                        'SELECT id, name, case_number, programme FROM Student ORDER BY name').fetchall()
                     students = [dict(s) for s in students_raw]
                 except Exception as e:
                     print(f"[DASS21] Error getting students: {e}")
@@ -2588,12 +3149,12 @@ def dass21():
                     except Exception:
                         pass
                 return render_template('dass21.html', students=students)
-            
+
             # Calculate final scores (multiply by 2)
             final_depression = depression_score * 2
             final_anxiety = anxiety_score * 2
             final_stress = stress_score * 2
-            
+
             # Insert DASS-21 scores into database
             try:
                 conn.execute('''
@@ -2603,6 +3164,7 @@ def dass21():
                 ''', (student_id, depression_score, anxiety_score, stress_score,
                       datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
                 conn.commit()
+                trigger_sync_immediate()
                 flash('DASS-21 scores saved successfully!', 'success')
                 return redirect(url_for('dashboard'))
             except Exception as e:
@@ -2612,7 +3174,8 @@ def dass21():
                 traceback.print_exc()
                 flash(f'Error saving DASS-21 scores: {str(e)}', 'error')
                 try:
-                    students_raw = conn.execute('SELECT id, name, programme FROM Student ORDER BY name').fetchall()
+                    students_raw = conn.execute(
+                        'SELECT id, name, case_number, programme FROM Student ORDER BY name').fetchall()
                     students = [dict(s) for s in students_raw]
                 except Exception as e:
                     print(f"[DASS21] Error getting students: {e}")
@@ -2628,11 +3191,12 @@ def dass21():
                     conn.close()
                 except Exception:
                     pass
-        
+
         # GET request - display the form
         students_raw = []
         try:
-            students_raw = conn.execute('SELECT id, name, programme FROM Student ORDER BY name').fetchall()
+            students_raw = conn.execute(
+                'SELECT id, name, case_number, programme FROM Student ORDER BY name').fetchall()
         except Exception as e:
             print(f"[DASS21] Error getting students: {e}")
             students_raw = []
@@ -2641,12 +3205,12 @@ def dass21():
                 conn.close()
             except Exception:
                 pass
-        
+
         # Convert to list
         students = []
         for student in students_raw:
             students.append(dict(student))
-        
+
         return render_template('dass21.html', students=students)
     except Exception as e:
         print(f"[DASS21] Unexpected error: {e}")
@@ -2655,140 +3219,213 @@ def dass21():
         flash('Error loading DASS-21 page. Please try again.', 'error')
         return redirect(url_for('dashboard'))
 
+@app.route('/import_template/<import_type>')
+@login_required
+def import_template(import_type):
+    """Download a blank CSV template for the chosen import type."""
+    import io
+    from flask import Response
+    output = io.StringIO()
+    if import_type == 'students':
+        output.write("name,index_number,email,phone,department,programme,parent_contact,gender,age,hall_of_residence\n")
+        output.write("Kofi Mensah,22334455,kofi@example.com,0244123456,Computer Science,BSc CS,0244000000,Male,21,Akuafo Hall\n")
+    elif import_type == 'appointments':
+        output.write("student_name,date,time,counsellor,purpose,status\n")
+        output.write("Kofi Mensah,2026-04-01,10:00,Mrs. Gertrude Efa,Academic Stress,Scheduled\n")
+    else:
+        flash("Unknown template type", "error")
+        return redirect(url_for('import_csv'))
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={"Content-Disposition": f"attachment; filename={import_type}_template.csv"}
+    )
+
+
 @app.route('/import_csv', methods=['GET', 'POST'])
 @login_required
 def import_csv():
     if request.method == 'POST':
         if 'confirm' in request.form:
-            # Process confirmed import
+            # ── Process confirmed import ──
             import_type = request.form.get('import_type')
             confirmed_data = request.form.get('confirmed_data')
-            
+
             if not confirmed_data:
                 flash('No data to import', 'error')
                 return redirect(url_for('import_csv'))
-            
+
             try:
                 data = json.loads(confirmed_data)
                 conn = get_db_connection()
-                
+                imported = 0
+
                 if import_type == 'students':
-                    # Import students data
                     for row in data:
-                        conn.execute('''
-                            INSERT OR REPLACE INTO students 
-                            (student_id, first_name, last_name, email, phone, department, programme, parent_contact)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        ''', (
-                            row.get('index_number', ''),
-                            row.get('name', '').split()[0] if ' ' in row.get('name', '') else row.get('name', ''),
-                            row.get('name', '').split()[-1] if ' ' in row.get('name', '') else '',
-                            row.get('email', ''),
-                            row.get('phone', ''),
-                            row.get('department', ''),
-                            row.get('programme', ''),
-                            row.get('parent_contact', '')
-                        ))
-                
+                        try:
+                            # Generate a case number for the new student
+                            year = datetime.now().year
+                            last = conn.execute(
+                                "SELECT case_number FROM Student ORDER BY id DESC LIMIT 1"
+                            ).fetchone()
+                            next_num = 1
+                            if last and last['case_number']:
+                                try:
+                                    next_num = int(last['case_number'].split('-')[-1]) + 1
+                                except Exception:
+                                    next_num = 1
+                            # initials = ''.join([w[0].upper() for w in (row.get('name') or 'GC').split()[:2]]) or 'GC' # Not used in current case_number format
+                            case_number = f"GCC-{year}-{next_num:04d}"
+
+                            conn.execute('''
+                                INSERT INTO Student
+                                (name, index_number, email, contact, department, programme,
+                                 parent_contact, gender, age, hall_of_residence, case_number)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ''', (
+                                row.get('name', ''),
+                                row.get('index_number', ''),
+                                row.get('email', ''),
+                                row.get('phone', '') or row.get('contact', ''),
+                                row.get('department', ''),
+                                row.get('programme', ''),
+                                row.get('parent_contact', ''),
+                                row.get('gender', ''),
+                                row.get('age', ''),
+                                row.get('hall_of_residence', ''),
+                                case_number
+                            ))
+                            imported += 1
+                        except Exception as row_err:
+                            print(f"[IMPORT] Skipping row: {row_err}")
+
                 elif import_type == 'appointments':
-                    # Import appointments data
                     for row in data:
-                        # Get student_id from student_name
-                        student_name = row.get('student_name', '')
                         student = conn.execute(
-                            'SELECT id FROM Student WHERE name = ? OR id = ?',
-                            (student_name, student_name)
+                            'SELECT id FROM Student WHERE name = ? OR index_number = ?',
+                            (row.get('student_name', ''), row.get('student_name', ''))
                         ).fetchone()
-                        
                         if student:
                             conn.execute('''
-                                INSERT INTO Appointment 
-                                (student_id, date, time, purpose, counselor_id, status)
-                                VALUES (?, ?, ?, ?, ?, ?)
+                                INSERT INTO Appointment
+                                (student_id, date, time, purpose, status)
+                                VALUES (?, ?, ?, ?, ?)
                             ''', (
                                 student['id'],
                                 row.get('date', ''),
                                 row.get('time', ''),
                                 row.get('purpose', ''),
-                                session.get('user_id'),
-                                row.get('status', 'scheduled')
+                                row.get('status', 'Scheduled')
                             ))
-                
+                            imported += 1
+
                 conn.commit()
+                trigger_sync_immediate()
                 conn.close()
-                
-                flash(f'Successfully imported {len(data)} {import_type}', 'success')
-                return redirect(url_for('dashboard'))
-                
+                flash(f'✅ Successfully imported {imported} {import_type}!', 'success')
+                return redirect(url_for('students') if import_type == 'students' else url_for('manage_appointments'))
+
             except Exception as e:
                 flash(f'Error importing data: {str(e)}', 'error')
                 return redirect(url_for('import_csv'))
-        
+
         else:
-            # Handle file upload and preview
+            # ── Handle file upload and preview ──
             import_type = request.form.get('import_type')
-            csv_file = request.files.get('csv_file')
-            
-            if not import_type or not csv_file:
-                flash('Please select import type and CSV file', 'error')
+            upload_file = request.files.get('csv_file')
+
+            if not import_type or not upload_file:
+                flash('Please select import type and a file', 'error')
                 return redirect(url_for('import_csv'))
-            
+
+            filename = upload_file.filename.lower()
+            preview_data = []
+            errors = []
+
             try:
-                # Read CSV file
-                csv_data = csv_file.read().decode('utf-8').splitlines()
-                csv_reader = csv.DictReader(csv_data)
-                
-                preview_data = []
-                errors = []
-                
-                # Validate and prepare data
-                for row_num, row in enumerate(csv_reader, start=2):
+                # Support both CSV and Excel
+                if filename.endswith('.xlsx') or filename.endswith('.xls'):
+                    try:
+                        import openpyxl
+                        wb = openpyxl.load_workbook(upload_file, read_only=True)
+                        ws = wb.active
+                        rows = list(ws.iter_rows(values_only=True))
+                        if not rows:
+                            flash('Excel file is empty', 'error')
+                            return redirect(url_for('import_csv'))
+                        headers_row = [str(h).strip().lower() if h else '' for h in rows[0]]
+                        data_rows = [dict(zip(headers_row, [str(c).strip() if c is not None else '' for c in r])) for r in rows[1:]]
+                    except ImportError:
+                        flash('Excel support requires openpyxl. Please install it or use a CSV file.', 'error')
+                        return redirect(url_for('import_csv'))
+                else:
+                    # CSV
+                    content = upload_file.read()
+                    try:
+                        text = content.decode('utf-8')
+                    except UnicodeDecodeError:
+                        text = content.decode('latin-1')
+                    import csv as csv_module
+                    data_rows = list(csv_module.DictReader(text.splitlines()))
+
+                for row_num, row in enumerate(data_rows, start=2):
+                    # Normalise keys to lowercase
+                    row = {k.lower().strip(): (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
+
                     if import_type == 'students':
-                        # Validate student data
-                        if not row.get('name') or not row.get('index_number'):
-                            errors.append(f'Row {row_num}: Missing required fields (name, index_number)')
+                        name = row.get('name') or row.get('full name') or ''
+                        index = row.get('index_number') or row.get('index number') or row.get('id') or ''
+                        if not name:
+                            errors.append(f'Row {row_num}: Missing name — skipped')
                         else:
                             preview_data.append({
-                                'name': row.get('name', ''),
-                                'index_number': row.get('index_number', ''),
+                                'name': name,
+                                'index_number': index,
                                 'email': row.get('email', ''),
-                                'phone': row.get('phone', ''),
+                                'phone': row.get('phone', '') or row.get('contact', ''),
                                 'department': row.get('department', ''),
-                                'programme': row.get('programme', ''),
+                                'programme': row.get('programme', '') or row.get('program', ''),
+                                'gender': row.get('gender', ''),
+                                'age': row.get('age', ''),
+                                'hall_of_residence': row.get('hall_of_residence', '') or row.get('hall', ''),
                                 'parent_contact': row.get('parent_contact', '')
                             })
-                    
+
                     elif import_type == 'appointments':
-                        # Validate appointment data
-                        if not row.get('student_name') or not row.get('date') or not row.get('time'):
-                            errors.append(f'Row {row_num}: Missing required fields (student_name, date, time)')
+                        sname = row.get('student_name') or row.get('student name') or ''
+                        date = row.get('date', '')
+                        time = row.get('time', '')
+                        if not sname or not date or not time:
+                            errors.append(f'Row {row_num}: Missing student_name, date, or time — skipped')
                         else:
                             preview_data.append({
-                                'student_name': row.get('student_name', ''),
-                                'date': row.get('date', ''),
-                                'time': row.get('time', ''),
+                                'student_name': sname,
+                                'date': date,
+                                'time': time,
                                 'counsellor': row.get('counsellor', ''),
                                 'purpose': row.get('purpose', ''),
-                                'status': row.get('status', 'scheduled')
+                                'status': row.get('status', 'Scheduled')
                             })
-                
+
                 if not preview_data:
-                    flash('No valid data found in CSV file', 'error')
+                    flash('No valid data rows found. Check the file format and column headers.', 'error')
                     return redirect(url_for('import_csv'))
-                
-                return render_template('import_csv.html', 
-                                     preview_data=preview_data,
-                                     headers=list(preview_data[0].keys()) if preview_data else [],
-                                     errors=errors,
-                                     import_type=import_type,
-                                     confirmed_data=json.dumps(preview_data))
-                
+
+                return render_template('import_csv.html',
+                                       preview_data=preview_data,
+                                       headers=list(preview_data[0].keys()) if preview_data else [],
+                                       errors=errors,
+                                       import_type=import_type,
+                                       confirmed_data=json.dumps(preview_data))
+
             except Exception as e:
-                flash(f'Error reading CSV file: {str(e)}', 'error')
+                flash(f'Error reading file: {str(e)}', 'error')
                 return redirect(url_for('import_csv'))
-    
-    # GET request - display the form
+
+    # GET — display the upload form
     return render_template('import_csv.html')
+
 
 @app.route('/intake', methods=['GET', 'POST'])
 @login_required
@@ -2810,43 +3447,51 @@ def intake():
             index_number = request.form.get('index_number')
             department = request.form.get('department')
             faculty = request.form.get('faculty')
-            programme = request.form.get('programme')
+            
+            programme_base = request.form.get('programme')
+            programme_other = request.form.get('programme_other')
+            programme = programme_other if programme_base == 'Other' else programme_base
+            
             contact = request.form.get('contact')
             parent_contact = request.form.get('parent_contact')
             hall = request.form.get('hall_of_residence')
-            
+
             # 2. Extract Appointment/Intake Info
             appt_date = request.form.get('appointment_date')
             appt_time = request.form.get('appointment_time')
             purpose = request.form.get('purpose')
             urgency = request.form.get('urgency')
             referral = request.form.get('referral_source')
-            
+
             # 3. Create/Check Student
             # Determine logic: assume New Client per form design, but check index_number to avoid dupes
-            existing_student = conn.execute("SELECT id FROM Student WHERE index_number = ?", (index_number,)).fetchone()
-            
+            existing_student = conn.execute(
+                "SELECT id FROM Student WHERE index_number = ?", (index_number,)).fetchone()
+
             if existing_student:
                 student_id = existing_student['id']
                 # Optional: Update contact info if changed
             else:
+                case_num = generate_case_number(conn, name)
                 cursor = conn.execute('''
-                    INSERT INTO Student (name, age, gender, index_number, department, 
+                    INSERT INTO Student (name, case_number, age, gender, index_number, department, 
                     faculty, programme, contact, parent_contact, hall_of_residence)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (name, age, gender, index_number, department, faculty, programme, contact, parent_contact, hall))
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (name, case_num, age, gender, index_number, department, faculty, programme, contact, parent_contact, hall))
                 student_id = cursor.lastrowid
-                
+                conn.commit()
+
             # 4. Create Appointment (The "Intake Record")
             conn.execute('''
                 INSERT INTO Appointment (student_id, date, time, purpose, status, urgency, referral_source)
                 VALUES (?, ?, ?, ?, 'Scheduled', ?, ?)
             ''', (student_id, appt_date, appt_time, purpose, urgency, referral))
-            
+
             conn.commit()
-            flash('Student intake registered and appointment scheduled successfully.', 'success')
+            flash(
+                'Student intake registered and appointment scheduled successfully.', 'success')
             return redirect(url_for('dashboard'))
-            
+
         except Exception as e:
             conn.rollback()
             flash(f'Error processing intake: {str(e)}', 'danger')
@@ -2855,6 +3500,7 @@ def intake():
             conn.close()
 
     return render_template('intake.html', now=datetime.now())
+
 
 @app.route('/appointment', methods=['GET', 'POST'])
 @login_required
@@ -2865,7 +3511,7 @@ def appointment():
         if conn is None:
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('dashboard'))
-        
+
         if request.method == 'POST':
             # Get form data
             student_id = request.form.get('student_id')
@@ -2879,8 +3525,10 @@ def appointment():
             students = []
             counsellors = []
             try:
-                students = conn.execute('SELECT id, name, programme FROM Student ORDER BY name').fetchall()
-                counsellors = conn.execute('SELECT id, name FROM Counsellor ORDER BY name').fetchall()
+                students = conn.execute(
+                    'SELECT id, name, case_number, programme FROM Student ORDER BY name').fetchall()
+                counsellors = conn.execute(
+                    'SELECT id, name FROM Counsellor ORDER BY name').fetchall()
             except Exception as e:
                 print(f"[APPOINTMENT] Error getting dropdown data: {e}")
 
@@ -2895,7 +3543,8 @@ def appointment():
 
             # Check if student exists
             try:
-                student = conn.execute('SELECT * FROM Student WHERE id = ?', (student_id,)).fetchone()
+                student = conn.execute(
+                    'SELECT * FROM Student WHERE id = ?', (student_id,)).fetchone()
             except Exception as e:
                 print(f"[APPOINTMENT] Error checking student: {e}")
                 student = None
@@ -2905,7 +3554,8 @@ def appointment():
                     conn.close()
                 except Exception:
                     pass
-                flash('Student not found. Please check the ID or add the student first.', 'danger')
+                flash(
+                    'Student not found. Please check the ID or add the student first.', 'danger')
                 return render_template('appointment.html', students=students, Counsellors=counsellors)
 
             # Save appointment to database
@@ -2927,13 +3577,15 @@ def appointment():
                     conn.close()
                 except Exception:
                     pass
-        
+
         # GET request - display the form
         students = []
         counsellors = []
         try:
-            students = conn.execute('SELECT id, name, programme FROM Student ORDER BY name').fetchall()
-            counsellors = conn.execute('SELECT id, name FROM Counsellor ORDER BY name').fetchall()
+            students = conn.execute(
+                'SELECT id, name, case_number, programme FROM Student ORDER BY name').fetchall()
+            counsellors = conn.execute(
+                'SELECT id, name FROM Counsellor ORDER BY name').fetchall()
         except Exception as e:
             print(f"[APPOINTMENT] Error getting dropdown data: {e}")
         finally:
@@ -2941,17 +3593,18 @@ def appointment():
                 conn.close()
             except Exception:
                 pass
-    
-        return render_template('appointment.html', 
-                             students=students, 
-                             Counsellors=counsellors, 
-                             selected_student_id=request.args.get('student_id'))
+
+        return render_template('appointment.html',
+                               students=students,
+                               Counsellors=counsellors,
+                               selected_student_id=request.args.get('student_id'))
     except Exception as e:
         print(f"[APPOINTMENT] Unexpected error: {e}")
         import traceback
         traceback.print_exc()
         flash('Error loading appointment page. Please try again.', 'error')
         return redirect(url_for('dashboard'))
+
 
 @app.route('/manage_appointments')
 @login_required
@@ -2962,12 +3615,12 @@ def manage_appointments():
         if conn is None:
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('dashboard'))
-    
+
         appointments = []
         try:
             # Get all appointments with student and counsellor names
             appointments = conn.execute('''
-                SELECT a.*, s.name as student_name, c.name as Counsellor_name
+                SELECT a.*, s.name as student_name, s.case_number, s.index_number, c.name as Counsellor_name
                 FROM Appointment a
                 LEFT JOIN Student s ON a.student_id = s.id
                 LEFT JOIN Counsellor c ON a.Counsellor_id = c.id
@@ -2981,7 +3634,7 @@ def manage_appointments():
                 conn.close()
             except Exception:
                 pass
-        
+
         return render_template('appointments.html', appointments=appointments)
     except Exception as e:
         print(f"[APPOINTMENTS] Unexpected error: {e}")
@@ -2990,31 +3643,34 @@ def manage_appointments():
         flash('Error loading appointments. Please try again.', 'error')
         return redirect(url_for('dashboard'))
 
+
 @app.route('/update_appointment_status/<int:appointment_id>', methods=['POST'])
 @login_required
 def update_appointment_status(appointment_id):
     """Update the status of an appointment"""
     new_status = request.form.get('status')
-    
+
     if not new_status:
         flash('Status is required', 'error')
         return redirect(url_for('manage_appointments'))
-    
+
     # Valid statuses
-    valid_statuses = ['Scheduled', 'Sent to Counsellor', 'In Session', 'Completed', 'Cancelled', 'Postponed']
+    valid_statuses = ['Scheduled', 'Sent to Counsellor',
+                      'In Session', 'Completed', 'Cancelled', 'Postponed']
     if new_status not in valid_statuses:
         flash('Invalid status', 'error')
         return redirect(url_for('manage_appointments'))
-    
+
     conn = get_db_connection()
     try:
         # Check if appointment exists
-        appointment = conn.execute('SELECT id FROM Appointment WHERE id = ?', (appointment_id,)).fetchone()
-        
+        appointment = conn.execute(
+            'SELECT id FROM Appointment WHERE id = ?', (appointment_id,)).fetchone()
+
         if not appointment:
             flash('Appointment not found', 'error')
             return redirect(url_for('manage_appointments'))
-        
+
         # Update the status
         conn.execute('''
             UPDATE Appointment 
@@ -3022,68 +3678,74 @@ def update_appointment_status(appointment_id):
             WHERE id = ?
         ''', (new_status, appointment_id))
         conn.commit()
-        
-        flash(f'Appointment status updated to {new_status} successfully!', 'success')
+
+        flash(
+            f'Appointment status updated to {new_status} successfully!', 'success')
     except Exception as e:
         conn.rollback()
         flash(f'Error updating appointment status: {str(e)}', 'error')
     finally:
         conn.close()
-    
+
     return redirect(url_for('manage_appointments'))
 
 # ---------- Print Routes ----------
+
+
 @app.route('/view_report/<int:report_id>')
 @login_required
 def view_report(report_id):
     conn = get_db_connection()
-    
+
     # Get report details
     report = conn.execute('''
         SELECT * FROM reports WHERE id = ?
     ''', (report_id,)).fetchone()
-    
+
     if not report:
         conn.close()
         flash('Report not found', 'error')
         return redirect(url_for('reports_list'))
-    
+
     conn.close()
     # Convert Row to dict for easier template access
     report_dict = dict(report)
     return render_template('view_report.html', report=report_dict, now=datetime.utcnow())
 
+
 @app.route('/download_report/<int:report_id>')
 @login_required
 def download_report(report_id):
     conn = get_db_connection()
-    
+
     # Get report details
     report = conn.execute('''
         SELECT * FROM reports WHERE id = ?
     ''', (report_id,)).fetchone()
-    
+
     if not report:
         conn.close()
         flash('Report not found', 'error')
         return redirect(url_for('reports_list'))
-    
+
     conn.close()
-    
+
     # For now, redirect to print report as download functionality
     # This can be enhanced to generate actual downloadable files
     return redirect(url_for('print_report', report_id=report_id))
+
 
 @app.route('/delete_report/<int:report_id>', methods=['POST'])
 @login_required
 def delete_report(report_id):
     conn = get_db_connection()
-    
+
     # Delete report from database
     try:
-        result = conn.execute('DELETE FROM reports WHERE id = ?', (report_id,)).rowcount
+        result = conn.execute(
+            'DELETE FROM reports WHERE id = ?', (report_id,)).rowcount
         conn.commit()
-        
+
         if result > 0:
             flash('Report deleted successfully!', 'success')
         else:
@@ -3093,22 +3755,24 @@ def delete_report(report_id):
         flash(f'Error deleting report: {str(e)}', 'error')
     finally:
         conn.close()
-    
+
     return redirect(url_for('reports_list'))
+
 
 @app.route('/delete_student/<int:student_id>', methods=['POST'])
 @login_required
 def delete_student(student_id):
     """Delete a student and all related records"""
     conn = get_db_connection()
-    
+
     try:
         # Check if student exists
-        student = conn.execute('SELECT * FROM Student WHERE id = ?', (student_id,)).fetchone()
+        student = conn.execute(
+            'SELECT * FROM Student WHERE id = ?', (student_id,)).fetchone()
         if not student:
             flash('Student not found', 'error')
             return redirect(url_for('students'))
-        
+
         # Delete related records first (due to foreign keys)
         # Delete referrals (through sessions through appointments)
         conn.execute('''
@@ -3119,7 +3783,7 @@ def delete_student(student_id):
                 WHERE a.student_id = ?
             )
         ''', (student_id,))
-        
+
         # Delete sessions
         conn.execute('''
             DELETE FROM session
@@ -3127,18 +3791,21 @@ def delete_student(student_id):
                 SELECT id FROM Appointment WHERE student_id = ?
             )
         ''', (student_id,))
-        
+
         # Delete appointments
-        conn.execute('DELETE FROM Appointment WHERE student_id = ?', (student_id,))
-        
+        conn.execute(
+            'DELETE FROM Appointment WHERE student_id = ?', (student_id,))
+
         # Delete assessments
         conn.execute('DELETE FROM DASS21 WHERE student_id = ?', (student_id,))
-        conn.execute('DELETE FROM OutcomeQuestionnaire WHERE student_id = ?', (student_id,))
-        
+        conn.execute(
+            'DELETE FROM OutcomeQuestionnaire WHERE student_id = ?', (student_id,))
+
         # Finally delete the student
-        result = conn.execute('DELETE FROM Student WHERE id = ?', (student_id,)).rowcount
+        result = conn.execute(
+            'DELETE FROM Student WHERE id = ?', (student_id,)).rowcount
         conn.commit()
-        
+
         if result > 0:
             flash('Student and all related records deleted successfully!', 'success')
         else:
@@ -3148,29 +3815,33 @@ def delete_student(student_id):
         flash(f'Error deleting student: {str(e)}', 'error')
     finally:
         conn.close()
-    
+
     return redirect(url_for('students'))
+
 
 @app.route('/delete_appointment/<int:appointment_id>', methods=['POST'])
 @login_required
 def delete_appointment(appointment_id):
     """Delete an appointment and related sessions"""
     conn = get_db_connection()
-    
+
     try:
         # Check if appointment exists
-        appointment = conn.execute('SELECT * FROM Appointment WHERE id = ?', (appointment_id,)).fetchone()
+        appointment = conn.execute(
+            'SELECT * FROM Appointment WHERE id = ?', (appointment_id,)).fetchone()
         if not appointment:
             flash('Appointment not found', 'error')
             return redirect(url_for('manage_appointments'))
-        
+
         # Delete related sessions first
-        conn.execute('DELETE FROM session WHERE appointment_id = ?', (appointment_id,))
-        
+        conn.execute(
+            'DELETE FROM session WHERE appointment_id = ?', (appointment_id,))
+
         # Delete the appointment
-        result = conn.execute('DELETE FROM Appointment WHERE id = ?', (appointment_id,)).rowcount
+        result = conn.execute(
+            'DELETE FROM Appointment WHERE id = ?', (appointment_id,)).rowcount
         conn.commit()
-        
+
         if result > 0:
             flash('Appointment deleted successfully!', 'success')
         else:
@@ -3180,32 +3851,37 @@ def delete_appointment(appointment_id):
         flash(f'Error deleting appointment: {str(e)}', 'error')
     finally:
         conn.close()
-    
+
     return redirect(url_for('manage_appointments'))
+
 
 @app.route('/delete_session/<int:session_id>', methods=['POST'])
 @login_required
 def delete_session(session_id):
     """Delete a session and related records"""
     conn = get_db_connection()
-    
+
     try:
         # Check if session exists
-        session_record = conn.execute('SELECT * FROM session WHERE id = ?', (session_id,)).fetchone()
+        session_record = conn.execute(
+            'SELECT * FROM session WHERE id = ?', (session_id,)).fetchone()
         if not session_record:
             flash('Session not found', 'error')
             return redirect(url_for('sessions_list'))
-        
+
         # Delete related referrals
-        conn.execute('DELETE FROM Referral WHERE session_id = ?', (session_id,))
-        
+        conn.execute(
+            'DELETE FROM Referral WHERE session_id = ?', (session_id,))
+
         # Delete case management records
-        conn.execute('DELETE FROM CaseManagement WHERE session_id = ?', (session_id,))
-        
+        conn.execute(
+            'DELETE FROM CaseManagement WHERE session_id = ?', (session_id,))
+
         # Delete the session
-        result = conn.execute('DELETE FROM session WHERE id = ?', (session_id,)).rowcount
+        result = conn.execute(
+            'DELETE FROM session WHERE id = ?', (session_id,)).rowcount
         conn.commit()
-        
+
         if result > 0:
             flash('Session deleted successfully!', 'success')
         else:
@@ -3215,19 +3891,21 @@ def delete_session(session_id):
         flash(f'Error deleting session: {str(e)}', 'error')
     finally:
         conn.close()
-    
+
     return redirect(url_for('sessions_list'))
+
 
 @app.route('/delete_referral/<int:referral_id>', methods=['POST'])
 @login_required
 def delete_referral(referral_id):
     """Delete a referral"""
     conn = get_db_connection()
-    
+
     try:
-        result = conn.execute('DELETE FROM Referral WHERE id = ?', (referral_id,)).rowcount
+        result = conn.execute(
+            'DELETE FROM Referral WHERE id = ?', (referral_id,)).rowcount
         conn.commit()
-        
+
         if result > 0:
             flash('Referral deleted successfully!', 'success')
         else:
@@ -3237,32 +3915,33 @@ def delete_referral(referral_id):
         flash(f'Error deleting referral: {str(e)}', 'error')
     finally:
         conn.close()
-    
+
     return redirect(url_for('all_referrals'))
+
 
 @app.route('/get_session/<int:session_id>')
 @login_required
 def get_session(session_id):
     """Get session details as JSON for the modal"""
     conn = get_db_connection()
-    
+
     try:
         session_data = conn.execute('''
             SELECT sess.id, sess.session_type, sess.notes, sess.outcome, sess.created_at,
-                   s.name as student_name,
+                   s.name as student_name, s.case_number, s.index_number, s.department, s.programme,
                    c.name as Counsellor_name,
-                   a.date, a.time, a.status as appointment_status
+                   a.date as appt_date, a.time as appt_time, a.purpose
             FROM session sess
             LEFT JOIN Appointment a ON sess.appointment_id = a.id
             LEFT JOIN Student s ON a.student_id = s.id
             LEFT JOIN Counsellor c ON a.Counsellor_id = c.id
             WHERE sess.id = ?
         ''', (session_id,)).fetchone()
-        
+
         if not session_data:
             conn.close()
             return jsonify({'error': 'Session not found'}), 404
-        
+
         # Convert to dict for JSON serialization
         session_dict = {
             'id': session_data['id'],
@@ -3276,12 +3955,13 @@ def get_session(session_id):
             'outcome': session_data['outcome'] or 'N/A',
             'created_at': session_data['created_at']
         }
-        
+
         conn.close()
         return jsonify(session_dict)
     except Exception as e:
         conn.close()
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/print_session/<int:session_id>')
 @login_required
@@ -3292,7 +3972,7 @@ def print_session(session_id):
         if conn is None:
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('dashboard'))
-    
+
     # Get session details with student information
         session_data = None
         try:
@@ -3314,11 +3994,11 @@ def print_session(session_id):
                 conn.close()
             except Exception:
                 pass
-    
+
         if not session_data:
             flash('Session not found', 'error')
             return redirect(url_for('dashboard'))
-        
+
         return render_template('print_session.html', session_data=session_data)
     except Exception as e:
         print(f"[PRINT_SESSION] Unexpected error: {e}")
@@ -3326,6 +4006,7 @@ def print_session(session_id):
         traceback.print_exc()
         flash('Error loading session for printing.', 'error')
         return redirect(url_for('sessions_list'))
+
 
 @app.route('/print_referral/<int:id>')
 @login_required
@@ -3336,7 +4017,7 @@ def print_referral(id):
         if conn is None:
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('dashboard'))
-    
+
     # Get referral details with student information
         referral = None
         student_info = None
@@ -3352,31 +4033,36 @@ def print_referral(id):
                 JOIN Student s ON a.student_id = s.id
         WHERE r.id = ?
     ''', (id,)).fetchone()
-    
+
             # Parse reasons from comma-separated string
             reasons_str = referral['reasons'] or ''
-            referral_reasons_list = [r.strip() for r in reasons_str.split(',') if r.strip()]
-            
+            referral_reasons_list = [r.strip()
+                                     for r in reasons_str.split(',') if r.strip()]
+
             # Check for "Something Else" and extract text
             other_reason_text = None
             if referral_reasons_list:
                 for idx, reason in enumerate(referral_reasons_list):
                     if reason.startswith('Something Else:'):
-                        other_reason_text = reason.replace('Something Else:', '').strip()
-                        referral_reasons_list[idx] = 'Something Else'  # Replace with just the checkbox name
+                        other_reason_text = reason.replace(
+                            'Something Else:', '').strip()
+                        # Replace with just the checkbox name
+                        referral_reasons_list[idx] = 'Something Else'
                         break
-            
-            # Convert to dict for template and add professional ID
-            referral_dict = dict(referral) if referral else {}
-            if referral and referral_dict.get('student_db_id'):
+
+            # Use consistent case_number as professional ID
+            if referral and referral_dict.get('case_number'):
+                referral_dict['professional_id'] = referral_dict['case_number']
+            elif referral and referral_dict.get('student_db_id'):
                 student_db_id = referral_dict.get('student_db_id', 0)
-                referral_dict['professional_id'] = f"C{student_db_id:03d}"
+                referral_dict['professional_id'] = f"GCC-{datetime.now().year}-{student_db_id:04d}"
             else:
                 referral_dict['professional_id'] = 'N/A'
             referral_dict['referral_reasons_list'] = referral_reasons_list
             referral_dict['other_reason_text'] = other_reason_text
-            student_department = referral_dict.get('student_department', 'N/A') if referral else 'N/A'
-            
+            student_department = referral_dict.get(
+                'student_department', 'N/A') if referral else 'N/A'
+
         except Exception as e:
             print(f"[PRINT_REFERRAL] Error getting referral: {e}")
             import traceback
@@ -3388,7 +4074,7 @@ def print_referral(id):
                 conn.close()
             except Exception:
                 pass
-        
+
         if not referral or not referral_dict:
             # Only flash error if it's a legitimate "not found" case (not a database error)
             if referral is None:
@@ -3396,18 +4082,19 @@ def print_referral(id):
             else:
                 flash('Error loading referral details. Please try again.', 'error')
             return redirect(url_for('all_referrals'))
-    
-        return render_template('print_referral.html', 
-                             referral=referral_dict,
-                             referral_reasons_list=referral_reasons_list,
-                             other_reason_text=other_reason_text,
-                             student_department=student_department)
+
+        return render_template('print_referral.html',
+                               referral=referral_dict,
+                               referral_reasons_list=referral_reasons_list,
+                               other_reason_text=other_reason_text,
+                               student_department=student_department)
     except Exception as e:
         print(f"[PRINT_REFERRAL] Unexpected error: {e}")
         import traceback
         traceback.print_exc()
         flash('Error loading referral for printing.', 'error')
         return redirect(url_for('all_referrals'))
+
 
 @app.route('/print_case/<int:case_id>')
 @login_required
@@ -3418,7 +4105,7 @@ def print_case(case_id):
         if conn is None:
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('dashboard'))
-    
+
     # Get case details with student information
         case = None
         try:
@@ -3439,11 +4126,11 @@ def print_case(case_id):
                 conn.close()
             except Exception:
                 pass
-    
+
         if not case:
             flash('Case not found', 'error')
             return redirect(url_for('dashboard'))
-        
+
         return render_template('print_case.html', case=case)
     except Exception as e:
         print(f"[PRINT_CASE] Unexpected error: {e}")
@@ -3451,6 +4138,7 @@ def print_case(case_id):
         traceback.print_exc()
         flash('Error loading case for printing.', 'error')
         return redirect(url_for('dashboard'))
+
 
 @app.route('/case_notes_list')
 @login_required
@@ -3462,13 +4150,13 @@ def case_notes_list():
         if conn is None:
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('dashboard'))
-        
+
         case_notes = []
         try:
             case_notes_raw = conn.execute('''
                 SELECT cm.id, cm.session_id, cm.client_appearance, cm.problems, cm.interventions,
                        cm.recommendations, cm.next_visit_date, cm.counsellor_signature, cm.created_at,
-                       s.id as student_db_id, s.name as student_name, s.index_number, s.programme,
+                       s.id as student_db_id, s.name as student_name, s.index_number, s.programme, s.case_number,
                        sess.created_at as session_date
                 FROM CaseManagement cm
                 JOIN session sess ON cm.session_id = sess.id
@@ -3476,12 +4164,13 @@ def case_notes_list():
                 LEFT JOIN Student s ON a.student_id = s.id
                 ORDER BY cm.created_at DESC
             ''').fetchall()
-            
+
             # Convert to list and add professional IDs
             for cn in case_notes_raw:
                 cn_dict = dict(cn)
                 student_db_id = cn_dict.get('student_db_id', 0)
-                cn_dict['professional_id'] = f"C{student_db_id:03d}" if student_db_id else 'N/A'
+                # Use consistent case_number as professional ID
+                cn_dict['professional_id'] = cn_dict.get('case_number') or (f"GCC-{datetime.now().year}-{student_db_id:04d}" if student_db_id else 'N/A')
                 case_notes.append(cn_dict)
         except Exception as e:
             print(f"[CASE_NOTES_LIST] Error getting case notes: {e}")
@@ -3492,7 +4181,7 @@ def case_notes_list():
                 conn.close()
             except Exception:
                 pass
-        
+
         return render_template('case_notes_list.html', case_notes=case_notes)
     except Exception as e:
         print(f"[CASE_NOTES_LIST] Unexpected error: {e}")
@@ -3500,6 +4189,7 @@ def case_notes_list():
         traceback.print_exc()
         flash('Error loading case notes. Please try again.', 'error')
         return redirect(url_for('dashboard'))
+
 
 @app.route('/dass21_list')
 @login_required
@@ -3511,27 +4201,31 @@ def dass21_list():
         if conn is None:
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('dashboard'))
-        
+
         dass21_records = []
         try:
             dass21_raw = conn.execute('''
                 SELECT d.id, d.student_id, d.depression_score, d.anxiety_score, d.stress_score,
                        d.created_at, d.completion_date,
-                       s.id as student_db_id, s.name as student_name, s.index_number, s.programme
+                       s.id as student_db_id, s.name as student_name, s.index_number, s.programme, s.case_number
                 FROM DASS21 d
                 LEFT JOIN Student s ON d.student_id = s.id
                 ORDER BY d.created_at DESC
             ''').fetchall()
-            
+
             # Convert to list and add professional IDs and final scores
             for d in dass21_raw:
                 d_dict = dict(d)
                 student_db_id = d_dict.get('student_db_id', 0)
-                d_dict['professional_id'] = f"C{student_db_id:03d}" if student_db_id else 'N/A'
+                # Use consistent case_number as professional ID
+                d_dict['professional_id'] = d_dict.get('case_number') or (f"GCC-{datetime.now().year}-{student_db_id:04d}" if student_db_id else 'N/A')
                 # Calculate final scores (x2)
-                d_dict['final_depression'] = (d_dict.get('depression_score', 0) or 0) * 2
-                d_dict['final_anxiety'] = (d_dict.get('anxiety_score', 0) or 0) * 2
-                d_dict['final_stress'] = (d_dict.get('stress_score', 0) or 0) * 2
+                d_dict['final_depression'] = (
+                    d_dict.get('depression_score', 0) or 0) * 2
+                d_dict['final_anxiety'] = (
+                    d_dict.get('anxiety_score', 0) or 0) * 2
+                d_dict['final_stress'] = (
+                    d_dict.get('stress_score', 0) or 0) * 2
                 dass21_records.append(d_dict)
         except Exception as e:
             print(f"[DASS21_LIST] Error getting DASS-21 records: {e}")
@@ -3542,7 +4236,7 @@ def dass21_list():
                 conn.close()
             except Exception:
                 pass
-        
+
         return render_template('dass21_list.html', dass21_records=dass21_records)
     except Exception as e:
         print(f"[DASS21_LIST] Unexpected error: {e}")
@@ -3550,6 +4244,7 @@ def dass21_list():
         traceback.print_exc()
         flash('Error loading DASS-21 records. Please try again.', 'error')
         return redirect(url_for('dashboard'))
+
 
 @app.route('/print_case_note/<int:case_id>')
 @login_required
@@ -3561,12 +4256,12 @@ def print_case_note(case_id):
         if conn is None:
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('dashboard'))
-        
+
         case = None
         try:
             case = conn.execute('''
                 SELECT cm.*, s.id as student_db_id, s.name as student_name, 
-                       s.index_number, s.programme, s.contact, s.department,
+                       s.index_number, s.programme, s.contact, s.department, s.case_number,
                        sess.created_at as session_date
                 FROM CaseManagement cm
                 JOIN session sess ON cm.session_id = sess.id
@@ -3574,11 +4269,11 @@ def print_case_note(case_id):
                 LEFT JOIN Student s ON a.student_id = s.id
                 WHERE cm.id = ?
             ''', (case_id,)).fetchone()
-            
+
             if case:
                 case_dict = dict(case)
-                student_db_id = case_dict.get('student_db_id', 0)
-                case_dict['professional_id'] = f"C{student_db_id:03d}" if student_db_id else 'N/A'
+                # Use consistent case_number as professional ID
+                case_dict['professional_id'] = case_dict.get('case_number') or (f"GCC-{datetime.now().year}-{case_dict.get('student_db_id', 0):04d}" if case_dict.get('student_db_id') else 'N/A')
                 case = case_dict
         except Exception as e:
             print(f"[PRINT_CASE_NOTE] Error getting case: {e}")
@@ -3589,11 +4284,11 @@ def print_case_note(case_id):
                 conn.close()
             except Exception:
                 pass
-        
+
         if not case:
             flash('Case note not found', 'error')
             return redirect(url_for('case_notes_list'))
-        
+
         return render_template('print_case_note.html', case=case)
     except Exception as e:
         print(f"[PRINT_CASE_NOTE] Unexpected error: {e}")
@@ -3601,6 +4296,7 @@ def print_case_note(case_id):
         traceback.print_exc()
         flash('Error loading case note for printing.', 'error')
         return redirect(url_for('case_notes_list'))
+
 
 @app.route('/print_dass21/<int:dass21_id>')
 @login_required
@@ -3612,25 +4308,28 @@ def print_dass21(dass21_id):
         if conn is None:
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('dashboard'))
-        
+
         dass21_record = None
         try:
             dass21_raw = conn.execute('''
                 SELECT d.*, s.id as student_db_id, s.name as student_name, 
-                       s.index_number, s.programme, s.contact, s.department
+                       s.index_number, s.programme, s.contact, s.department, s.case_number
                 FROM DASS21 d
                 LEFT JOIN Student s ON d.student_id = s.id
                 WHERE d.id = ?
             ''', (dass21_id,)).fetchone()
-            
+
             if dass21_raw:
                 dass21_dict = dict(dass21_raw)
-                student_db_id = dass21_dict.get('student_db_id', 0)
-                dass21_dict['professional_id'] = f"C{student_db_id:03d}" if student_db_id else 'N/A'
+                # Use consistent case_number as professional ID
+                dass21_dict['professional_id'] = dass21_dict.get('case_number') or (f"GCC-{datetime.now().year}-{dass21_dict.get('student_db_id', 0):04d}" if dass21_dict.get('student_db_id') else 'N/A')
                 # Calculate final scores (x2)
-                dass21_dict['final_depression'] = (dass21_dict.get('depression_score', 0) or 0) * 2
-                dass21_dict['final_anxiety'] = (dass21_dict.get('anxiety_score', 0) or 0) * 2
-                dass21_dict['final_stress'] = (dass21_dict.get('stress_score', 0) or 0) * 2
+                dass21_dict['final_depression'] = (
+                    dass21_dict.get('depression_score', 0) or 0) * 2
+                dass21_dict['final_anxiety'] = (
+                    dass21_dict.get('anxiety_score', 0) or 0) * 2
+                dass21_dict['final_stress'] = (
+                    dass21_dict.get('stress_score', 0) or 0) * 2
                 dass21_record = dass21_dict
         except Exception as e:
             print(f"[PRINT_DASS21] Error getting DASS-21 record: {e}")
@@ -3641,11 +4340,11 @@ def print_dass21(dass21_id):
                 conn.close()
             except Exception:
                 pass
-        
+
         if not dass21_record:
             flash('DASS-21 record not found', 'error')
             return redirect(url_for('dass21_list'))
-        
+
         return render_template('print_dass21.html', dass21=dass21_record)
     except Exception as e:
         print(f"[PRINT_DASS21] Unexpected error: {e}")
@@ -3653,6 +4352,7 @@ def print_dass21(dass21_id):
         traceback.print_exc()
         flash('Error loading DASS-21 record for printing.', 'error')
         return redirect(url_for('dass21_list'))
+
 
 @app.route('/print_report/<int:report_id>')
 @login_required
@@ -3663,7 +4363,7 @@ def print_report(report_id):
         if conn is None:
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('dashboard'))
-    
+
     # Get report details
         report = None
         try:
@@ -3677,11 +4377,11 @@ def print_report(report_id):
                 conn.close()
             except Exception:
                 pass
-    
+
         if not report:
             flash('Report not found', 'error')
             return redirect(url_for('reports_list'))
-    
+
         # Convert Row to dict for easier template access
         report_dict = dict(report) if report else {}
         return render_template('print_report.html', report=report_dict, now=datetime.utcnow())
@@ -3691,6 +4391,7 @@ def print_report(report_id):
         traceback.print_exc()
         flash('Error loading report for printing.', 'error')
         return redirect(url_for('reports_list'))
+
 
 @app.route('/statistics')
 @login_required
@@ -3702,7 +4403,7 @@ def statistics():
         if conn is None:
             flash('Database connection failed. Please restart the application.', 'error')
             return redirect(url_for('dashboard'))
-        
+
         # Initialize with defaults
         total_students = 0
         total_appointments = 0
@@ -3712,24 +4413,28 @@ def statistics():
         programme_stats = []
         level_stats = []
         appointment_status_stats = []
-        
+
         try:
             # Overall Statistics
-            result = conn.execute('SELECT COUNT(*) as count FROM Student').fetchone()
+            result = conn.execute(
+                'SELECT COUNT(*) as count FROM Student').fetchone()
             total_students = result['count'] if result else 0
-            
-            result = conn.execute('SELECT COUNT(*) as count FROM Appointment').fetchone()
+
+            result = conn.execute(
+                'SELECT COUNT(*) as count FROM Appointment').fetchone()
             total_appointments = result['count'] if result else 0
-            
-            result = conn.execute('SELECT COUNT(*) as count FROM session').fetchone()
+
+            result = conn.execute(
+                'SELECT COUNT(*) as count FROM session').fetchone()
             total_sessions = result['count'] if result else 0
-            
+
             try:
-                result = conn.execute('SELECT COUNT(*) as count FROM Referral').fetchone()
+                result = conn.execute(
+                    'SELECT COUNT(*) as count FROM Referral').fetchone()
                 total_referrals = result['count'] if result else 0
             except:
                 total_referrals = 0
-            
+
             # Students by Gender
             try:
                 gender_stats = conn.execute('''
@@ -3740,7 +4445,7 @@ def statistics():
             except Exception as e:
                 print(f"[STATISTICS] Error getting gender stats: {e}")
                 gender_stats = []
-            
+
             # Students by Programme
             try:
                 programme_stats = conn.execute('''
@@ -3753,7 +4458,7 @@ def statistics():
             except Exception as e:
                 print(f"[STATISTICS] Error getting programme stats: {e}")
                 programme_stats = []
-            
+
             # Students by Department
             try:
                 department_stats = conn.execute('''
@@ -3766,7 +4471,7 @@ def statistics():
             except Exception as e:
                 print(f"[STATISTICS] Error getting department stats: {e}")
                 department_stats = []
-            
+
             # Appointments by Status
             try:
                 appointment_status_stats = conn.execute('''
@@ -3775,9 +4480,10 @@ def statistics():
                     GROUP BY status
                 ''').fetchall()
             except Exception as e:
-                print(f"[STATISTICS] Error getting appointment status stats: {e}")
+                print(
+                    f"[STATISTICS] Error getting appointment status stats: {e}")
                 appointment_status_stats = []
-            
+
             # Appointments Over Time (Last 6 Months)
             try:
                 appointment_timeline = conn.execute('''
@@ -3790,7 +4496,7 @@ def statistics():
             except Exception as e:
                 print(f"[STATISTICS] Error getting appointment timeline: {e}")
                 appointment_timeline = []
-            
+
             # Sessions Over Time (Last 6 Months)
             try:
                 session_timeline = conn.execute('''
@@ -3803,7 +4509,7 @@ def statistics():
             except Exception as e:
                 print(f"[STATISTICS] Error getting session timeline: {e}")
                 session_timeline = []
-            
+
             # Sessions by Type
             try:
                 session_type_stats = conn.execute('''
@@ -3815,7 +4521,7 @@ def statistics():
             except Exception as e:
                 print(f"[STATISTICS] Error getting session type stats: {e}")
                 session_type_stats = []
-            
+
             # Age Distribution
             try:
                 age_distribution = conn.execute('''
@@ -3844,7 +4550,7 @@ def statistics():
             except Exception as e:
                 print(f"[STATISTICS] Error getting age distribution: {e}")
                 age_distribution = []
-            
+
             # Top Counsellors by Appointments
             try:
                 top_counsellors = conn.execute('''
@@ -3858,7 +4564,7 @@ def statistics():
             except Exception as e:
                 print(f"[STATISTICS] Error getting top counsellors: {e}")
                 top_counsellors = []
-            
+
             # Monthly New Students (Last 6 Months)
             try:
                 new_students_timeline = conn.execute('''
@@ -3871,12 +4577,12 @@ def statistics():
             except Exception as e:
                 print(f"[STATISTICS] Error getting new students timeline: {e}")
                 new_students_timeline = []
-            
+
         except Exception as e:
             print(f"[STATISTICS] Error in statistics queries: {e}")
         finally:
             conn.close()
-        
+
         # Convert to dictionaries for JSON serialization (use safe defaults if missing)
         stats_data = {
             'overall': {
@@ -3896,9 +4602,9 @@ def statistics():
             'top_counsellors': [{'name': row['name'], 'count': row['appointment_count']} for row in top_counsellors] if top_counsellors else [],
             'new_students_timeline': [{'month': row['month'], 'count': row['count']} for row in new_students_timeline] if new_students_timeline else []
         }
-        
+
         return render_template('statistics.html', stats_data=stats_data)
-    
+
     except Exception as e:
         print(f"[STATISTICS] Unexpected error: {e}")
         import traceback
@@ -3907,13 +4613,15 @@ def statistics():
         return redirect(url_for('dashboard'))
 
 # Add error handler for 500 errors - display them properly
+
+
 @app.errorhandler(500)
 def internal_error(error):
     import traceback
     error_trace = traceback.format_exc()
     print(f"[ERROR 500] {error}")
     print(f"[ERROR 500] Traceback:\n{error_trace}")
-    
+
     # Try to log to file if running as EXE
     try:
         if getattr(sys, 'frozen', False):
@@ -3930,7 +4638,7 @@ def internal_error(error):
             print(f"[ERROR] Details logged to: {error_log_path}")
     except:
         pass
-    
+
     return '''
     <html>
     <head><title>Internal Server Error</title></head>
@@ -3945,13 +4653,14 @@ def internal_error(error):
     </html>
     ''', 500
 
+
 @app.errorhandler(Exception)
 def handle_exception(e):
     # Pass through HTTP errors (like 404, 405, etc.) so Flask handles them normally
     from werkzeug.exceptions import HTTPException
     if isinstance(e, HTTPException):
         return e
-        
+
     # For actual unhandled code exceptions, log and return 500
     import traceback
     error_trace = traceback.format_exc()
@@ -3959,8 +4668,6 @@ def handle_exception(e):
     print(f"[UNHANDLED ERROR] Traceback:\n{error_trace}")
     return internal_error(e)
 
-import threading
-import time
 
 def run_auto_sync_loop():
     """Background thread to auto-sync every 10 seconds"""
@@ -3969,19 +4676,352 @@ def run_auto_sync_loop():
         try:
             # Check if sync is enabled and peer IP is set
             config = node_config.load_config()
-            peer_ip = config.get('peer_ip')  
+            peer_ip = config.get('peer_ip')
             if peer_ip:
                 # Trigger sync silently
                 # We use a slight delay or check to avoid spamming if offline
                 result = trigger_sync()
                 if result.get('status') == 'success' and result.get('count', 0) > 0:
                     print(f"[AUTO-SYNC] Synced {result['count']} records.")
-            
+
         except Exception as e:
             print(f"[AUTO-SYNC] Error: {e}")
-        
+
         # Sleep for 10 seconds before next sync attempt
         time.sleep(10)
+
+
+# ==========================================
+# STUDENT BOOKING PORTAL (Public Routes)
+# ==========================================
+
+@app.route('/api/submit_booking', methods=['POST', 'OPTIONS'])
+def api_submit_booking():
+    """API endpoint for standalone booking form."""
+    if request.method == 'OPTIONS':
+        # Provide CORS headers
+        response = make_response()
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        response.headers.add("Access-Control-Allow-Methods", "POST")
+        return response
+
+    if request.method == 'POST':
+        try:
+            conn = get_db_connection()
+            data = request.get_json()
+            if not data:
+                return jsonify({'status': 'error', 'message': 'Invalid data format'}), 400
+
+            full_name = data.get('full_name', '').strip()
+            index_number = data.get('index_number', '').strip()
+            department = data.get('department', '').strip()
+            programme = data.get('programme', '').strip()
+            phone = data.get('phone', '').strip()
+            email = data.get('email', '').strip()
+            hall_of_residence = data.get('hall_of_residence', '').strip()
+            preferred_date = data.get('preferred_date', '').strip()
+            preferred_time = data.get('preferred_time', 'Any')
+            reason = data.get('reason', '').strip()
+
+            # Server-side validation
+            missing_fields = []
+            if not full_name: missing_fields.append("Full Name")
+            if not index_number: missing_fields.append("Index Number")
+            if not phone: missing_fields.append("Phone Number")
+            if not email: missing_fields.append("Email")
+            if not department: missing_fields.append("Department")
+            if not programme: missing_fields.append("Programme")
+            if not hall_of_residence: missing_fields.append("Hall of Residence")
+            if not preferred_time or preferred_time == 'Click to set time': missing_fields.append("Preferred Time")
+
+            if missing_fields:
+                response = jsonify({'status': 'error', 'message': f"The following fields are required: {', '.join(missing_fields)}."})
+                response.headers.add("Access-Control-Allow-Origin", "*")
+                return response, 400
+
+            ref = generate_booking_ref(conn)
+            conn.execute(
+                '''INSERT INTO BookingRequest
+                   (reference, full_name, index_number, department, programme, phone,
+                    preferred_date, preferred_time, reason, status, email, hall_of_residence)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?)''',
+                (ref, full_name, index_number, department, programme, phone,
+                 preferred_date, preferred_time, reason, email, hall_of_residence)
+            )
+            conn.commit()
+
+            # Fire in-app notification to all Desk Admins and Counsellors
+            try:
+                staff = conn.execute(
+                    "SELECT id FROM users WHERE role IN ('Secretary', 'Admin', 'Counsellor', 'Counselor')"
+                ).fetchall()
+                for s in staff:
+                    conn.execute(
+                        '''INSERT INTO Notification (user_id, message, type, link, is_read)
+                           VALUES (?, ?, 'in_app', '/admin/bookings', 0)''',
+                        (s['id'],
+                         f"New booking request {ref} from {full_name} ({index_number})")
+                    )
+                conn.commit()
+            except Exception as notif_err:
+                print(f"[API_BOOKING] Notification error: {notif_err}")
+
+            conn.close()
+            
+            response = jsonify({'status': 'success', 'reference': ref, 'message': 'Booking submitted successfully!'})
+            response.headers.add("Access-Control-Allow-Origin", "*")
+            return response
+
+        except Exception as e:
+            print(f"[API_BOOKING] Error: {e}")
+            response = jsonify({'status': 'error', 'message': 'Something went wrong. Please try again.'})
+            response.headers.add("Access-Control-Allow-Origin", "*")
+            return response, 500
+
+@app.route('/booking', methods=['GET', 'POST'])
+def booking_portal():
+    """Public booking form — auto-accepted on submission, no staff approval needed."""
+    if request.method == 'POST':
+        try:
+            conn = get_db_connection()
+            full_name = request.form.get('full_name', '').strip()
+            index_number = request.form.get('index_number', '').strip()
+            programme_base = request.form.get('programme', '').strip()
+            programme_other = request.form.get('programme_other', '').strip()
+            programme = programme_other if programme_base == 'Other' else programme_base
+            
+            department = request.form.get('department', '').strip()
+            phone = request.form.get('phone', '').strip()
+            hall_of_residence = request.form.get('hall_of_residence', '').strip()
+            preferred_date = request.form.get('preferred_date', '').strip()
+            preferred_time = request.form.get('preferred_time', 'Any')
+            reason = request.form.get('reason', '').strip()
+
+            # Server-side validation
+            missing_fields = []
+            if not full_name:
+                missing_fields.append("Full Name")
+            if not index_number:
+                missing_fields.append("Index Number")
+            if not phone:
+                missing_fields.append("Phone Number")
+            if not department:
+                missing_fields.append("Department")
+            if not programme:
+                missing_fields.append("Programme")
+            if not preferred_time or preferred_time == 'Click to set time':
+                missing_fields.append("Preferred Time")
+
+            if missing_fields:
+                return render_template('booking_portal.html',
+                                       error=f"The following fields are required: {', '.join(missing_fields)}.")
+
+            ref = generate_booking_ref(conn)
+            now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+            # ── AUTO-ACCEPT: Insert as Accepted immediately ──
+            try:
+                conn.execute(
+                    '''INSERT INTO BookingRequest
+                       (reference, full_name, index_number, department, programme, phone,
+                        preferred_date, preferred_time, reason, status, accepted_at, hall_of_residence)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Accepted', ?, ?)''',
+                    (ref, full_name, index_number, department, programme, phone,
+                     preferred_date, preferred_time, reason, now_str, hall_of_residence)
+                )
+            except Exception:
+                # Fallback if accepted_at column not yet present in older DBs
+                conn.execute(
+                    '''INSERT INTO BookingRequest
+                       (reference, full_name, index_number, department, programme, phone,
+                        preferred_date, preferred_time, reason, status, hall_of_residence)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Accepted', ?)''',
+                    (ref, full_name, index_number, department, programme, phone,
+                     preferred_date, preferred_time, reason, hall_of_residence)
+                )
+
+            # Find or create the Student record
+            student = conn.execute(
+                "SELECT id FROM Student WHERE index_number = ?", (index_number,)
+            ).fetchone()
+
+            if not student:
+                case_num = generate_case_number(conn, full_name)
+                conn.execute(
+                    '''INSERT INTO Student (name, case_number, index_number, department,
+                       programme, contact, created_at, hall_of_residence)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+                    (full_name, case_num, index_number, department, programme, phone, now_str, hall_of_residence)
+                )
+                conn.commit()
+                student = conn.execute(
+                    "SELECT id FROM Student WHERE index_number = ?", (index_number,)
+                ).fetchone()
+
+            # Assign to first available counsellor if any
+            counsellor = conn.execute("SELECT id FROM Counsellor LIMIT 1").fetchone()
+            counsellor_id = counsellor['id'] if counsellor else None
+
+            conn.execute(
+                '''INSERT INTO Appointment (student_id, Counsellor_id, date, time, purpose,
+                   status, booking_ref)
+                   VALUES (?, ?, ?, ?, ?, 'Scheduled', ?)''',
+                (student['id'], counsellor_id,
+                 preferred_date or datetime.now().strftime('%Y-%m-%d'),
+                 preferred_time or '09:00',
+                 f"[Booked via Portal] {reason or 'Counselling session'}",
+                 ref)
+            )
+            conn.commit()
+
+            # Notify all staff of the new auto-accepted booking
+            try:
+                staff = conn.execute(
+                    "SELECT id FROM users WHERE role IN ('Secretary', 'Admin', 'Counsellor', 'Counselor')"
+                ).fetchall()
+                for s in staff:
+                    conn.execute(
+                        '''INSERT INTO Notification (user_id, message, type, link, is_read)
+                           VALUES (?, ?, 'in_app', '/admin/bookings', 0)''',
+                        (s['id'],
+                         f"🔔 New booking: {ref} — {full_name} ({index_number}) auto-accepted & scheduled")
+                    )
+                conn.commit()
+            except Exception as notif_err:
+                print(f"[BOOKING] Notification error: {notif_err}")
+
+            conn.close()
+            return redirect(url_for('booking_confirm', ref=ref))
+        except Exception as e:
+            print(f"[BOOKING] Error: {e}")
+            import traceback
+            traceback.print_exc()
+            return render_template('booking_portal.html',
+                                   error="Something went wrong. Please try again.")
+
+    return render_template('booking_portal.html')
+
+
+
+@app.route('/booking/confirm/<ref>')
+def booking_confirm(ref):
+    """Public confirmation page after booking is submitted."""
+    return render_template('booking_confirmation.html', ref=ref)
+
+
+@app.route('/admin/bookings')
+@login_required
+def admin_bookings():
+    """Desk Admin & Counsellor view: list of all booking requests."""
+    if session.get('role') not in ['Secretary', 'Admin', 'Counsellor', 'Counselor']:
+        flash('Access restricted.', 'error')
+        return redirect(url_for('dashboard'))
+    try:
+        conn = get_db_connection()
+        bookings = conn.execute(
+            "SELECT * FROM BookingRequest ORDER BY created_at DESC"
+        ).fetchall()
+        pending_count = conn.execute(
+            "SELECT COUNT(*) FROM BookingRequest WHERE status = 'Pending'"
+        ).fetchone()[0]
+        conn.close()
+        return render_template('admin_bookings.html', bookings=bookings,
+                               pending_count=pending_count,
+                               role=session.get('role'))
+    except Exception as e:
+        print(f"[ADMIN_BOOKINGS] Error: {e}")
+        flash('Could not load bookings.', 'error')
+        return redirect(url_for('dashboard'))
+
+
+@app.route('/admin/bookings/<int:booking_id>/accept', methods=['POST'])
+@login_required
+def accept_booking(booking_id):
+    """Accept a booking: create an Appointment record and mark as Accepted."""
+    if session.get('role') not in ['Secretary', 'Admin', 'Counsellor']:
+        flash('Permission denied.', 'error')
+        return redirect(url_for('admin_bookings'))
+    try:
+        conn = get_db_connection()
+        booking = conn.execute(
+            "SELECT * FROM BookingRequest WHERE id = ?", (booking_id,)
+        ).fetchone()
+
+        if not booking:
+            flash('Booking not found.', 'error')
+            conn.close()
+            return redirect(url_for('admin_bookings'))
+
+        student = conn.execute(
+            "SELECT id FROM Student WHERE index_number = ?",
+            (booking['index_number'],)
+        ).fetchone()
+
+        if not student:
+            case_num = generate_case_number(conn, booking['full_name'])
+            conn.execute(
+                '''INSERT INTO Student (name, case_number, index_number, department, programme, contact, email, hall_of_residence)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+                (booking['full_name'], case_num, booking['index_number'],
+                 booking['department'], booking['programme'], booking['phone'], booking['email'], booking['hall_of_residence'])
+            )
+            conn.commit()
+            student = conn.execute(
+                "SELECT id FROM Student WHERE index_number = ?",
+                (booking['index_number'],)
+            ).fetchone()
+
+        counsellor = conn.execute(
+            "SELECT id FROM Counsellor LIMIT 1").fetchone()
+        counsellor_id = counsellor['id'] if counsellor else None
+
+        conn.execute(
+            '''INSERT INTO Appointment (student_id, Counsellor_id, date, time, purpose, status, booking_ref)
+               VALUES (?, ?, ?, ?, ?, 'Scheduled', ?)''',
+            (student['id'], counsellor_id,
+             booking['preferred_date'] or datetime.now().strftime(
+                 '%Y-%m-%d'),
+             booking['preferred_time'] or '09:00',
+             f"[Booked via Portal] {booking['reason'] or 'Counselling session'}",
+             booking['reference'])
+        )
+        conn.execute(
+            "UPDATE BookingRequest SET status = 'Accepted' WHERE id = ?",
+            (booking_id,)
+        )
+        conn.commit()
+        conn.close()
+        flash(
+            f'Booking {booking["reference"]} accepted and appointment created.', 'success')
+    except Exception as e:
+        print(f"[ACCEPT_BOOKING] Error: {e}")
+        flash(f'Error accepting booking: {str(e)}', 'error')
+    return redirect(url_for('admin_bookings'))
+
+
+@app.route('/admin/bookings/<int:booking_id>/decline', methods=['POST'])
+@login_required
+def decline_booking(booking_id):
+    """Decline a booking with an optional reason."""
+    if session.get('role') not in ['Secretary', 'Admin', 'Counsellor']:
+        flash('Permission denied.', 'error')
+        return redirect(url_for('admin_bookings'))
+    try:
+        reason = request.form.get('decline_reason', '').strip()
+        conn = get_db_connection()
+        conn.execute(
+            "UPDATE BookingRequest SET status = 'Declined', decline_reason = ? WHERE id = ?",
+            (reason, booking_id)
+        )
+        conn.commit()
+        conn.close()
+        flash('Booking declined.', 'info')
+    except Exception as e:
+        print(f"[DECLINE_BOOKING] Error: {e}")
+        flash(f'Error declining booking: {str(e)}', 'error')
+    return redirect(url_for('admin_bookings'))
+
 
 if __name__ == '__main__':
     # Initialize database FIRST before anything else
@@ -3995,9 +5035,9 @@ if __name__ == '__main__':
                 base_path = os.path.dirname(os.path.abspath(__file__))
         except:
             base_path = os.path.dirname(os.path.abspath(__file__))
-        
+
         db_path = os.path.join(base_path, 'counseling.db')
-        
+
         # Check and initialize
         if not os.path.exists(db_path):
             print(f"Database not found, creating at: {db_path}")
@@ -4007,7 +5047,8 @@ if __name__ == '__main__':
             # Verify Appointment table exists
             test_conn = sqlite3.connect(db_path)
             cursor = test_conn.cursor()
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='Appointment'")
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='Appointment'")
             if not cursor.fetchone():
                 print("Appointment table missing, reinitializing database...")
                 test_conn.close()
@@ -4019,7 +5060,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"WARNING: Database initialization issue: {e}")
         print("Attempting to continue anyway...")
-    
+
     # Check if port 5000 is already in use and kill the process if needed
     import socket
     import subprocess
@@ -4028,20 +5069,23 @@ if __name__ == '__main__':
         sock.bind(('127.0.0.1', 5000))
         sock.close()
     except OSError as e:
-        if e.errno == 10048 or (hasattr(e, 'winerror') and e.winerror == 10048):  # Port already in use
+        # Port already in use
+        if e.errno == 10048 or (hasattr(e, 'winerror') and e.winerror == 10048):
             print("WARNING: Port 5000 is already in use!")
             print("Attempting to kill the process using port 5000...")
             try:
                 # Find process using port 5000
-                result = subprocess.run(['netstat', '-ano'], capture_output=True, text=True, timeout=5)
+                result = subprocess.run(
+                    ['netstat', '-ano'], capture_output=True, text=True, timeout=5)
                 for line in result.stdout.split('\n'):
                     if ':5000' in line and 'LISTENING' in line:
                         parts = line.split()
                         if len(parts) > 4:
                             pid = parts[-1]
-                            print(f"Found process {pid} using port 5000. Killing it...")
-                            subprocess.run(['taskkill', '/F', '/PID', pid], 
-                                         capture_output=True, timeout=5)
+                            print(
+                                f"Found process {pid} using port 5000. Killing it...")
+                            subprocess.run(['taskkill', '/F', '/PID', pid],
+                                           capture_output=True, timeout=5)
                             import time
                             time.sleep(1)  # Wait a bit for port to be released
                 # Try binding again
@@ -4052,7 +5096,8 @@ if __name__ == '__main__':
                     print("Port 5000 is now available!")
                 except:
                     print("ERROR: Could not free port 5000.")
-                    print("Please manually close other instances or restart your computer.")
+                    print(
+                        "Please manually close other instances or restart your computer.")
                     is_exe = getattr(sys, 'frozen', False)
                     if not is_exe:
                         input("Press Enter to exit...")
@@ -4064,7 +5109,7 @@ if __name__ == '__main__':
                 if not is_exe:
                     input("Press Enter to exit...")
                 sys.exit(1)
-    
+
     # Start Auto-Sync Thread
     sync_thread = threading.Thread(target=run_auto_sync_loop, daemon=True)
     sync_thread.start()
@@ -4080,11 +5125,11 @@ if __name__ == '__main__':
             print(f"  - {rule.endpoint}: {rule}")
     print('=' * 60)
     print()
-    
+
     # For EXE, don't use debug mode and open browser automatically
     import webbrowser
     import threading
-    
+
     def open_browser():
         import time
         time.sleep(2.5)  # Wait longer for server to fully start
@@ -4095,9 +5140,10 @@ if __name__ == '__main__':
         except Exception as e:
             print(f"Could not open browser automatically: {e}")
             print("Please manually open: http://localhost:5000")
-    
+
     # Open browser automatically (only if not in debug mode or forced via Env)
-    is_exe = getattr(sys, 'frozen', False) or os.environ.get('AAMUSTED_AUTO_OPEN_BROWSER') == '1'
+    is_exe = getattr(sys, 'frozen', False) or os.environ.get(
+        'AAMUSTED_AUTO_OPEN_BROWSER') == '1'
     if is_exe:
         browser_thread = threading.Thread(target=open_browser)
         browser_thread.daemon = True
@@ -4107,12 +5153,13 @@ if __name__ == '__main__':
         print("Starting in development mode...")
         print("Local access: http://localhost:5000")
         print("Network access: http://<your-ip-address>:5000")
-    
+
     print()
-    
+
     try:
         # Run app (debug=False for production EXE)
-        app.run(debug=not getattr(sys, 'frozen', False), host='0.0.0.0', port=5000, use_reloader=False)
+        app.run(debug=not getattr(sys, 'frozen', False),
+                host='0.0.0.0', port=5000, use_reloader=False)
     except Exception as e:
         print(f"Error starting server: {e}")
         input("Press Enter to exit...")

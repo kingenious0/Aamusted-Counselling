@@ -35,9 +35,13 @@ def create_default_config():
         "node_id": f"NODE_{str(uuid.uuid4())[:8].upper()}",
         "node_role": "Unassigned", # e.g., 'SECRETARY', 'COUNSELLOR'
         "peer_ip": "", # Manual IP entry for the 'other' machine
+        "cloud_api_url": "https://your-bridge-app.vercel.app/sync", 
+        "cloud_api_key": "sb_bridge_AnEpYo_2026", # Suggested token for cloud sync
         "sync_enabled": True,
-        "sync_interval_seconds": 60
+        "sync_interval_seconds": 60,
+        "last_cloud_sync": "1970-01-01 00:00:00"
     }
+
     save_config(config)
     return config
 
