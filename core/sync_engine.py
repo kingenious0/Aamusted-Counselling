@@ -57,9 +57,9 @@ class AutomatedSyncManager:
             except Exception as e:
                 logger.error(f"Sync loop error: {e}")
             
-            # Wait for next cycle (default 60 seconds)
+            # Wait for next cycle (default 10 seconds for real-time responsiveness)
             config = node_config.load_config()
-            interval = config.get('sync_interval_seconds', 60)
+            interval = config.get('sync_interval_seconds', 10)
             self.stop_event.wait(interval)
 
     def run_automated_sync(self):
@@ -97,12 +97,13 @@ class AutomatedSyncManager:
                 logger.info(f"Syncing {len(pending)} records for table {table}...")
                 
                 # Push in batches if necessary, but here we push all for simplicity
-                changes = {table: [dict(r) for r in pending]}
+                records = [dict(r) for r in pending]
                 
                 try:
                     resp = requests.post(
                         f"{cloud_url}/push", 
-                        json={"changes": changes, "api_key": api_key, "node_id": node_config.get_node_id()},
+                        json={"table": table, "records": records, "api_key": api_key, "node_id": node_config.get_node_id()},
+                        headers={"X-API-KEY": api_key},
                         timeout=15
                     )
                     
@@ -137,6 +138,7 @@ class AutomatedSyncManager:
                     "api_key": api_key, 
                     "node_id": node_config.get_node_id()
                 },
+                headers={"X-API-KEY": api_key},
                 timeout=15
             )
             

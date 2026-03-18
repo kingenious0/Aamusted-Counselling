@@ -78,11 +78,10 @@
                         <td class="ps-4 py-3">
                             <div class="d-flex align-items-center">
                                 <div class="avatar-circle bg-primary bg-opacity-10 text-primary fw-bold me-3" style="font-size:0.75rem;">
-                                    {{ (student.case_number or 'XX')[-4:] }}
+                                    {{ (student.case_id or 'GCC')[-4:] }}
                                 </div>
                                 <div>
-                                    <h6 class="fw-bold mb-0 text-dark font-monospace">{{ student.case_number or 'Unassigned' }}</h6>
-                                    <div class="text-primary fw-medium small">{{ student.name }}</div>
+                                    <h6 class="fw-bold mb-0 text-dark font-monospace">{{ student.case_id or 'Unassigned' }}</h6>
                                     <small class="text-muted" style="font-size: 0.75rem;">{{ student.index_number or 'No Index' }}</small>
                                 </div>
                             </div>
@@ -114,34 +113,36 @@
                         </td>
                         <td class="text-end pe-4">
                             <div class="d-flex align-items-center justify-content-end">
-                                <button class="btn btn-primary btn-sm rounded-pill px-3 me-2 shadow-sm btn-hover-lift" 
-                                    onclick='handleStartSession({{ student.id }}, {{ student.name | tojson }})'>
-                                    <i class="bi bi-play-circle-fill me-1"></i> Start Session
-                                </button>
                                 
-                                <div class="dropdown">
-                                    <button class="btn btn-light btn-sm rounded-circle border shadow-sm" data-bs-toggle="dropdown">
-                                        <i class="bi bi-three-dots-vertical"></i>
+                                <div class="d-flex gap-3 justify-content-end align-items-center">
+                                    <a href="{{ url_for('student_profile', id=student.id) }}" 
+                                       class="btn btn-sm btn-outline-primary rounded-pill px-3 d-flex align-items-center border-2 btn-hover-lift" 
+                                       style="font-size: 0.78rem;">
+                                        <i class="bi bi-person-lines-fill me-2"></i> Profile
+                                    </a>
+                                    
+                                    <button type="button" 
+                                            onclick="handleStartSession({{ student.id }}, '{{ student.name|replace("'", "\\'") }}')"
+                                            class="btn btn-sm btn-success rounded-pill px-3 d-flex align-items-center fw-bold shadow-sm btn-hover-lift" 
+                                            style="font-size: 0.78rem; background: #2e7d32; border: none;">
+                                        <i class="bi bi-play-circle-fill me-2"></i> Start Session
                                     </button>
-                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
-                                        <li><a class="dropdown-item"
-                                                href="{{ url_for('student_profile', id=student.id) }}"><i
-                                                    class="bi bi-person-lines-fill me-2 text-primary"></i> View Profile</a>
-                                        </li>
-                                        <li><a class="dropdown-item" href="/add_student?edit={{ student.id }}"><i
-                                                    class="bi bi-pencil me-2"></i> Edit Details</a></li>
-                                        <li>
-                                            <hr class="dropdown-divider">
-                                        </li>
-                                        <li>
-                                            <form action="/delete_student/{{ student.id }}" method="POST"
-                                                onsubmit="return GCC.confirmForm(event, 'Are you sure you want to delete the record for {{ student.case_number or student.professional_id }}? This action cannot be undone.', 'warning', 'Yes, Delete');"
-                                                class="d-inline">
-                                                <button type="submit" class="dropdown-item text-danger"><i
-                                                        class="bi bi-trash me-2"></i> Delete Record</button>
-                                            </form>
-                                        </li>
-                                    </ul>
+
+                                    <a href="/add_student?edit={{ student.id }}" 
+                                       class="btn btn-sm btn-outline-secondary rounded-pill px-3 d-flex align-items-center" 
+                                       style="font-size: 0.78rem;">
+                                        <i class="bi bi-pencil-square me-2"></i> Edit
+                                    </a>
+
+                                    <form action="/delete_student/{{ student.id }}" method="POST"
+                                          onsubmit="return GCC.confirmForm(event, 'Are you sure you want to delete the record for {{ student.name }}? This action cannot be undone.', 'warning', 'Yes, Delete');"
+                                          class="d-inline">
+                                        <button type="submit" 
+                                                class="btn btn-sm btn-link text-danger text-decoration-none px-2 d-flex align-items-center" 
+                                                style="font-size: 0.78rem;">
+                                            <i class="bi bi-trash me-1"></i> Delete
+                                        </button>
+                                    </form>
                                 </div>
                             </div>
                         </td>
@@ -226,26 +227,62 @@
                 Swal.close();
                 
                 if (data.status === 'found') {
-                    // Appointment found! Inform user and go to create_session
-                    Swal.fire({
-                        title: 'Appointment Found',
-                        html: `<b>${studentName}</b> has a scheduled appointment today at <b>${data.time}</b>.<br><br>Proceed to session log?`,
-                        icon: 'info',
-                        showCancelButton: true,
-                        confirmButtonText: 'Yes, Start Session',
-                        cancelButtonText: 'Cancel',
-                        reverseButtons: true,
-                        customClass: { popup: 'rounded-4' }
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            window.location.href = `/create_session?appointment_id=${data.appointment_id}`;
-                        }
-                    });
+                    if (data.is_today) {
+                        // Regular flow for today
+                        Swal.fire({
+                            title: 'Appointment Found',
+                            html: `<div class="p-3 bg-light rounded-3 mb-3">
+                                    <h6 class="fw-bold text-dark mb-1">${studentName}</h6>
+                                    <span class="text-primary fw-bold" style="font-size: 1.1rem;">Today | ${data.time}</span>
+                                   </div>
+                                   Proceed to clinical session log?`,
+                            icon: 'success',
+                            showCancelButton: true,
+                            confirmButtonText: 'Yes, Start Session',
+                            cancelButtonText: 'Cancel',
+                            reverseButtons: true,
+                            customClass: { popup: 'rounded-4' }
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.location.href = `/create_session?appointment_id=${data.appointment_id || data.id}`;
+                            }
+                        });
+                    } else {
+                        // Modal for future/past appointment
+                        Swal.fire({
+                            title: 'Schedule Mismatch Detected',
+                            html: `<div class="p-3 bg-light rounded-3 mb-3 text-center">
+                                    <p class="mb-0 text-muted" style="font-size:0.95rem;">
+                                        <strong>${studentName}</strong> has a scheduled appointment on
+                                    </p>
+                                    <div class="mt-2 text-primary fw-bold" style="font-size: 1.15rem;">
+                                        ${data.date.replace(/, \d{4}$/, '')} • ${data.time}
+                                    </div>
+                                   </div>
+                                   Do you want to start this session ahead of schedule?`,
+                            icon: 'info',
+                            showCancelButton: true,
+                            confirmButtonText: 'Start Session Now',
+                            cancelButtonText: 'Return to Dashboard',
+                            confirmButtonColor: '#0d6efd',
+                            cancelButtonColor: '#6c757d',
+                            reverseButtons: true,
+                            customClass: { 
+                                popup: 'rounded-4 shadow-lg border-0',
+                                confirmButton: 'btn btn-primary px-4 rounded-pill',
+                                cancelButton: 'btn btn-link text-muted text-decoration-none'
+                            }
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.location.href = `/create_session?appointment_id=${data.appointment_id || data.id}`;
+                            }
+                        });
+                    }
                 } else if (data.status === 'not_found') {
                     // No appointment found. Prompt for Walk-in or Schedule
                     Swal.fire({
                         title: 'No Appointment Found',
-                        html: `<b>${studentName}</b> has no appointment scheduled for today.<br><br>What would you like to do?`,
+                        html: `This student (<b>${studentName}</b>) has no appointment scheduled for today.<br><br>What would you like to do?`,
                         icon: 'question',
                         showCancelButton: true,
                         showDenyButton: true,

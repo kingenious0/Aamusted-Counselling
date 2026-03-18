@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ settings.system_name or 'AAMUSTED Counselling' }} | Clinical Co-pilot</title>
+    <title>{{ settings.system_name or 'USTED Counselling' }} | Clinical Co-pilot</title>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <!-- Custom Modern Theme -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/modern_theme.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modern_theme.css') }}?v=2.1">
 
     <style>
         /* Sidebar active state helper */
@@ -56,13 +56,11 @@
                 <img src="{{ settings.logo_url }}" class="me-2"
                     style="max-height: 40px; max-width: 40px; object-fit: contain;">
                 {% else %}
-                <div class="bg-gradient p-2 rounded-3 me-2" style="background: var(--sage-600); color: white;">
+                <div class="bg-gradient p-2 rounded-3 me-2" style="background: maroon; color: white;">
                     <i class="bi bi-heart-pulse-fill fs-4"></i>
                 </div>
+                <span class="fs-4 fw-bold sidebar-header-text" style="letter-spacing: -0.02em; color: var(--brand-primary);">USTED SYSTEM</span>
                 {% endif %}
-                <span class="fs-6 fw-bold text-break lh-sm sidebar-header-text" style="color: var(--sage-900);">
-                    {{ settings.system_name or 'Counselling Hub' }}
-                </span>
             </a>
         </div>
 
@@ -294,13 +292,8 @@
                 <i class="bi bi-list fs-4"></i>
             </button>
 
-            <!-- Search Bar -->
-            <div class="position-relative flex-grow-1" style="max-width: 400px;">
-                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
-                <input type="text" class="form-control form-control-lg ps-5 border-0 shadow-sm"
-                    style="border-radius: 99px; background: white; font-size: 0.95rem; width: 100%;"
-                    placeholder="Search clients, files, or actions (Cmd+K)...">
-            </div>
+            <!-- Removed topmost global search bar; using section-specific search for better functionality -->
+            <div class="flex-grow-1"></div>
 
             <!-- Notifications / Actions -->
             <div class="d-flex align-items-center gap-3">
@@ -584,7 +577,7 @@
                 .catch(e => console.error('Theme sync error:', e));
         }, 5000); // Check every 5 seconds
 
-        // Automated Sync & New Booking Polling
+        // Automated Sync & New Booking Polling (Enhanced for 5s Real-time)
         setInterval(() => {
             fetch('/api/sync/check_alerts')
                 .then(r => r.json())
@@ -601,14 +594,15 @@
                             timer: 10000,
                             timerProgressBar: true
                         });
-                        // Refresh data if on dashboard
-                        if (window.location.pathname.includes('dashboard')) {
-                            // Optionally trigger a silent refresh of the lists
+                        
+                        // Silent Refresh of the intake list if on dashboard
+                        if (typeof refreshIntakeList === 'function') {
+                            refreshIntakeList();
                         }
                     }
                 })
                 .catch(e => console.error('Alert sync error:', e));
-        }, 30000); // Check every 30 seconds
+        }, 5000); // Check every 5 seconds for instant notification
     </script>
     <audio id="notificationSound" src="/assets/ringtone-you-would-be-glad-to-know.mp3" preload="auto"></audio>
     {% block scripts %}{% endblock %}

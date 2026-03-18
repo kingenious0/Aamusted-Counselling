@@ -3,22 +3,28 @@
 /* --- THME DEFINITIONS --- */
 
 /* 1. Sage (Default) - Calm, Professional, Healing */
+/* 1. USTED (University of Skills Training and Entrepreneurial Development) - Official Branding */
 :root {
+    --bg-body: #f8f9fa;
+    --brand-primary: #800000; /* USTED Maroon */
+    --brand-secondary: #FFD700; /* USTED Gold */
+    --brand-success: #006400; /* USTED Green */
+    --brand-dark: #4a0000; /* Dark Maroon */
+    --sidebar-bg: rgba(255, 255, 255, 0.98);
+    --text-main: #1a1a1a;
+    --text-muted: #6c757d;
+    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-border: rgba(128, 0, 0, 0.1);
+    --card-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+}
+
+/* Legacy Sage Definitions */
+[data-theme="sage"] {
     --bg-body: #f6fbf9;
     --brand-primary: #428879;
-    /* Sage 600 */
     --brand-secondary: #6366f1;
-    /* Indigo */
     --brand-accent: #57a695;
-    /* Sage 500 */
     --brand-dark: #2d4f48;
-    /* Sage 900 */
-    --sidebar-bg: rgba(255, 255, 255, 0.95);
-    --text-main: #1e293b;
-    --text-muted: #64748b;
-    --glass-bg: rgba(255, 255, 255, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.5);
-    --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 /* 2. Ocean - Trust, Stability */

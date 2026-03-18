@@ -13,10 +13,9 @@
                 <p class="text-muted small mb-0">Student appointment requests submitted via the booking portal — auto-accepted on arrival.</p>
             </div>
             <div class="d-flex gap-2">
-                {% set new_count = bookings | selectattr('status', 'equalto', 'Accepted') | list | length %}
-                {% if new_count > 0 %}
+                {% if recent_count > 0 %}
                 <span class="badge bg-success px-3 py-2 rounded-pill fs-6">
-                    <i class="bi bi-check-circle me-1"></i>{{ new_count }} Accepted
+                    <i class="bi bi-check-circle me-1"></i>{{ recent_count }} Ready
                 </span>
                 {% else %}
                 <span class="badge bg-success px-3 py-2 rounded-pill">
@@ -42,21 +41,20 @@
 <!-- Tabs -->
 <ul class="nav nav-tabs border-0 mb-4 gap-1" id="bookingTabs">
     <li class="nav-item">
-        <button class="nav-link active fw-semibold px-4 rounded-pill" data-tab="recent">
+        <a class="nav-link {% if current_tab == 'recent' %}active{% endif %} fw-semibold px-4 rounded-pill" href="{{ url_for('admin_bookings', tab='recent') }}">
             <i class="bi bi-bell me-1"></i> Recent (24 hrs)
-            {% set recent = bookings | selectattr('status', 'equalto', 'Accepted') | list %}
-            {% if recent %}<span class="badge bg-warning text-dark ms-1">{{ recent|length }}</span>{% endif %}
-        </button>
+            {% if recent_count > 0 %}<span class="badge bg-warning text-dark ms-1">{{ recent_count }}</span>{% endif %}
+        </a>
     </li>
     <li class="nav-item">
-        <button class="nav-link fw-semibold px-4 rounded-pill" data-tab="history">
+        <a class="nav-link {% if current_tab == 'history' %}active{% endif %} fw-semibold px-4 rounded-pill" href="{{ url_for('admin_bookings', tab='history') }}">
             <i class="bi bi-archive me-1"></i> Booking History
-        </button>
+        </a>
     </li>
     <li class="nav-item">
-        <button class="nav-link fw-semibold px-4 rounded-pill" data-tab="all">
-            <i class="bi bi-list-ul me-1"></i> All
-        </button>
+        <a class="nav-link {% if current_tab == 'all' %}active{% endif %} fw-semibold px-4 rounded-pill" href="{{ url_for('admin_bookings', tab='all') }}">
+            <i class="bi bi-list-ul me-1"></i> All Time
+        </a>
     </li>
 </ul>
 
@@ -79,223 +77,56 @@
 {% if bookings %}
 <div id="bookingsContainer">
 
-    <!-- Recent tab: Accepted bookings -->
-    <div id="tab-recent">
-        {% set recent_bookings = [] %}
-        {% for booking in bookings %}
-            {% if booking.status == 'Accepted' %}
-                {% set _ = recent_bookings.append(booking) %}
-            {% endif %}
-        {% endfor %}
-
-        {% if recent_bookings %}
+    {% if current_tab == 'recent' %}
         <div class="row g-3">
         {% for booking in bookings %}
-        {% if booking.status == 'Accepted' %}
         <div class="col-12 booking-row" data-status="{{ booking.status }}">
             <div class="card border-0 shadow-sm"
-                style="border-left: 4px solid #22c55e !important; border-radius: 0.75rem;">
+                style="border-left: 4px solid var(--brand-primary, #1a6b3c) !important; border-radius: 0.75rem;">
                 <div class="card-body p-4">
                     <div class="row align-items-center g-3">
-                        <!-- Ref & Status -->
                         <div class="col-md-2">
                             <div class="fw-bold font-monospace text-primary small">{{ booking.reference }}</div>
-                            <span class="badge bg-success rounded-pill mt-1">Auto-Accepted</span>
-                            {% if booking.accepted_at %}
-                            <div class="text-muted mt-1" style="font-size:0.65rem;">
-                                <i class="bi bi-clock-history me-1"></i>{{ booking.accepted_at[:16] }}
-                            </div>
-                            {% endif %}
+                            <span class="badge bg-success rounded-pill mt-1">Ready</span>
                         </div>
-                        <!-- Student Info -->
                         <div class="col-md-4">
                             <div class="d-flex align-items-center mb-1">
-                                <div class="rounded-circle bg-success bg-opacity-10 text-success fw-bold d-flex align-items-center justify-content-center me-2 flex-shrink-0"
+                                <div class="rounded-circle bg-primary bg-opacity-10 text-primary fw-bold d-flex align-items-center justify-content-center me-2 flex-shrink-0"
                                      style="width:36px;height:36px;">
                                     {{ booking.full_name[0]|upper }}
                                 </div>
                                 <h6 class="fw-bold mb-0 text-dark">{{ booking.full_name }}</h6>
                             </div>
-                            <div class="small text-muted mb-1">
-                                <i class="bi bi-hash me-1"></i>{{ booking.index_number }}
-                                {% if booking.programme %} · <span class="text-primary fw-medium">{{ booking.programme }}</span>{% endif %}
-                            </div>
-                            {% if booking.phone %}
-                            <a href="tel:{{ booking.phone }}" class="text-decoration-none text-success small fw-medium">
-                                <i class="bi bi-telephone-fill me-1"></i>{{ booking.phone }}
-                            </a>
-                            {% endif %}
+                            <div class="small text-muted mb-1">{{ booking.programme or '—' }}</div>
                         </div>
-                        <!-- Preferred Slot -->
                         <div class="col-md-3">
-                            <div class="small text-muted text-uppercase mb-1" style="letter-spacing:0.05em;">Preferred Slot</div>
-                            <div class="fw-medium small"><i class="bi bi-calendar3 me-1 text-primary"></i>{{ booking.preferred_date or 'Not specified' }}</div>
-                            <div class="text-muted small"><i class="bi bi-clock me-1"></i>{{ booking.preferred_time or 'Any time' }}</div>
-                            {% if booking.reason %}
-                            <div class="small text-muted mt-1 text-truncate" style="max-width:200px;">
-                                <i class="bi bi-chat-text me-1"></i>"{{ booking.reason }}"
+                            <div class="fw-medium small"><i class="bi bi-calendar3 me-1 text-primary"></i>{{ booking.preferred_date or 'Today' }}</div>
+                            <div class="text-muted small"><i class="bi bi-clock me-1"></i>{{ booking.preferred_time or 'Any' }}</div>
+                        </div>
+                        <div class="col-md-3 text-md-end text-nowrap d-flex gap-2 justify-content-end align-items-center">
+                            {% if booking.is_registered %}
+                            <div class="btn btn-sm btn-outline-success rounded-pill px-3 shadow-sm border-2 fw-bold disabled" 
+                                 style="font-size: 0.75rem; pointer-events: none; opacity: 1; border-color: rgba(0,128,0,0.4) !important; color: green !important;">
+                                <i class="bi bi-check-circle-fill me-1"></i>Accepted
                             </div>
+                            {% else %}
+                            <button onclick="handleRegisterPortalBooking(this, {{ booking.id }})" 
+                               class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm border-0 fw-bold"
+                               style="font-size: 0.75rem; background: var(--brand-primary, #1a6b3c);">
+                                <i class="bi bi-person-plus-fill me-1"></i>Register
+                            </button>
                             {% endif %}
-                        </div>
-                        <!-- Actions -->
-                        <div class="col-md-3 text-md-end">
-                            <div class="d-flex gap-2 justify-content-md-end flex-wrap">
-                                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill"
-                                        data-bs-toggle="modal" data-bs-target="#detailsModal{{ booking.id }}">
-                                    <i class="bi bi-eye me-1"></i>Details
-                                </button>
-                                {% if role in ['Secretary', 'Admin', 'Counsellor'] %}
-                                <button type="button" class="btn btn-outline-danger btn-sm rounded-pill"
-                                        data-bs-toggle="modal" data-bs-target="#declineModal{{ booking.id }}">
-                                    <i class="bi bi-x-lg me-1"></i>Decline
-                                </button>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-        {% endfor %}
-        </div>
-        {% else %}
-        <div class="card border-0 shadow-sm">
-            <div class="card-body text-center py-5">
-                <i class="bi bi-check2-all text-success opacity-50" style="font-size:3rem;"></i>
-                <h6 class="text-muted mt-3">No new bookings in the last 24 hours</h6>
-                <p class="text-muted small">New submissions will appear here automatically.</p>
-                <a href="/booking" target="_blank" class="btn btn-sm btn-outline-primary mt-1">
-                    <i class="bi bi-box-arrow-up-right me-1"></i>Preview Booking Page
-                </a>
-            </div>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- History tab -->
-    <div id="tab-history" style="display:none;">
-        <div class="card border-0 shadow-sm mb-3" style="border-radius:0.75rem;overflow:hidden;">
-            <div class="card-header bg-light border-0 py-3 px-4">
-                <h6 class="fw-bold mb-0 text-muted"><i class="bi bi-archive me-2"></i>Booking History — All time</h6>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0 align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-4 py-3 small fw-bold text-muted text-uppercase" style="font-size:0.72rem;">Reference</th>
-                                <th class="py-3 small fw-bold text-muted text-uppercase" style="font-size:0.72rem;">Student</th>
-                                <th class="py-3 small fw-bold text-muted text-uppercase" style="font-size:0.72rem;">Programme</th>
-                                <th class="py-3 small fw-bold text-muted text-uppercase" style="font-size:0.72rem;">Preferred Date</th>
-                                <th class="py-3 small fw-bold text-muted text-uppercase" style="font-size:0.72rem;">Status</th>
-                                <th class="py-3 small fw-bold text-muted text-uppercase" style="font-size:0.72rem;">Submitted</th>
-                                <th class="pe-4 py-3"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for booking in bookings %}
-                            <tr>
-                                <td class="ps-4">
-                                    <span class="font-monospace small fw-semibold text-primary">{{ booking.reference }}</span>
-                                    {% if booking.accepted_at %}
-                                    <br><span class="text-muted" style="font-size:0.65rem;"><i class="bi bi-clock-history me-1"></i>{{ booking.accepted_at[:16] }}</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <div class="fw-semibold small">{{ booking.full_name }}</div>
-                                    <div class="text-muted" style="font-size:0.72rem;">{{ booking.index_number }}</div>
-                                </td>
-                                <td class="small text-muted">{{ booking.programme or '—' }}</td>
-                                <td class="small text-muted">{{ booking.preferred_date or '—' }}</td>
-                                <td>
-                                    <span class="badge rounded-pill
-                                        {% if booking.status == 'Accepted' %}bg-success
-                                        {% elif booking.status == 'Declined' %}bg-secondary
-                                        {% else %}bg-warning text-dark{% endif %}">
-                                        {{ booking.status }}
-                                    </span>
-                                </td>
-                                <td class="small text-muted">{{ booking.created_at[:10] if booking.created_at else '—' }}</td>
-                                <td class="pe-4 text-end">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill"
-                                            data-bs-toggle="modal" data-bs-target="#detailsModal{{ booking.id }}">
-                                        <i class="bi bi-eye"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- All tab -->
-    <div id="tab-all" style="display:none;">
-        <div class="card card-glass border-0 shadow-sm mb-4" id="filterBarAll">
-            <div class="card-body p-3">
-                <div class="d-flex gap-2 flex-wrap">
-                    <button class="btn btn-sm btn-primary filter-btn-all active" data-filter="all">All</button>
-                    <button class="btn btn-sm btn-outline-success filter-btn-all" data-filter="Accepted"><i class="bi bi-check me-1"></i>Accepted</button>
-                    <button class="btn btn-sm btn-outline-secondary filter-btn-all" data-filter="Declined"><i class="bi bi-x me-1"></i>Declined</button>
-                </div>
-            </div>
-        </div>
-        <div class="row g-3">
-        {% for booking in bookings %}
-        <div class="col-12 booking-row-all" data-status="{{ booking.status }}">
-            <div class="card border-0 shadow-sm
-                {% if booking.status == 'Accepted' %}border-success{% else %}border-secondary{% endif %}"
-                style="border-left-width: 4px !important; border-left-style: solid !important; border-radius: 0.75rem;">
-                <div class="card-body p-4">
-                    <div class="row align-items-center">
-                        <div class="col-md-2 mb-2 mb-md-0">
-                            <div class="fw-bold font-monospace text-primary small">{{ booking.reference }}</div>
-                            <span class="badge rounded-pill mt-1
-                                {% if booking.status == 'Accepted' %}bg-success
-                                {% elif booking.status == 'Declined' %}bg-secondary
-                                {% else %}bg-warning text-dark{% endif %}">
-                                {{ booking.status }}
-                            </span>
-                        </div>
-                        <div class="col-md-4 mb-2 mb-md-0">
-                            <div class="d-flex align-items-center mb-1">
-                                <i class="bi bi-person-circle text-primary me-2"></i>
-                                <h6 class="fw-bold mb-0 text-dark">{{ booking.full_name }}</h6>
-                            </div>
-                            <div class="small text-muted mb-1">
-                                <i class="bi bi-hash me-1"></i>{{ booking.index_number }}
-                                {% if booking.programme %} · <span class="text-primary fw-medium">{{ booking.programme }}</span>{% endif %}
-                            </div>
-                            {% if booking.phone %}
-                            <a href="tel:{{ booking.phone }}" class="text-decoration-none text-success small fw-medium">
-                                <i class="bi bi-telephone-fill me-1"></i>{{ booking.phone }}
-                            </a>
+                            
+                            <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3"
+                                    data-bs-toggle="modal" data-bs-target="#detailsModal{{ booking.id }}">
+                                <i class="bi bi-eye me-1"></i>Details
+                            </button>
+                            {% if role in ['Secretary', 'Admin', 'Counsellor'] %}
+                            <button type="button" class="btn btn-link text-danger btn-sm text-decoration-none ms-2"
+                                    data-bs-toggle="modal" data-bs-target="#declineModal{{ booking.id }}">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
                             {% endif %}
-                        </div>
-                        <div class="col-md-3 mb-2 mb-md-0">
-                            <div class="small text-muted text-uppercase mb-1" style="letter-spacing:0.05em;">Preferred Slot</div>
-                            <div class="fw-medium small"><i class="bi bi-calendar3 me-1 text-primary"></i>{{ booking.preferred_date or 'Not specified' }}</div>
-                            <div class="text-muted small"><i class="bi bi-clock me-1"></i>{{ booking.preferred_time or 'Any time' }}</div>
-                        </div>
-                        <div class="col-md-1 mb-2 mb-md-0 text-center d-none d-md-block">
-                            <div class="small text-muted">{{ booking.created_at[:10] if booking.created_at else '' }}</div>
-                        </div>
-                        <div class="col-md-2 text-md-end">
-                            <div class="d-flex gap-2 justify-content-md-end flex-wrap">
-                                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill"
-                                        data-bs-toggle="modal" data-bs-target="#detailsModal{{ booking.id }}">
-                                    <i class="bi bi-eye me-1"></i>Details
-                                </button>
-                                {% if booking.status not in ['Accepted', 'Declined'] and role in ['Secretary', 'Admin', 'Counsellor'] %}
-                                <button type="button" class="btn btn-outline-danger btn-sm rounded-pill"
-                                        data-bs-toggle="modal" data-bs-target="#declineModal{{ booking.id }}">
-                                    <i class="bi bi-x-lg"></i>
-                                </button>
-                                {% endif %}
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -303,9 +134,84 @@
         </div>
         {% endfor %}
         </div>
-    </div>
+    {% else %}
+        <!-- Table View for History/All -->
+        <div class="card border-0 shadow-sm" style="border-radius:0.75rem;overflow:hidden;">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4 py-3 small fw-bold text-muted text-uppercase">Reference</th>
+                            <th class="py-3 small fw-bold text-muted text-uppercase">Student</th>
+                            <th class="py-3 small fw-bold text-muted text-uppercase">Slot</th>
+                            <th class="py-3 small fw-bold text-muted text-uppercase">Status</th>
+                            <th class="pe-4 py-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for booking in bookings %}
+                        <tr>
+                            <td class="ps-4"><span class="font-monospace small fw-bold text-primary">{{ booking.reference }}</span></td>
+                            <td>
+                                <div class="fw-bold small">{{ booking.full_name }}</div>
+                                <div class="text-muted" style="font-size:0.7rem;">{{ booking.index_number }}</div>
+                            </td>
+                            <td class="small">
+                                <div class="fw-medium">{{ booking.preferred_date or '—' }}</div>
+                                <div class="text-muted" style="font-size:0.7rem;">{{ booking.preferred_time }}</div>
+                            </td>
+                            <td><span class="badge rounded-pill {% if booking.status == 'Accepted' %}bg-success{% else %}bg-secondary{% endif %}">{{ booking.status }}</span></td>
+                            <td class="pe-4 text-end text-nowrap">
+                                {% if booking.is_registered %}
+                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2 border border-success border-opacity-25" style="font-size:0.65rem;">
+                                    <i class="bi bi-check-circle-fill me-1"></i>Accepted
+                                </span>
+                                {% else %}
+                                <button onclick="handleRegisterPortalBooking(this, {{ booking.id }})" 
+                                        class="btn btn-sm btn-link text-primary p-1 me-2" title="Register Student">
+                                    <i class="bi bi-person-plus-fill fs-5"></i>
+                                </button>
+                                {% endif %}
+                                
+                                <button type="button" class="btn btn-sm btn-light border rounded-circle" data-bs-toggle="modal" data-bs-target="#detailsModal{{ booking.id }}">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% endif %}
 
-</div>
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="d-flex justify-content-center mt-4">
+        <ul class="pagination pagination-rounded gap-2 border-0">
+            {% if page > 1 %}
+            <li class="page-item"><a class="page-link border-0 shadow-sm rounded-pill px-3" href="{{ url_for('admin_bookings', page=page-1, tab=current_tab) }}"><i class="bi bi-chevron-left me-1"></i>Prev</a></li>
+            {% endif %}
+
+            {% for p in range(1, total_pages + 1) %}
+                {% if p == page %}
+                <li class="page-item active"><span class="page-link border-0 shadow-sm rounded-circle px-3 bg-primary text-white fw-bold">{{ p }}</span></li>
+                {% elif p <= 3 or p > total_pages - 3 or (p >= page - 2 and p <= page + 2) %}
+                <li class="page-item"><a class="page-link border-0 shadow-sm rounded-circle px-3 text-muted bg-white" href="{{ url_for('admin_bookings', page=p, tab=current_tab) }}">{{ p }}</a></li>
+                {% elif p == 4 or p == total_pages - 3 %}
+                <li class="page-item disabled"><span class="page-link border-0 bg-transparent">...</span></li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page < total_pages %}
+            <li class="page-item"><a class="page-link border-0 shadow-sm rounded-pill px-3" href="{{ url_for('admin_bookings', page=page+1, tab=current_tab) }}">Next<i class="bi bi-chevron-right ms-1"></i></a></li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+
+</div> <!-- End TAB container or main div -->
 
 <!-- Modals for all bookings -->
 {% for booking in bookings %}
@@ -451,30 +357,55 @@
 
 {% block scripts %}
 <script>
-// Tab switching
-const tabs = document.querySelectorAll('[data-tab]');
-tabs.forEach(tab => {
-    tab.addEventListener('click', function() {
-        tabs.forEach(t => t.classList.remove('active', 'text-primary'));
-        this.classList.add('active');
-        const target = this.dataset.tab;
-        ['recent', 'history', 'all'].forEach(id => {
-            const el = document.getElementById('tab-' + id);
-            if (el) el.style.display = (id === target) ? '' : 'none';
-        });
-    });
-});
+// AJAX Handling for Booking Registration
+async function handleRegisterPortalBooking(btn, bookingId) {
+    const originalContent = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>...';
 
-// Filter for "All" tab
-document.querySelectorAll('.filter-btn-all').forEach(btn => {
-    btn.addEventListener('click', function() {
-        document.querySelectorAll('.filter-btn-all').forEach(b => b.classList.remove('active', 'btn-primary'));
-        this.classList.add('active', 'btn-primary');
-        const filter = this.dataset.filter;
-        document.querySelectorAll('.booking-row-all').forEach(row => {
-            row.style.display = (filter === 'all' || row.dataset.status === filter) ? '' : 'none';
+    try {
+        const response = await fetch(`/admin/bookings/${bookingId}/register?ajax=1`, {
+            method: 'GET', // register_portal_booking currently uses GET
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
-    });
-});
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Successfully Registered',
+                text: data.message || 'Student added to registry.',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true
+            });
+
+            // Auto-Archive behavior: remove processed card/row
+            const container = btn.closest('.booking-row') || btn.closest('tr');
+            if (container) {
+                container.style.opacity = '0';
+                container.style.transform = 'scale(0.95)';
+                container.style.transition = 'all 0.4s ease';
+                setTimeout(() => {
+                    container.remove();
+                    // If no more items in recent tab, reload or show empty state
+                    const remaining = document.querySelectorAll('.booking-row');
+                    if (remaining.length === 0 && window.location.search.includes('tab=recent')) {
+                        location.reload();
+                    }
+                }, 400);
+            }
+        } else {
+            throw new Error(data.message || 'Registration failed');
+        }
+    } catch (error) {
+        Swal.fire({ icon: 'error', title: 'Registration failed', text: error.message });
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+    }
+}
 </script>
 {% endblock %}

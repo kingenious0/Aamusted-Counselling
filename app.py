@@ -186,12 +186,8 @@ def inject_now():
             _conn = get_db_connection()
             count = _conn.execute(
                 """SELECT COUNT(*) FROM BookingRequest
-                   WHERE status = 'Accepted'
-                   AND (
-                       accepted_at IS NULL
-                       OR datetime(accepted_at) >= datetime('now', '-24 hours')
-                       OR (accepted_at IS NULL AND datetime(created_at) >= datetime('now', '-24 hours'))
-                   )"""
+                   WHERE status IN ('Accepted', 'Pending')
+                   AND COALESCE(accepted_at, created_at) >= datetime('now', '-24 hours')"""
             ).fetchone()[0]
             _conn.close()
             ctx['latest_booking_count'] = count
@@ -284,11 +280,11 @@ def login_required(f):
     return decorated_function
 
 
-def generate_case_number(conn, name=None):
-    """Generate a unique INITIALS-YYYY-XXXX case number for a new student."""
+def generate_professional_id(conn, name=None):
+    """Generate an INITIALS-YYYY-XXXX professional ID based on first/last name initials."""
     year = datetime.now().year
+    initials = "ST" # Default for Student
     
-    initials = "GCC"
     if name:
         parts = [p.strip() for p in name.split() if p.strip()]
         if len(parts) >= 2:
@@ -296,33 +292,52 @@ def generate_case_number(conn, name=None):
         elif len(parts) == 1:
             initials = parts[0][:2].upper()
             
-        # Ensure alphabetic characters only
-        initials = "".join([c for c in initials if c.isalpha()])
-        if not initials:
-            initials = "GCC"
+        initials = "".join([c for c in initials if c.isalpha()]) or "ST"
 
     try:
-        # Find the max existing number for this year based on the year layout
+        # We'll use the Student table's global_id for this
         row = conn.execute(
-            "SELECT case_number FROM Student WHERE case_number LIKE ? ORDER BY id DESC LIMIT 1",
-            (f"%{year}-%",)
+            "SELECT global_id FROM Student WHERE global_id LIKE ? ORDER BY id DESC LIMIT 1",
+            (f"{initials}-{year}-%",)
         ).fetchone()
         
         last_num = 0
         if row and row[0]:
             try:
-                # E.g. KM-2026-0003 -> split gives ['KM', '2026', '0003']
+                last_num = int(row[0].split('-')[-1])
+            except (ValueError, IndexError):
+                pass
+        
+        new_num = last_num + 1
+        return f"{initials}-{year}-{str(new_num).zfill(4)}"
+    except Exception as e:
+        print(f"[PROF_ID] Error: {e}")
+        return f"{initials}-{year}-0001"
+
+def generate_case_number(conn, name=None):
+    """Generate a fixed GCC-YYYY-XXXX case number."""
+    year = datetime.now().year
+    prefix = "GCC"
+    
+    try:
+        row = conn.execute(
+            "SELECT case_number FROM Student WHERE case_number LIKE ? ORDER BY id DESC LIMIT 1",
+            (f"{prefix}-{year}-%",)
+        ).fetchone()
+        
+        last_num = 0
+        if row and row[0]:
+            try:
                 last_num = int(row[0].split('-')[-1])
             except (ValueError, IndexError):
                 pass
                 
         new_num = last_num + 1
-        return f"{initials}-{year}-{str(new_num).zfill(4)}"
+        return f"{prefix}-{year}-{str(new_num).zfill(4)}"
     except Exception as e:
         print(f"[CASE_NUMBER] Error generating: {e}")
-        # Fallback: count total students
-        total = conn.execute("SELECT COUNT(*) FROM Student").fetchone()[0]
-        return f"{initials}-{year}-{str(total + 1).zfill(4)}"
+        return f"{prefix}-{year}-0001"
+
 
 
 def generate_booking_ref(conn):
@@ -802,21 +817,30 @@ def dashboard():
             except Exception as e:
                 print(f"[DASHBOARD] Counsellor query error: {e}")
 
-        # 3. Latest auto-accepted bookings (for dashboard booking alert panel)
+        # 3. Latest portal bookings - AUTO-ARCHIVE processed ones (exclude those already registered)
         latest_bookings = []
         try:
+            # We filter out those with Appointments here so processed ones disappear from Dashboard
             latest_bookings = conn.execute('''
                 SELECT * FROM BookingRequest
-                WHERE status = 'Accepted'
-                AND (
-                    accepted_at IS NULL
-                    OR datetime(accepted_at) >= datetime('now', '-24 hours')
-                    OR (accepted_at IS NULL AND datetime(created_at) >= datetime('now', '-24 hours'))
-                )
+                WHERE status IN ('Accepted', 'Pending')
+                AND reference NOT IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)
+                AND COALESCE(accepted_at, created_at) >= datetime('now', '-24 hours')
                 ORDER BY COALESCE(accepted_at, created_at) DESC
                 LIMIT 10
             ''').fetchall()
-            latest_bookings = [dict(b) for b in latest_bookings]
+            # Add registry check for each booking to prevent duplicates as per spec
+            latest_formatted = []
+            for b in latest_bookings:
+                b_dict = dict(b)
+                # Check if this student already exists in our registry
+                exists = conn.execute(
+                    "SELECT 1 FROM Student WHERE name = ? OR index_number = ?", 
+                    (b_dict['full_name'], b_dict['index_number'])
+                ).fetchone()
+                b_dict['is_registered'] = True if exists else False
+                latest_formatted.append(b_dict)
+            latest_bookings = latest_formatted
         except Exception as e:
             print(f"[DASHBOARD] Bookings query error: {e}")
             latest_bookings = []
@@ -874,11 +898,49 @@ def dashboard():
                                    latest_bookings=latest_bookings,
                                    show_welcome_message=show_welcome_message)
 
+        return redirect(url_for('welcome'))
+
     except Exception as e:
         print(f"[DASHBOARD] Critical error: {e}")
         import traceback
         traceback.print_exc()
         return redirect(url_for('welcome'))
+
+
+@app.route('/api/dashboard/intake_list')
+@login_required
+def dashboard_intake_list():
+    """AJAX endpoint to return only the intake list partial for auto-refresh."""
+    conn = get_db_connection()
+    latest_bookings = []
+    try:
+        # Fetch latest pending portal bookings (same logic as main dashboard)
+        rows = conn.execute('''
+            SELECT * FROM BookingRequest
+            WHERE status IN ('Accepted', 'Pending')
+            AND reference NOT IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)
+            AND COALESCE(accepted_at, created_at) >= datetime('now', '-24 hours')
+            ORDER BY COALESCE(accepted_at, created_at) DESC
+            LIMIT 10
+        ''').fetchall()
+        
+        for b in rows:
+            b_dict = dict(b)
+            # Check registry existence
+            exists = conn.execute(
+                "SELECT 1 FROM Student WHERE name = ? OR index_number = ?", 
+                (b_dict['full_name'], b_dict['index_number'])
+            ).fetchone()
+            b_dict['is_registered'] = True if exists else False
+            latest_bookings.append(b_dict)
+            
+        conn.close()
+        return render_template('_dashboard_intake.html', latest_bookings=latest_bookings)
+    except Exception as e:
+        print(f"[AJAX DASHBOARD] Refresh error: {e}")
+        try: conn.close()
+        except: pass
+        return "", 500
 
 
 
@@ -1848,26 +1910,26 @@ def case_note():
         try:
             sessions_raw = conn.execute('''
                 SELECT s.id, st.id as student_db_id, st.name as student_name, 
-                       st.case_number, s.created_at
+                       st.case_number, s.created_at, a.purpose as session_topic, st.global_id
                 FROM session s
                 JOIN Appointment a ON s.appointment_id = a.id
                 JOIN Student st ON a.student_id = st.id
                 ORDER BY s.created_at DESC
             ''').fetchall()
-            # Convert to list and add professional IDs with initials
+
             sessions = []
             for sess in sessions_raw:
                 sess_dict = dict(sess)
-                student_db_id = sess_dict.get('student_db_id', 0)
-                s_name = sess_dict.get('student_name', 'GCC')
-                parts = [p.strip() for p in s_name.split() if p.strip()]
-                if len(parts) >= 2:
-                    initials = (parts[0][0] + parts[-1][0]).upper()
-                elif len(parts) == 1:
-                    initials = parts[0][:2].upper()
-                else:
-                    initials = "C"
-                sess_dict['professional_id'] = f"{initials}-{student_db_id:03d}"
+                s_date = (sess_dict.get('created_at') or '').split(' ')[0]
+                full_name = sess_dict.get('student_name', 'N/A')
+                # Only use FIRST name as requested to avoid clutter
+                first_name = full_name.split(' ')[0]
+                
+                # Use stored case_number (GCC format)
+                s_case = sess_dict.get('case_number') or f"GCC-{datetime.now().year}-{sess_dict.get('student_db_id',0):04d}"
+                
+                # Simplified format: [Date] — [First Name] | [Case ID] 
+                sess_dict['display_name'] = f"{s_date} — {first_name} | {s_case}"
                 sessions.append(sess_dict)
         except Exception as e:
             print(f"[CASE_NOTE] Error getting sessions: {e}")
@@ -2145,26 +2207,29 @@ def students():
             except Exception:
                 pass
 
-        # Convert to list and add professional IDs with initials
+        # Map to specific identifiers as per technical spec
         students = []
         for student in students_raw:
             student_dict = dict(student)
-            student_db_id = student_dict.get('id', 0)
             
-            # Generate prefix based on initials
-            s_name = student_dict.get('name', 'GCC')
-            parts = [p.strip() for p in s_name.split() if p.strip()]
-            if len(parts) >= 2:
-                initials = (parts[0][0] + parts[-1][0]).upper()
-            elif len(parts) == 1:
-                initials = parts[0][:2].upper()
+            # 1. Case ID (GCC-2026-####)
+            # Use stored case_number or fallback
+            student_dict['case_id'] = student_dict.get('case_number') or f"GCC-{datetime.now().year}-{student_dict.get('id', 0):04d}"
+            
+            # 2. Professional ID (NW-2026-####)
+            # Use stored global_id or generate on-the-fly for older records
+            if student_dict.get('global_id'):
+                student_dict['professional_id'] = student_dict['global_id']
             else:
-                initials = "C"
-            initials = "".join([c for c in initials if c.isalpha()])
-            if not initials: initials = "C"
+                s_name = student_dict.get('name', 'User')
+                parts = [p.strip() for p in s_name.split() if p.strip()]
+                initials = "ST"
+                if len(parts) >= 2:
+                    initials = (parts[0][0] + parts[-1][0]).upper()
+                elif len(parts) == 1:
+                    initials = parts[0][:2].upper()
+                student_dict['professional_id'] = f"{initials}-{datetime.now().year}-{student_dict.get('id', 0):04d}"
                 
-            # Standardize professional ID to use the new case_number format
-            student_dict['professional_id'] = student_dict.get('case_number') or f"GCC-{datetime.now().year}-{student_db_id:04d}"
             students.append(student_dict)
 
         # Convert Row objects to strings
@@ -2545,20 +2610,39 @@ def check_appointment(student_id):
     try:
         conn = get_db_connection()
         today = datetime.now().strftime('%Y-%m-%d')
-        # Check for any scheduled or in-progress appointments for today
+        # Check for any scheduled or in-progress appointments (prioritizing today, then future)
         appt = conn.execute('''
             SELECT id, date, time FROM Appointment 
-            WHERE student_id = ? AND date = ? 
+            WHERE student_id = ? 
             AND status IN ('scheduled', 'Scheduled', 'Sent to Counsellor', 'In Session')
+            ORDER BY CASE WHEN date = ? THEN 0 ELSE 1 END, date ASC, time ASC
             LIMIT 1
         ''', (student_id, today)).fetchone()
         conn.close()
         
         if appt:
+            # Force clean ISO date (e.g., 2026-03-19) even if DB returns timestamp
+            raw_date = str(appt['date']).split(' ')[0][:10]
+            raw_time = str(appt['time']).split(' ')[0][:5]
+            
+            try:
+                # Professional date: Thu, Mar 19, 2026
+                d_obj = datetime.strptime(raw_date, '%Y-%m-%d')
+                fmt_date = d_obj.strftime('%a, %b %d, %Y')
+                
+                # Professional time: 4:50 AM
+                t_obj = datetime.strptime(raw_time, '%H:%M')
+                fmt_time = t_obj.strftime('%I:%M %p')
+            except Exception:
+                fmt_date = raw_date
+                fmt_time = raw_time
+
             return jsonify({
                 'status': 'found',
-                'appointment_id': appt['id'],
-                'time': appt['time']
+                'id': appt['id'], 
+                'date': fmt_date,
+                'time': fmt_time,
+                'is_today': (raw_date == today)
             })
         else:
             return jsonify({'status': 'not_found'})
@@ -4669,6 +4753,91 @@ def handle_exception(e):
     return internal_error(e)
 
 
+@app.route('/admin/bookings/<int:booking_id>/register')
+def register_portal_booking(booking_id):
+    """Manually register a portal booking: Create Student and Appointment."""
+    is_ajax = request.args.get('ajax') == '1'
+    if session.get('role') not in ['Secretary', 'Admin', 'Counsellor', 'Counselor']:
+        if is_ajax: return jsonify({'status': 'error', 'message': 'Access restricted.'}), 403
+        flash('Access restricted.', 'error')
+        return redirect(url_for('dashboard'))
+        
+    try:
+        conn = get_db_connection()
+        conn.row_factory = sqlite3.Row
+        
+        # 1. Fetch booking
+        booking_row = conn.execute("SELECT * FROM BookingRequest WHERE id = ?", (booking_id,)).fetchone()
+        if not booking_row:
+            if is_ajax: return jsonify({'status': 'error', 'message': 'Booking not found.'}), 404
+            flash('Booking not found.', 'error')
+            conn.close()
+            return redirect(url_for('admin_bookings'))
+        
+        booking = dict(booking_row)
+            
+        if booking['status'] == 'Accepted' and conn.execute("SELECT 1 FROM Appointment WHERE booking_ref = ?", (booking['reference'],)).fetchone():
+             if is_ajax: return jsonify({'status': 'info', 'message': 'Already registered.'}), 200
+             flash('This booking is already registered.', 'info')
+             conn.close()
+             return redirect(url_for('admin_bookings'))
+
+        # 2. Assign a counsellor (default to first one if none specified)
+        counsellor = conn.execute("SELECT id FROM Counsellor LIMIT 1").fetchone()
+        counsellor_id = counsellor['id'] if counsellor else None
+
+        # 3. Check/Create student
+        # First check by Index Number
+        student = conn.execute("SELECT id FROM Student WHERE index_number = ?", (booking['index_number'],)).fetchone()
+        
+        if not student:
+            # Then check by Name because the table erroneously has a UNIQUE constraint on 'name'
+            student = conn.execute("SELECT id FROM Student WHERE name = ?", (booking['full_name'],)).fetchone()
+
+        if not student:
+            # Generate both identifiers as per spec
+            case_num = generate_case_number(conn)
+            prof_id = generate_professional_id(conn, booking['full_name'])
+            
+            cursor = conn.cursor()
+            cursor.execute(
+                '''INSERT INTO Student (name, case_number, global_id, index_number, department, programme, faculty, hall_of_residence, contact, email)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                (booking['full_name'], case_num, prof_id, booking['index_number'],
+                 booking['department'], booking['programme'], booking.get('faculty', 'General'), booking.get('hall_of_residence'), booking['phone'], booking.get('email'))
+            )
+            student_id = cursor.lastrowid
+        else:
+            student_id = student['id']
+            # Optionally update student info if it changed? For now, just use existing ID
+
+        # 4. Create appointment
+        conn.execute(
+            '''INSERT INTO Appointment (student_id, Counsellor_id, date, time, purpose, status, booking_ref)
+               VALUES (?, ?, ?, ?, ?, 'Scheduled', ?)''',
+            (student_id, counsellor_id,
+             booking['preferred_date'] or datetime.now().strftime('%Y-%m-%d'),
+             booking['preferred_time'] or '09:00',
+             f"[Portal] {booking['reason'] or 'Session request'}",
+             booking['reference'])
+        )
+        
+        # 5. Update booking status
+        conn.execute("UPDATE BookingRequest SET status = 'Accepted' WHERE id = ?", (booking_id,))
+        
+        conn.commit()
+        conn.close()
+        msg = f"Successfully registered {booking['full_name']} and scheduled appointment."
+        if is_ajax: return jsonify({'status': 'success', 'message': msg}), 200
+        flash(msg, 'success')
+        
+    except Exception as e:
+        print(f"[REGISTRATION ERROR] {e}")
+        if is_ajax: return jsonify({'status': 'error', 'message': str(e)}), 500
+        flash(f"Error during registration: {str(e)}", 'error')
+        
+    return redirect(request.referrer or url_for('admin_bookings'))
+
 def run_auto_sync_loop():
     """Background thread to auto-sync every 10 seconds"""
     print("--- Auto-Sync Service Started ---")
@@ -4918,17 +5087,64 @@ def admin_bookings():
         flash('Access restricted.', 'error')
         return redirect(url_for('dashboard'))
     try:
+        page = request.args.get('page', 1, type=int)
+        tab = request.args.get('tab', 'recent')
+        per_page = 15
+        offset = (page - 1) * per_page
+        
         conn = get_db_connection()
-        bookings = conn.execute(
-            "SELECT * FROM BookingRequest ORDER BY created_at DESC"
+        
+        # Base queries
+        if tab == 'recent':
+            # Strict 24h filter for recent tab
+            where_clause = "WHERE COALESCE(accepted_at, created_at) >= datetime('now', '-24 hours')"
+            order_clause = "ORDER BY COALESCE(accepted_at, created_at) DESC"
+        elif tab == 'history':
+            # Older than 24h
+            where_clause = "WHERE COALESCE(accepted_at, created_at) < datetime('now', '-24 hours')"
+            order_clause = "ORDER BY created_at DESC"
+        else: # 'all'
+            where_clause = ""
+            order_clause = "ORDER BY created_at DESC"
+            
+        bookings_raw = conn.execute(
+            f"SELECT * FROM BookingRequest {where_clause} {order_clause} LIMIT ? OFFSET ?",
+            (per_page, offset)
         ).fetchall()
+        
+        # Mark registry state for global sync (Unified Status Logic)
+        bookings = []
+        for b in bookings_raw:
+            b_dict = dict(b)
+            # Check by index, name, or email for safety
+            exists = conn.execute(
+                "SELECT 1 FROM Student WHERE index_number = ? OR name = ? OR (email = ? AND email IS NOT NULL AND email != '')",
+                (b_dict['index_number'], b_dict['full_name'], b_dict.get('email', ''))
+            ).fetchone()
+            b_dict['is_registered'] = True if exists else False
+            bookings.append(b_dict)
+        
+        total = conn.execute(f"SELECT COUNT(*) FROM BookingRequest {where_clause}").fetchone()[0]
+        total_pages = (total + per_page - 1) // per_page
+        
         pending_count = conn.execute(
             "SELECT COUNT(*) FROM BookingRequest WHERE status = 'Pending'"
         ).fetchone()[0]
+        
+        # Also need count for the tabs
+        recent_count = conn.execute(
+            "SELECT COUNT(*) FROM BookingRequest WHERE COALESCE(accepted_at, created_at) >= datetime('now', '-24 hours')"
+        ).fetchone()[0]
+        
         conn.close()
-        return render_template('admin_bookings.html', bookings=bookings,
+        return render_template('admin_bookings.html', 
+                               bookings=bookings,
                                pending_count=pending_count,
-                               role=session.get('role'))
+                               recent_count=recent_count,
+                               role=session.get('role'),
+                               page=page,
+                               total_pages=total_pages,
+                               current_tab=tab)
     except Exception as e:
         print(f"[ADMIN_BOOKINGS] Error: {e}")
         flash('Could not load bookings.', 'error')
@@ -5108,11 +5324,7 @@ if __name__ == '__main__':
                 is_exe = getattr(sys, 'frozen', False)
                 if not is_exe:
                     input("Press Enter to exit...")
-                sys.exit(1)
-
-    # Start Auto-Sync Thread
-    sync_thread = threading.Thread(target=run_auto_sync_loop, daemon=True)
-    sync_thread.start()
+                    sys.exit(1)
 
     # Log available routes for debugging
     print('=' * 60)
