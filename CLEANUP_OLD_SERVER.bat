@@ -1,19 +1,3 @@
-==================================================
-  AAMUSTED Counselling System - Cloud Data Wipe
-===================================================
-
-This tool will PERMANENTLY delete all test entries
-from the cloud (Students, Appointments, Sessions).
-
-It will NOT touch your Local Computer folder.
-It will NOT touch App Settings or User accounts.
-
-Traceback (most recent call last):
-  File "C:\Users\kinge\Documents\Counselling System -FULL VERSION\Counselling System -Remade\scripts\WIPE_CLOUD_TEST_DATA.py", line 10, in <module>
-    import node_config
-ModuleNotFoundError: No module named 'node_config'
-
-Press any key to continue . . .
 @echo off
 setlocal
 title AAMUSTED Counselling - Old Server Cleanup

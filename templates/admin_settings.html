@@ -280,49 +280,50 @@
 
             try {
                 const response = await fetch('/api/admin/update_system', { method: 'POST' });
+                
+                // Detect Non-JSON (HTML 404/Login)
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    throw new Error("Server returned an invalid response (HTML). Please refresh the page.");
+                }
+
                 const data = await response.json();
 
                 if (data.status === 'success') {
-                    if (data.requires_restart) {
+                    if (data.already_latest) {
                         Swal.fire({
-                            title: 'System Updated!',
-                            text: data.message + ' Please restart the server to apply changes.',
+                            title: 'Up to Date!',
+                            text: data.message,
                             icon: 'success',
-                            confirmButtonText: 'Great!'
+                            confirmButtonColor: '#428879'
                         });
                     } else {
                         Swal.fire({
-                            toast: true,
-                            position: 'top-end',
+                            title: 'Update Successful!',
+                            text: data.message + ' ' + (data.details || ''),
                             icon: 'success',
-                            title: data.message,
-                            showConfirmButton: false,
-                            timer: 3000
+                            confirmButtonText: 'Great!'
                         });
+                        if (data.details) {
+                            outputArea.style.display = 'block';
+                            terminal.innerText = data.details;
+                        }
                     }
-                    
-                    if (data.details) {
-                        outputArea.style.display = 'block';
-                        terminal.innerText = data.details;
-                    }
-
-                } else if (data.status === 'info') {
-                    Swal.fire({
-                        title: 'Notice',
-                        text: data.message,
-                        icon: 'info',
-                        footer: '<em>Tip: Use "git clone" on this PC instead of a ZIP folder.</em>'
-                    });
                 } else {
                     Swal.fire({
                         title: 'Update Failed',
                         text: data.message,
                         icon: 'error',
-                        footer: data.details ? '<pre class="small text-start">' + data.details + '</pre>' : ''
+                        footer: data.details ? '<pre class="small">' + data.details + '</pre>' : ''
                     });
                 }
             } catch (error) {
-                Swal.fire({ title: 'System Error', text: 'Network request failed: ' + error.message, icon: 'error' });
+                console.error('Update Request Error:', error);
+                Swal.fire({ 
+                    title: 'System Error', 
+                    text: 'The check could not be completed: ' + error.message, 
+                    icon: 'error' 
+                });
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalContent;

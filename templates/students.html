@@ -101,7 +101,8 @@
                         <td style="display: table-cell !important; overflow: hidden;">
                             <div class="badge bg-light text-dark fw-normal border text-start p-1" 
                                  style="width: 100%; white-space: normal; display: block !important; font-size: 0.65rem; border-radius: 4px;">
-                                {{ student.programme or 'General' }}
+                                <div class="fw-bold">{{ student.programme or 'General' }}</div>
+                                <div class="text-muted" style="font-size: 0.6rem;">{{ student.department or 'N/A' }}</div>
                             </div>
                         </td>
                         <td>

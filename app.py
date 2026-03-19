@@ -591,7 +591,8 @@ def cloud_proxy_stats():
 @app.route('/api/admin/check_update_status')
 @login_required
 def check_update_status():
-    if session.get('role') not in ['Admin', 'Counsellor', 'Counselor', 'Secretary']:
+    # Allow all staff roles (and unassigned local nodes) to see update alerts
+    if session.get('role') not in ['Admin', 'Counsellor', 'Counselor', 'Secretary', 'Unassigned']:
         return jsonify({'update_available': False})
         
     import os
@@ -631,7 +632,7 @@ def check_update_status():
 @app.route('/api/admin/update_system', methods=['POST'])
 @login_required
 def update_system():
-    if session.get('role') not in ['Admin', 'Counsellor', 'Counselor', 'Secretary']:
+    if session.get('role') not in ['Admin', 'Counsellor', 'Counselor', 'Secretary', 'Unassigned']:
         return jsonify({'status': 'error', 'message': 'Unauthorized access'}), 403
         
     import os
@@ -648,12 +649,25 @@ def update_system():
     LOCAL_SHA_FILE = 'current_sha.txt'
     
     try:
-        # 1. Fetch the latest SHA first to save it later
+        # 1. Check current local SHA
+        curr_sha = "unknown"
+        if os.path.exists(LOCAL_SHA_FILE):
+            with open(LOCAL_SHA_FILE, 'r') as f:
+                curr_sha = f.read().strip()
+
+        # 2. Fetch the latest SHA first to see if we even need an update
         headers = {'User-Agent': 'Aamusted-Counselling-Portal-Update-Engine'}
         api_resp = requests.get(GITHUB_API_URL, headers=headers, timeout=10)
         latest_sha = api_resp.json().get('sha', 'unknown') if api_resp.status_code == 200 else 'unknown'
+        
+        if latest_sha != 'unknown' and latest_sha == curr_sha:
+            return jsonify({
+                'status': 'success', 
+                'message': 'System is already up to date!',
+                'already_latest': True
+            })
             
-        # 2. Download the Lite ZIP (Only 5MB vs 500MB Repo)
+        # 3. Download the Lite ZIP (Only 5MB vs 500MB Repo)
         print(f"[UPDATE] Downloading Lite Archive for SHA {latest_sha[:8]}...")
         resp = requests.get(GITHUB_ZIP_URL, timeout=30)
         if resp.status_code != 200:
@@ -2585,16 +2599,26 @@ def import_students():
                 stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
                 csv_input = csv.DictReader(stream)
                 for row in csv_input:
-                    # Clean and validate row data
-                    name = row.get('Name', row.get('name', '')).strip()
-                    index_number = row.get('Index Number', row.get('index_number', '')).strip()
-                    department = row.get('Department', row.get('department', '')).strip()
-                    programme = row.get('Programme', row.get('programme', '')).strip()
+                    # Robust header helper for DictReader
+                    def get_csv_val(possible_keys):
+                        if isinstance(possible_keys, str):
+                            possible_keys = [possible_keys]
+                        for pk in possible_keys:
+                            # Try exact, lowercase, and title case
+                            for variant in [pk, pk.lower(), pk.capitalize(), pk.upper(), pk.title()]:
+                                val = row.get(variant)
+                                if val is not None:
+                                    return str(val).strip()
+                        return ''
+
+                    name = get_csv_val(['Name', 'Student Name', 'Full Name', 'Client Name', 'student_name'])
+                    index_number = get_csv_val(['Index Number', 'Index_Number', 'Index No', 'IndexNo', 'Student ID', 'ID'])
+                    department = get_csv_val(['Department', 'Dept', 'Department Name'])
+                    programme = get_csv_val(['Programme', 'Program', 'Course', 'Study Programme'])
                     
                     if not name or not index_number:
                         continue
                         
-                    # Generate case number
                     case_number = generate_case_number(conn, name)
                     
                     conn.execute('''
@@ -2603,12 +2627,12 @@ def import_students():
                     ''', (
                         name,
                         case_number,
-                        row.get('Age', row.get('age')),
-                        row.get('Gender', row.get('gender')),
-                        row.get('Contact', row.get('contact', row.get('Phone', ''))),
+                        get_csv_val(['Age', 'Student Age']),
+                        get_csv_val(['Gender', 'Sex']),
+                        get_csv_val(['Contact', 'Phone', 'Phone Number', 'Mobile']),
                         index_number,
                         department,
-                        row.get('Faculty', row.get('faculty')),
+                        get_csv_val(['Faculty', 'School']),
                         programme
                     ))
                     import_count += 1
@@ -2624,14 +2648,19 @@ def import_students():
                 header_map = {str(h).strip().lower(): i for i, h in enumerate(headers) if h}
                 
                 for row in sheet.iter_rows(min_row=2, values_only=True):
-                    def get_val(key):
-                        idx = header_map.get(key.lower())
-                        return str(row[idx]).strip() if idx is not None and row[idx] is not None else ''
+                    def get_val(possible_keys):
+                        if isinstance(possible_keys, str):
+                            possible_keys = [possible_keys]
+                        for pk in possible_keys:
+                            idx = header_map.get(pk.lower())
+                            if idx is not None and idx < len(row) and row[idx] is not None:
+                                return str(row[idx]).strip()
+                        return ''
 
-                    name = get_val('name') or get_val('Student Name')
-                    index_number = get_val('index number') or get_val('index_number')
-                    department = get_val('department')
-                    programme = get_val('programme')
+                    name = get_val(['name', 'student name', 'full name', 'client name', 'student_name'])
+                    index_number = get_val(['index number', 'index_number', 'index no', 'indexno', 'student id', 'id'])
+                    department = get_val(['department', 'dept', 'department name'])
+                    programme = get_val(['programme', 'program', 'course', 'study programme'])
                     
                     if not name or not index_number:
                         continue
@@ -2644,12 +2673,12 @@ def import_students():
                     ''', (
                         name,
                         case_number,
-                        get_val('age'),
-                        get_val('gender'),
-                        get_val('contact') or get_val('phone'),
+                        get_val(['age', 'student age']),
+                        get_val(['gender', 'sex']),
+                        get_val(['contact', 'phone', 'phone number', 'mobile']),
                         index_number,
                         department,
-                        get_val('faculty'),
+                        get_val(['faculty', 'school']),
                         programme
                     ))
                     import_count += 1
