@@ -61,15 +61,15 @@
 <div class="card card-glass border-0 shadow-lg">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle table-borderless mb-0" id="studentsTable">
+            <table class="table table-hover align-middle table-borderless mb-0" id="studentsTable" style="table-layout: fixed; width: 100%;">
                 <thead class="bg-light bg-opacity-50 border-bottom">
                     <tr class="text-uppercase text-muted small">
-                        <th class="ps-4">Case / Student</th>
-                        <th>ID</th>
-                        <th>Contact</th>
-                        <th>Program</th>
-                        <th>Status</th>
-                        <th class="text-end pe-4">Actions</th>
+                        <th class="ps-4" style="width: 140px; overflow: hidden;">Case / Student</th>
+                        <th style="width: 110px;">Prof. ID</th>
+                        <th style="width: 150px;">Contact Info</th>
+                        <th style="display: table-cell !important;">Prog / Dept</th>
+                        <th style="width: 55px; display: table-cell !important;">Sess.</th>
+                        <th class="text-end pe-4" style="width: 280px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -98,10 +98,11 @@
                             <div class="small text-muted"><i class="bi bi-envelope me-1"></i>{{ student.email }}</div>
                             {% endif %}
                         </td>
-                        <td>
-                            <span class="badge bg-light text-dark fw-normal border text-wrap text-start" style="max-width: 220px; line-height: 1.4;">
+                        <td style="display: table-cell !important; overflow: hidden;">
+                            <div class="badge bg-light text-dark fw-normal border text-start p-1" 
+                                 style="width: 100%; white-space: normal; display: block !important; font-size: 0.65rem; border-radius: 4px;">
                                 {{ student.programme or 'General' }}
-                            </span>
+                            </div>
                         </td>
                         <td>
                             {% if student.session_count > 0 %}
@@ -112,38 +113,35 @@
                             {% endif %}
                         </td>
                         <td class="text-end pe-4">
-                            <div class="d-flex align-items-center justify-content-end">
+                            <div class="d-flex align-items-center justify-content-end gap-1">
+                                <a href="{{ url_for('student_profile', id=student.id) }}" 
+                                   class="btn btn-sm btn-outline-primary rounded-pill px-2 py-1 shadow-sm border-2" 
+                                   style="font-size: 0.65rem;">
+                                    <i class="bi bi-person-lines-fill me-1"></i> Profile
+                                </a>
                                 
-                                <div class="d-flex gap-3 justify-content-end align-items-center">
-                                    <a href="{{ url_for('student_profile', id=student.id) }}" 
-                                       class="btn btn-sm btn-outline-primary rounded-pill px-3 d-flex align-items-center border-2 btn-hover-lift" 
-                                       style="font-size: 0.78rem;">
-                                        <i class="bi bi-person-lines-fill me-2"></i> Profile
-                                    </a>
-                                    
-                                    <button type="button" 
-                                            onclick="handleStartSession({{ student.id }}, '{{ student.name|replace("'", "\\'") }}')"
-                                            class="btn btn-sm btn-success rounded-pill px-3 d-flex align-items-center fw-bold shadow-sm btn-hover-lift" 
-                                            style="font-size: 0.78rem; background: #2e7d32; border: none;">
-                                        <i class="bi bi-play-circle-fill me-2"></i> Start Session
+                                <button type="button" 
+                                        onclick="handleStartSession({{ student.id }}, '{{ student.name|replace("'", "\\'") }}')"
+                                        class="btn btn-sm btn-success rounded-pill px-2 py-1 fw-bold shadow-sm" 
+                                        style="font-size: 0.65rem; background: #2e7d32; border: none;">
+                                    <i class="bi bi-play-circle-fill me-1"></i> Start
+                                </button>
+
+                                <a href="/add_student?edit={{ student.id }}" 
+                                   class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1" 
+                                   style="font-size: 0.65rem;">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+
+                                <form action="/delete_student/{{ student.id }}" method="POST"
+                                      onsubmit="return GCC.confirmForm(event, 'Are you sure?', 'warning', 'Delete');"
+                                      class="d-inline">
+                                    <button type="submit" 
+                                            class="btn btn-link btn-sm text-danger p-0" 
+                                            style="font-size: 0.65rem;">
+                                        <i class="bi bi-trash"></i>
                                     </button>
-
-                                    <a href="/add_student?edit={{ student.id }}" 
-                                       class="btn btn-sm btn-outline-secondary rounded-pill px-3 d-flex align-items-center" 
-                                       style="font-size: 0.78rem;">
-                                        <i class="bi bi-pencil-square me-2"></i> Edit
-                                    </a>
-
-                                    <form action="/delete_student/{{ student.id }}" method="POST"
-                                          onsubmit="return GCC.confirmForm(event, 'Are you sure you want to delete the record for {{ student.name }}? This action cannot be undone.', 'warning', 'Yes, Delete');"
-                                          class="d-inline">
-                                        <button type="submit" 
-                                                class="btn btn-sm btn-link text-danger text-decoration-none px-2 d-flex align-items-center" 
-                                                style="font-size: 0.78rem;">
-                                            <i class="bi bi-trash me-1"></i> Delete
-                                        </button>
-                                    </form>
-                                </div>
+                                </form>
                             </div>
                         </td>
                     </tr>
@@ -228,20 +226,25 @@
                 
                 if (data.status === 'found') {
                     if (data.is_today) {
-                        // Regular flow for today
+                        // Regular flow for today - now with overdue checking
+                        const overdueClass = data.is_overdue ? 'bg-danger bg-opacity-10' : 'bg-light';
+                        const timeClass = data.is_overdue ? 'text-danger' : 'text-primary';
+                        const icon = data.is_overdue ? '<i class="bi bi-exclamation-triangle-fill me-1"></i>' : '';
+                        const statusTag = data.is_overdue ? '<span class="badge bg-danger rounded-pill ms-2" style="font-size:0.65rem;">Late</span>' : '';
+                        
                         Swal.fire({
-                            title: 'Appointment Found',
-                            html: `<div class="p-3 bg-light rounded-3 mb-3">
-                                    <h6 class="fw-bold text-dark mb-1">${studentName}</h6>
-                                    <span class="text-primary fw-bold" style="font-size: 1.1rem;">Today | ${data.time}</span>
+                            title: data.is_overdue ? 'Overdue Appointment' : 'Appointment Found',
+                            html: `<div class="p-3 ${overdueClass} rounded-3 mb-3 border ${data.is_overdue ? 'border-danger border-opacity-25' : 'border-light'}">
+                                    <h6 class="fw-bold text-dark mb-1">${studentName} ${statusTag}</h6>
+                                    <span class="${timeClass} fw-bold" style="font-size: 1.1rem;">${icon}Today | ${data.time}</span>
                                    </div>
-                                   Proceed to clinical session log?`,
-                            icon: 'success',
+                                   ${data.is_overdue ? 'This appointment was scheduled for earlier today. Proceed to start session?' : 'Proceed to clinical session log?'}`,
+                            icon: data.is_overdue ? 'warning' : 'success',
                             showCancelButton: true,
                             confirmButtonText: 'Yes, Start Session',
                             cancelButtonText: 'Cancel',
                             reverseButtons: true,
-                            customClass: { popup: 'rounded-4' }
+                            customClass: { popup: 'rounded-4 shadow-lg border-0' }
                         }).then((result) => {
                             if (result.isConfirmed) {
                                 window.location.href = `/create_session?appointment_id=${data.appointment_id || data.id}`;

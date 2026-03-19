@@ -1,0 +1,10 @@
+{
+    "node_id": "USTED_481A07CC",
+    "node_role": "Unassigned",
+    "peer_ip": "",
+    "cloud_api_url": "https://your-bridge-app.vercel.app/sync",
+    "cloud_api_key": "sb_bridge_AnEpYo_2026",
+    "sync_enabled": true,
+    "sync_interval_seconds": 60,
+    "last_cloud_sync": "1970-01-01 00:00:00"
+}

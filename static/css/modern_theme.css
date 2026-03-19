@@ -220,6 +220,16 @@ body {
     box-shadow: -5px 0 10px rgba(0,0,0,0.03);
 }
 
+/* Fix for dropdown menus in sticky columns being overlapped by other rows */
+.table tr td:last-child:hover,
+.table tr td:last-child:focus-within {
+    z-index: 1050; /* Bring the current row's actions to front when interacting */
+}
+
+.dropdown-menu {
+    z-index: 1060 !important;
+}
+
 [data-theme="midnight"] .table tr th:last-child,
 [data-theme="midnight"] .table tr td:last-child {
     background: #1e293b !important;

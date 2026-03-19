@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ settings.system_name or 'USTED Counselling' }} | Clinical Co-pilot</title>
+    <title>{{ settings.system_name or 'USTED Counselling System' }} | Clinical Co-pilot</title>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,6 +20,11 @@
 
     <!-- Custom Modern Theme -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modern_theme.css') }}?v=2.1">
+
+    <!-- PWA Manifest & Icons -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#0d6efd">
+    <link rel="apple-touch-icon" href="/static/icon.png">
 
     <style>
         /* Sidebar active state helper */
@@ -59,8 +64,8 @@
                 <div class="bg-gradient p-2 rounded-3 me-2" style="background: maroon; color: white;">
                     <i class="bi bi-heart-pulse-fill fs-4"></i>
                 </div>
-                <span class="fs-4 fw-bold sidebar-header-text" style="letter-spacing: -0.02em; color: var(--brand-primary);">USTED SYSTEM</span>
                 {% endif %}
+                <span class="fs-4 fw-bold sidebar-header-text" style="letter-spacing: -0.02em; color: var(--brand-primary);">{{ settings.get('system_name', 'USTED SYSTEM') }}</span>
             </a>
         </div>
 
@@ -70,6 +75,13 @@
                     class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" title="Dashboard"
                     data-bs-toggle="tooltip" data-bs-placement="right">
                     <i class="bi bi-grid-1x2 me-2"></i> <span>Dashboard</span>
+                </a>
+            </li>
+
+            <!-- PWA Install Button -->
+            <li class="nav-item" id="installContainer" style="display: none;">
+                <a href="#" class="nav-link" id="installBtn" style="background: var(--brand-primary); color: white !important;">
+                    <i class="bi bi-download me-2"></i> <span>Install USTED App</span>
                 </a>
             </li>
 
@@ -207,6 +219,13 @@
 
             {% if session.get('role') == 'Admin' %}
             <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-1 nav-category-header" style="font-size:0.65rem;">Governance</li>
+            <li>
+                <a href="{{ url_for('admin_cloud_sync') }}"
+                    class="nav-link {% if 'cloud_sync' in request.endpoint %}active{% endif %}" title="Cloud Lookout"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-cloud-check me-2 text-primary"></i> <span>Cloud Lookout</span>
+                </a>
+            </li>
             <li>
                 <a href="{{ url_for('admin_users') }}"
                     class="nav-link {% if 'users' in request.endpoint %}active{% endif %}" title="Access Control"
@@ -371,6 +390,15 @@
                         {% endif %}
                     </ul>
                 </div>
+
+                <!-- Update Notification Badge (All Staff) -->
+                {% if session.get('role') in ['Admin', 'Counsellor', 'Counselor', 'Secretary'] %}
+                <div id="systemUpdateBadge" style="display:none;">
+                    <a href="{{ url_for('admin_settings') }}" class="btn btn-warning btn-sm rounded-pill px-3 fw-bold shadow-sm animate-pulse-warning">
+                        <i class="bi bi-cloud-arrow-down-fill me-1"></i> Update Available
+                    </a>
+                </div>
+                {% endif %}
 
                 <a href="{{ url_for('logout') }}" class="btn btn-outline-danger border-0 btn-sm rounded-pill px-3">
                     <i class="bi bi-power me-1"></i> Logout
@@ -583,17 +611,23 @@
                 .then(r => r.json())
                 .then(data => {
                     if (data.new_booking) {
-                        playNotificationSound();
-                        Swal.fire({
-                            toast: true,
-                            position: 'top-end',
-                            icon: 'info',
-                            title: 'New Online Booking Received!',
-                            text: 'A new client has booked via the portal.',
-                            showConfirmButton: false,
-                            timer: 10000,
-                            timerProgressBar: true
-                        });
+                        // Rate control: Don't show the same alert more than once every 30s
+                        const now = Date.now();
+                        const lastAlert = sessionStorage.getItem('last_booking_alert_time');
+                        if (!lastAlert || (now - lastAlert > 30000)) {
+                            sessionStorage.setItem('last_booking_alert_time', now);
+                            playNotificationSound();
+                            Swal.fire({
+                                toast: true,
+                                position: 'top-end',
+                                icon: 'info',
+                                title: 'New Online Booking Received!',
+                                text: 'A new client has booked via the portal.',
+                                showConfirmButton: false,
+                                timer: 10000,
+                                timerProgressBar: true
+                            });
+                        }
                         
                         // Silent Refresh of the intake list if on dashboard
                         if (typeof refreshIntakeList === 'function') {
@@ -602,7 +636,55 @@
                     }
                 })
                 .catch(e => console.error('Alert sync error:', e));
-        }, 5000); // Check every 5 seconds for instant notification
+        }, 2000); // Check every 2 seconds for instant notification
+
+        // Periodic Update Check (Slow - every 30 mins, or on page load)
+        function checkSystemUpdates() {
+            {% if session.get('role') == 'Admin' %}
+            fetch('/api/admin/check_update_status')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.update_available) {
+                        const badge = document.getElementById('systemUpdateBadge');
+                        if (badge) badge.style.display = 'block';
+                    }
+                })
+                .catch(e => console.error('Update check error:', e));
+            {% endif %}
+        }
+        checkSystemUpdates(); 
+        setInterval(checkSystemUpdates, 1800000); // Check once every 30 mins
+
+        // --- PWA Registration & Install Support ---
+        let deferredPrompt;
+        const installContainer = document.getElementById('installContainer');
+        const installBtn = document.getElementById('installBtn');
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/service-worker.js')
+                    .then(reg => console.log('SW Registered!', reg))
+                    .catch(err => console.log('SW Fail:', err));
+            });
+        }
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installContainer.style.display = 'block';
+        });
+
+        installBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    installContainer.style.display = 'none';
+                }
+                deferredPrompt = null;
+            }
+        });
     </script>
     <audio id="notificationSound" src="/assets/ringtone-you-would-be-glad-to-know.mp3" preload="auto"></audio>
     {% block scripts %}{% endblock %}

@@ -1,5 +1,12 @@
+import os, sys
 import threading
 import time
+
+# Ensure core directory is in the path for imports
+base_dir = os.path.dirname(os.path.abspath(__file__))
+core_dir = os.path.join(base_dir, 'core')
+if os.path.exists(core_dir) and core_dir not in sys.path:
+    sys.path.insert(0, core_dir)
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, Response, send_file, make_response
 from functools import wraps
 import sqlite3
@@ -7,14 +14,22 @@ import csv
 import io
 import json
 from datetime import datetime, timedelta
-import os
-import sys
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
-from auto_report_writer import scheduler, toggle_scheduler, manual_generate_report
+try:
+    import auto_report_writer
+    from auto_report_writer import scheduler, toggle_scheduler, manual_generate_report
+    REPORTER_ENABLED = True
+except ImportError:
+    REPORTER_ENABLED = False
+    scheduler = None
+    def toggle_scheduler(enable): pass
+    def manual_generate_report(): print("Report generator disabled.")
+
 import uuid
-import node_config  # Import the new node config utility
-from sync_engine import sync_bp, sync_manager, trigger_sync_immediate  # Import sync engine
+import node_config 
+import sync_engine
+from sync_engine import sync_bp, sync_manager, trigger_sync_immediate
 
 
 # Initialize Node Config on Startup
@@ -30,7 +45,65 @@ app.register_blueprint(sync_bp)
 sync_manager.start()
 
 
+# ==========================================
+# DATE/TIME UTILS
+# ==========================================
+def clean_date_string(date_val):
+    """
+    Cleans a date value that might be an ISO string, a partial string, 
+    or a full timestamp like 'Thu, 19 Mar 2026 00:00:00 GMT'.
+    Returns a standard YYYY-MM-DD string or original if unparseable.
+    """
+    if not date_val:
+        return datetime.now().strftime('%Y-%m-%d')
+    
+    raw_str = str(date_val).strip()
+    
+    # 1. Try ISO pattern YYYY-MM-DD (e.g., 2026-03-19)
+    import re
+    iso_match = re.search(r'(\d{4}-\d{2}-\d{2})', raw_str)
+    if iso_match:
+        return iso_match.group(1)
+        
+    # 2. Try parsing "Thu, 19 Mar 2026..." (Supabase/Bridge format)
+    try:
+        clean_str = raw_str.replace(' GMT', '').replace(',', '')
+        if ' ' in clean_str:
+            parts = clean_str.split(' ')
+            # Example: ['Thu', '19', 'Mar', '2026', ...]
+            if len(parts) >= 4:
+                day_str = f"{parts[1]} {parts[2]} {parts[3]}"
+                d_obj = datetime.strptime(day_str, '%d %b %Y')
+                return d_obj.strftime('%Y-%m-%d')
+    except Exception:
+        pass
+        
+    return raw_str
 
+def clean_time_string(time_val):
+    """Cleans time to standard display format (e.g., 2:00 PM)."""
+    if not time_val:
+        return "09:00 AM"
+    
+    raw_str = str(time_val).strip().upper()
+    try:
+        if 'PM' in raw_str or 'AM' in raw_str:
+            # Handle "2:00PM" or "2:00 P.M."
+            t_str = raw_str.replace('.', '')
+            if ' ' not in t_str:
+                t_str = t_str.replace('AM', ' AM').replace('PM', ' PM')
+            t_obj = datetime.strptime(t_str, '%I:%M %p')
+            return t_obj.strftime('%I:%M %p')
+        else:
+            # Handle 24h: "14:22" or "14:22:00"
+            parts = raw_str.split(':')
+            if len(parts) >= 2:
+                t_obj = datetime.strptime(f"{parts[0]}:{parts[1]}", '%H:%M')
+                return t_obj.strftime('%I:%M %p')
+    except Exception:
+        pass
+    
+    return raw_str
 
 app.secret_key = 'super_secret_key_for_dev_only'  # Change for production
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -75,8 +148,11 @@ def ensure_database_initialized():
         db_path = os.path.join(base_path, 'counseling.db')
 
         # Required tables for the application
-        required_tables = ['Appointment', 'Student',
-                           'Counsellor', 'session', 'app_settings', 'Referral']
+        required_tables = [
+            'Appointment', 'Student', 'Counsellor', 'session', 'app_settings', 
+            'Referral', 'reports', 'BookingRequest', 'users', 'audit_logs', 
+            'Notification', 'SMSQueue'
+        ]
 
         # Check if database exists and has all required tables
         needs_init = False
@@ -186,8 +262,7 @@ def inject_now():
             _conn = get_db_connection()
             count = _conn.execute(
                 """SELECT COUNT(*) FROM BookingRequest
-                   WHERE status IN ('Accepted', 'Pending')
-                   AND COALESCE(accepted_at, created_at) >= datetime('now', '-24 hours')"""
+                   WHERE status = 'Pending'"""
             ).fetchone()[0]
             _conn.close()
             ctx['latest_booking_count'] = count
@@ -209,8 +284,12 @@ def nl2br(value):
 
 @app.route('/assets/<path:filename>')
 def serve_assets(filename):
-    """Serve files from the root assets directory."""
-    return send_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', filename))
+    """Serve files from the root assets directory safely."""
+    asset_path = os.path.join(os.path.dirname(
+        os.path.abspath(__file__)), 'assets', filename)
+    if not os.path.exists(asset_path):
+        return "Asset not found", 404
+    return send_file(asset_path)
 
 # ---------- Helper Functions ----------
 
@@ -428,17 +507,242 @@ def get_theme():
         return jsonify({'theme': 'default'})
 
 
+@app.route('/api/sync/clear_alerts')
+@login_required
+def clear_alerts():
+    try:
+        conn = get_db_connection()
+        conn.execute(
+            "UPDATE app_settings SET setting_value = 'false' WHERE setting_name = 'pending_booking_alert'"
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/sync/check_alerts')
+@login_required
+def check_alerts():
+    try:
+        conn = get_db_connection()
+        res = conn.execute(
+            "SELECT setting_value FROM app_settings WHERE setting_name = 'pending_booking_alert'"
+        ).fetchone()
+        conn.close()
+        return jsonify({"pending": res[0] == 'true' if res else False})
+    except:
+        return jsonify({"pending": False})
+
+
+@app.route('/admin/cloud_sync')
+@login_required
+def admin_cloud_sync():
+    if session.get('role') != 'Admin':
+        flash('Unauthorized access', 'error')
+        return redirect(url_for('dashboard'))
+        
+    config = node_config.load_config()
+    
+    # Get local record counts for comparison
+    conn = get_db_connection()
+    local_counts = {}
+    from sync_engine import SYNC_TABLES
+    for table in SYNC_TABLES:
+        try:
+            row = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
+            local_counts[table] = row[0] if row else 0
+        except:
+            local_counts[table] = 0
+    conn.close()
+    
+    return render_template('admin_cloud_sync.html', 
+                          config=config, 
+                          local_counts=local_counts,
+                          sync_tables=SYNC_TABLES)
+
+@app.route('/api/admin/cloud_proxy/stats')
+@login_required
+def cloud_proxy_stats():
+    if session.get('role') != 'Admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    config = node_config.load_config()
+    cloud_url = config.get('cloud_api_url')
+    api_key = config.get('cloud_api_key')
+    
+    if not cloud_url:
+        return jsonify({'error': 'Cloud URL not configured'}), 400
+        
+    try:
+        import requests
+        resp = requests.get(
+            f"{cloud_url}/stats", 
+            headers={"X-API-KEY": api_key},
+            timeout=10
+        )
+        if resp.status_code == 200:
+            return jsonify(resp.json())
+        else:
+            return jsonify({'error': f'Cloud Bridge returned {resp.status_code}', 'details': resp.text}), resp.status_code
+    except Exception as e:
+        return jsonify({'error': f'Network error: {str(e)}'}), 500
+
+@app.route('/api/admin/check_update_status')
+@login_required
+def check_update_status():
+    if session.get('role') not in ['Admin', 'Counsellor', 'Counselor', 'Secretary']:
+        return jsonify({'update_available': False})
+        
+    import os
+    import requests
+    
+    try:
+        REPO_OWNER = "kingenious0"
+        REPO_NAME = "Aamusted-Counselling"
+        LOCAL_SHA_FILE = 'current_sha.txt'
+        GITHUB_API_URL = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/commits/main"
+        
+        # 1. Get local SHA
+        curr_sha = "unknown"
+        if os.path.exists(LOCAL_SHA_FILE):
+            with open(LOCAL_SHA_FILE, 'r') as f:
+                curr_sha = f.read().strip()
+                
+        # 2. Ping GitHub API for latest commit SHA (Fully Automated)
+        headers = {'User-Agent': 'Aamusted-Counselling-Portal-Update-Engine'}
+        resp = requests.get(GITHUB_API_URL, headers=headers, timeout=5)
+        
+        if resp.status_code == 200:
+            remote_sha = resp.json().get('sha', '')
+            # If SHA is different, an update is pushed!
+            if remote_sha and remote_sha != curr_sha:
+                return jsonify({
+                    'update_available': True, 
+                    'remote_sha': remote_sha[:8], 
+                    'current_sha': curr_sha[:8]
+                })
+                
+        return jsonify({'update_available': False})
+    except Exception as e:
+        print(f"[UPDATE CHECK ERROR] {e}")
+        return jsonify({'update_available': False})
+
+@app.route('/api/admin/update_system', methods=['POST'])
+@login_required
+def update_system():
+    if session.get('role') not in ['Admin', 'Counsellor', 'Counselor', 'Secretary']:
+        return jsonify({'status': 'error', 'message': 'Unauthorized access'}), 403
+        
+    import os
+    import requests
+    import zipfile
+    import io
+    import shutil
+    
+    # Configuration
+    REPO_OWNER = "kingenious0"
+    REPO_NAME = "Aamusted-Counselling"
+    GITHUB_ZIP_URL = f"https://github.com/{REPO_OWNER}/{REPO_NAME}/archive/refs/heads/main.zip"
+    GITHUB_API_URL = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/commits/main"
+    LOCAL_SHA_FILE = 'current_sha.txt'
+    
+    try:
+        # 1. Fetch the latest SHA first to save it later
+        headers = {'User-Agent': 'Aamusted-Counselling-Portal-Update-Engine'}
+        api_resp = requests.get(GITHUB_API_URL, headers=headers, timeout=10)
+        latest_sha = api_resp.json().get('sha', 'unknown') if api_resp.status_code == 200 else 'unknown'
+            
+        # 2. Download the Lite ZIP (Only 5MB vs 500MB Repo)
+        print(f"[UPDATE] Downloading Lite Archive for SHA {latest_sha[:8]}...")
+        resp = requests.get(GITHUB_ZIP_URL, timeout=30)
+        if resp.status_code != 200:
+            return jsonify({'status': 'error', 'message': f'Could not download update file (HTTP {resp.status_code})'}), 500
+            
+        # 3. Extract and Replace (The Safe Way)
+        z = zipfile.ZipFile(io.BytesIO(resp.content))
+        extract_path = os.path.join(os.getcwd(), '_update_temp')
+        if os.path.exists(extract_path): shutil.rmtree(extract_path)
+        os.makedirs(extract_path)
+        
+        z.extractall(extract_path)
+        
+        # The zip usually extracts into a folder like 'Aamusted-Counselling-main'
+        root_inside_zip = os.listdir(extract_path)[0]
+        full_source_path = os.path.join(extract_path, root_inside_zip)
+        
+        # List of items to copy (exclude data and config)
+        items_to_copy = os.listdir(full_source_path)
+        protected_items = ['counseling.db', 'node_config.json', '.git', 'current_sha.txt']
+        
+        copied_count = 0
+        for item in items_to_copy:
+            if item in protected_items: continue
+            
+            src = os.path.join(full_source_path, item)
+            dst = os.path.join(os.getcwd(), item)
+            
+            if os.path.isdir(src):
+                if os.path.exists(dst): shutil.rmtree(dst)
+                shutil.copytree(src, dst)
+            else:
+                shutil.copy2(src, dst)
+            copied_count += 1
+            
+        # 4. Save the new SHA to finalize update
+        with open(LOCAL_SHA_FILE, 'w') as f:
+            f.write(latest_sha)
+            
+        # Clean up
+        try: shutil.rmtree(extract_path)
+        except: pass
+        
+        return jsonify({
+            'status': 'success', 
+            'message': 'System Updated Successfully!', 
+            'details': f'Local SHA is now {latest_sha[:8]}. Please restart the portal.',
+            'requires_restart': True
+        })
+            
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Update engine error: {str(e)}'}), 500
+
+@app.route('/api/admin/cloud_proxy/force_sync', methods=['POST'])
+@login_required
+def cloud_proxy_force_sync():
+    if session.get('role') != 'Admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    try:
+        # Trigger immediate sync
+        trigger_sync_immediate()
+        return jsonify({'status': 'success', 'message': 'Sync cycle started in background.'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/cloud_proxy/reset_and_pull', methods=['POST'])
+@login_required
+def reset_and_pull():
+    if session.get('role') != 'Admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    try:
+        config = node_config.load_config()
+        config['last_cloud_sync'] = '1970-01-01 00:00:00'
+        node_config.save_config(config)
+        trigger_sync_immediate()
+        return jsonify({'status': 'success', 'message': 'Sync markers reset. Full download started.'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/admin/sync/now')
 @login_required
 def manual_sync():
     """Manual trigger for sync"""
-    # Only Admin or authorized roles should trigger sync manually, but safe for now
-    result = trigger_sync()
-    if result.get('status') == 'success':
-        flash(f"Sync completed. {result.get('message', '')}", 'success')
-    else:
-        flash(f"Sync failed: {result.get('message')}", 'error')
-    return redirect(url_for('admin_settings'))
+    # Simply redirect to the new cloud management page or trigger
+    trigger_sync_immediate()
+    flash("Manual sync triggered in background.", 'success')
+    return redirect(url_for('admin_cloud_sync'))
 
 
 @app.context_processor
@@ -823,10 +1127,9 @@ def dashboard():
             # We filter out those with Appointments here so processed ones disappear from Dashboard
             latest_bookings = conn.execute('''
                 SELECT * FROM BookingRequest
-                WHERE status IN ('Accepted', 'Pending')
+                WHERE LOWER(status) = 'pending'
                 AND reference NOT IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)
-                AND COALESCE(accepted_at, created_at) >= datetime('now', '-24 hours')
-                ORDER BY COALESCE(accepted_at, created_at) DESC
+                ORDER BY created_at DESC
                 LIMIT 10
             ''').fetchall()
             # Add registry check for each booking to prevent duplicates as per spec
@@ -917,10 +1220,9 @@ def dashboard_intake_list():
         # Fetch latest pending portal bookings (same logic as main dashboard)
         rows = conn.execute('''
             SELECT * FROM BookingRequest
-            WHERE status IN ('Accepted', 'Pending')
+            WHERE status = 'Pending'
             AND reference NOT IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)
-            AND COALESCE(accepted_at, created_at) >= datetime('now', '-24 hours')
-            ORDER BY COALESCE(accepted_at, created_at) DESC
+            ORDER BY created_at DESC
             LIMIT 10
         ''').fetchall()
         
@@ -1690,6 +1992,11 @@ def sessions_list():
             sess_dict = dict(sess)
             # Add case number as professional ID
             sess_dict['professional_id'] = sess_dict.get('case_number') or 'N/A'
+            
+            # Clean display dates/times
+            sess_dict['date'] = clean_date_string(sess_dict.get('date'))
+            sess_dict['time'] = clean_time_string(sess_dict.get('time'))
+            
             sessions.append(sess_dict)
 
         # Create a simple pagination object to prevent template errors
@@ -1808,7 +2115,12 @@ def create_session():
                 WHERE a.status IN ('scheduled', 'Scheduled', 'In Session', 'Completed', 'completed', 'Sent to Counsellor')
                 ORDER BY a.date DESC, a.time DESC
             ''').fetchall()
-            
+            # Clean and format dates/times for the template
+            appointments = [dict(a) for a in appointments]
+            for a in appointments:
+                a['date'] = clean_date_string(a['date'])
+                a['time'] = clean_time_string(a['time'])
+                
             students = conn.execute('SELECT id, name, index_number, case_number FROM Student ORDER BY name').fetchall()
         except Exception as e:
             print(f"[CREATE_SESSION] Error getting data: {e}")
@@ -2217,18 +2529,17 @@ def students():
             student_dict['case_id'] = student_dict.get('case_number') or f"GCC-{datetime.now().year}-{student_dict.get('id', 0):04d}"
             
             # 2. Professional ID (NW-2026-####)
-            # Use stored global_id or generate on-the-fly for older records
-            if student_dict.get('global_id'):
-                student_dict['professional_id'] = student_dict['global_id']
-            else:
-                s_name = student_dict.get('name', 'User')
-                parts = [p.strip() for p in s_name.split() if p.strip()]
-                initials = "ST"
-                if len(parts) >= 2:
-                    initials = (parts[0][0] + parts[-1][0]).upper()
-                elif len(parts) == 1:
-                    initials = parts[0][:2].upper()
-                student_dict['professional_id'] = f"{initials}-{datetime.now().year}-{student_dict.get('id', 0):04d}"
+            # We use a derived initials-based ID for professional display
+            s_name = student_dict.get('name', 'User')
+            parts = [p.strip() for p in s_name.split() if p.strip()]
+            initials = "ST"
+            if len(parts) >= 2:
+                initials = (parts[0][0] + parts[-1][0]).upper()
+            elif len(parts) == 1:
+                initials = parts[0][:2].upper()
+            
+            # Use the consistent initials format as the primary display ID
+            student_dict['professional_id'] = f"{initials}-{datetime.now().year}-{student_dict.get('id', 0):04d}"
                 
             students.append(student_dict)
 
@@ -2607,46 +2918,95 @@ def export_students():
 @app.route('/api/check_appointment/<int:student_id>')
 @login_required
 def check_appointment(student_id):
+    """
+    Checks for any pending or scheduled appointments for a student.
+    Handles legacy, ISO, and Supabase timestamp string formats flawlessly.
+    """
     try:
         conn = get_db_connection()
-        today = datetime.now().strftime('%Y-%m-%d')
-        # Check for any scheduled or in-progress appointments (prioritizing today, then future)
-        appt = conn.execute('''
+        today_iso = datetime.now().strftime('%Y-%m-%d')
+        
+        # Check for any scheduled or in-progress appointments
+        appt_rows = conn.execute('''
             SELECT id, date, time FROM Appointment 
             WHERE student_id = ? 
-            AND status IN ('scheduled', 'Scheduled', 'Sent to Counsellor', 'In Session')
-            ORDER BY CASE WHEN date = ? THEN 0 ELSE 1 END, date ASC, time ASC
-            LIMIT 1
-        ''', (student_id, today)).fetchone()
+            AND (status IN ('scheduled', 'Scheduled', 'Sent to Counsellor', 'In Session'))
+        ''', (student_id,)).fetchall()
         conn.close()
         
-        if appt:
-            # Force clean ISO date (e.g., 2026-03-19) even if DB returns timestamp
-            raw_date = str(appt['date']).split(' ')[0][:10]
-            raw_time = str(appt['time']).split(' ')[0][:5]
+        if not appt_rows:
+            return jsonify({'status': 'not_found'})
+
+        best_appt = None
+        best_appt_date = None
+        is_today = False
+        
+        # Sort and pick: preferring Today first, then the nearest future
+        processed_appts = []
+        for row in appt_rows:
+            clean_d = clean_date_string(row['date'])
+            processed_appts.append({
+                'row': row,
+                'clean_date': clean_d,
+                'is_today': (clean_d == today_iso)
+            })
             
-            try:
-                # Professional date: Thu, Mar 19, 2026
-                d_obj = datetime.strptime(raw_date, '%Y-%m-%d')
-                fmt_date = d_obj.strftime('%a, %b %d, %Y')
-                
-                # Professional time: 4:50 AM
-                t_obj = datetime.strptime(raw_time, '%H:%M')
-                fmt_time = t_obj.strftime('%I:%M %p')
-            except Exception:
-                fmt_date = raw_date
-                fmt_time = raw_time
+        # Priority 1: Today
+        today_match = next((a for a in processed_appts if a['is_today']), None)
+        if today_match:
+            best_appt = today_match['row']
+            is_today = True
+            best_appt_date = today_match['clean_date']
+        else:
+            # Priority 2: Future (Nearest)
+            future_appts = [a for a in processed_appts if a['clean_date'] > today_iso]
+            future_appts.sort(key=lambda x: x['clean_date'])
+            if future_appts:
+                best_appt = future_appts[0]['row']
+                best_appt_date = future_appts[0]['clean_date']
+
+        if best_appt:
+            # Format nicely for the UI
+            d_obj = datetime.strptime(best_appt_date, '%Y-%m-%d')
+            fmt_date = d_obj.strftime('%a, %b %d, %Y')
+            fmt_time = clean_time_string(best_appt['time'])
+            
+            # Check if it's overdue (only for today's appointments)
+            is_overdue = False
+            if is_today:
+                try:
+                    # Parse simplified time for comparison
+                    raw_t = str(best_appt['time']).strip().upper()
+                    if 'PM' in raw_t or 'AM' in raw_t:
+                        t_parts = raw_t.replace('AM', '').replace('PM', '').strip().split(':')
+                        h = int(t_parts[0])
+                        m = int(t_parts[1]) if len(t_parts) > 1 else 0
+                        if 'PM' in raw_t and h < 12: h += 12
+                        if 'AM' in raw_t and h == 12: h = 0
+                    else:
+                        t_parts = raw_t.split(':')
+                        h = int(t_parts[0])
+                        m = int(t_parts[1]) if len(t_parts) > 1 else 0
+                    
+                    appt_time_today = datetime.now().replace(hour=h, minute=m, second=0, microsecond=0)
+                    # Overdue if it's been more than 30 minutes past the scheduled time
+                    if (datetime.now() - appt_time_today).total_seconds() > 1800:
+                        is_overdue = True
+                except:
+                    pass
 
             return jsonify({
                 'status': 'found',
-                'id': appt['id'], 
+                'id': best_appt['id'], 
                 'date': fmt_date,
                 'time': fmt_time,
-                'is_today': (raw_date == today)
+                'is_today': is_today,
+                'is_overdue': is_overdue
             })
-        else:
-            return jsonify({'status': 'not_found'})
+        
+        return jsonify({'status': 'not_found'})
     except Exception as e:
+        print(f"[CHECK_APPOINTMENT_ERROR] {e}")
         return jsonify({'status': 'error', 'message': str(e)})
 
 
@@ -3710,6 +4070,12 @@ def manage_appointments():
                 LEFT JOIN Counsellor c ON a.Counsellor_id = c.id
                 ORDER BY a.date DESC, a.time DESC
             ''').fetchall()
+            # Clean and format dates/times for the template
+            appointments = [dict(a) for a in appointments]
+            for a in appointments:
+                a['date'] = clean_date_string(a['date'])
+                a['time'] = clean_time_string(a['time'])
+                
         except Exception as e:
             print(f"[APPOINTMENTS] Error getting appointments: {e}")
             appointments = []
@@ -4014,7 +4380,7 @@ def get_session(session_id):
             SELECT sess.id, sess.session_type, sess.notes, sess.outcome, sess.created_at,
                    s.name as student_name, s.case_number, s.index_number, s.department, s.programme,
                    c.name as Counsellor_name,
-                   a.date as appt_date, a.time as appt_time, a.purpose
+                   a.date as appt_date, a.time as appt_time, a.status, a.purpose
             FROM session sess
             LEFT JOIN Appointment a ON sess.appointment_id = a.id
             LEFT JOIN Student s ON a.student_id = s.id
@@ -4026,25 +4392,28 @@ def get_session(session_id):
             conn.close()
             return jsonify({'error': 'Session not found'}), 404
 
-        # Convert to dict for JSON serialization
+        # Convert to dict for JSON serialization (Using correct aliased column names)
         session_dict = {
             'id': session_data['id'],
             'student_name': session_data['student_name'] or 'N/A',
             'Counsellor_name': session_data['Counsellor_name'] or 'N/A',
-            'date': session_data['date'] or 'N/A',
-            'time': session_data['time'] or 'N/A',
+            'date': clean_date_string(session_data['appt_date']),
+            'time': clean_time_string(session_data['appt_time']),
             'session_type': session_data['session_type'] or 'N/A',
-            'appointment_status': session_data['appointment_status'] or 'N/A',
+            'appointment_status': session_data['status'] if 'status' in session_data.keys() else 'N/A',
             'notes': session_data['notes'] or 'No notes provided',
             'outcome': session_data['outcome'] or 'N/A',
-            'created_at': session_data['created_at']
+            'created_at': clean_date_string(session_data['created_at'])
         }
 
         conn.close()
         return jsonify(session_dict)
     except Exception as e:
-        conn.close()
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        print(f"[GET_SESSION_ERROR] {e}\n{traceback.format_exc()}")
+        try: conn.close()
+        except: pass
+        return jsonify({'error': f"Internal Error: {str(e)}"}), 500
 
 
 @app.route('/print_session/<int:session_id>')
@@ -4801,23 +5170,26 @@ def register_portal_booking(booking_id):
             
             cursor = conn.cursor()
             cursor.execute(
-                '''INSERT INTO Student (name, case_number, global_id, index_number, department, programme, faculty, hall_of_residence, contact, email)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                '''INSERT INTO Student (name, case_number, global_id, index_number, department, programme, program, faculty, hall_of_residence, contact, email, age, gender)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                 (booking['full_name'], case_num, prof_id, booking['index_number'],
-                 booking['department'], booking['programme'], booking.get('faculty', 'General'), booking.get('hall_of_residence'), booking['phone'], booking.get('email'))
+                 booking['department'], booking['programme'], booking['programme'], 
+                 booking.get('faculty', 'General'), booking.get('hall_of_residence'), 
+                 booking['phone'], booking.get('email'), booking.get('age'), booking.get('gender'))
             )
             student_id = cursor.lastrowid
         else:
             student_id = student['id']
             # Optionally update student info if it changed? For now, just use existing ID
 
-        # 4. Create appointment
+        # 4. Create appointment (Cleaning date/time strings first)
+        clean_d = clean_date_string(booking['preferred_date'] or datetime.now().strftime('%Y-%m-%d'))
+        clean_t = clean_time_string(booking['preferred_time'] or '09:00')
+        
         conn.execute(
             '''INSERT INTO Appointment (student_id, Counsellor_id, date, time, purpose, status, booking_ref)
                VALUES (?, ?, ?, ?, ?, 'Scheduled', ?)''',
-            (student_id, counsellor_id,
-             booking['preferred_date'] or datetime.now().strftime('%Y-%m-%d'),
-             booking['preferred_time'] or '09:00',
+            (student_id, counsellor_id, clean_d, clean_t,
              f"[Portal] {booking['reason'] or 'Session request'}",
              booking['reference'])
         )
@@ -5094,15 +5466,15 @@ def admin_bookings():
         
         conn = get_db_connection()
         
-        # Base queries
+        # Base queries - Separating by status (Pending = Recent, everything else = History)
         if tab == 'recent':
-            # Strict 24h filter for recent tab
-            where_clause = "WHERE COALESCE(accepted_at, created_at) >= datetime('now', '-24 hours')"
-            order_clause = "ORDER BY COALESCE(accepted_at, created_at) DESC"
-        elif tab == 'history':
-            # Older than 24h
-            where_clause = "WHERE COALESCE(accepted_at, created_at) < datetime('now', '-24 hours')"
+            # Only Pending bookings (new requests)
+            where_clause = "WHERE status = 'Pending' AND reference NOT IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)"
             order_clause = "ORDER BY created_at DESC"
+        elif tab == 'history':
+            # Already Accepted, Declined or older processed ones
+            where_clause = "WHERE status != 'Pending' OR reference IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)"
+            order_clause = "ORDER BY COALESCE(accepted_at, created_at) DESC"
         else: # 'all'
             where_clause = ""
             order_clause = "ORDER BY created_at DESC"
@@ -5133,7 +5505,7 @@ def admin_bookings():
         
         # Also need count for the tabs
         recent_count = conn.execute(
-            "SELECT COUNT(*) FROM BookingRequest WHERE COALESCE(accepted_at, created_at) >= datetime('now', '-24 hours')"
+            "SELECT COUNT(*) FROM BookingRequest WHERE status = 'Pending' AND reference NOT IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)"
         ).fetchone()[0]
         
         conn.close()
@@ -5277,29 +5649,29 @@ if __name__ == '__main__':
         print(f"WARNING: Database initialization issue: {e}")
         print("Attempting to continue anyway...")
 
-    # Check if port 5000 is already in use and kill the process if needed
+    # Check if port 5050 is already in use and kill the process if needed
     import socket
     import subprocess
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        sock.bind(('127.0.0.1', 5000))
+        sock.bind(('127.0.0.1', 5050))
         sock.close()
     except OSError as e:
         # Port already in use
         if e.errno == 10048 or (hasattr(e, 'winerror') and e.winerror == 10048):
-            print("WARNING: Port 5000 is already in use!")
-            print("Attempting to kill the process using port 5000...")
+            print("WARNING: Port 5050 is already in use!")
+            print("Attempting to kill the process using port 5050...")
             try:
-                # Find process using port 5000
+                # Find process using port 5050
                 result = subprocess.run(
                     ['netstat', '-ano'], capture_output=True, text=True, timeout=5)
                 for line in result.stdout.split('\n'):
-                    if ':5000' in line and 'LISTENING' in line:
+                    if ':5050' in line and 'LISTENING' in line:
                         parts = line.split()
                         if len(parts) > 4:
                             pid = parts[-1]
                             print(
-                                f"Found process {pid} using port 5000. Killing it...")
+                                f"Found process {pid} using port 5050. Killing it...")
                             subprocess.run(['taskkill', '/F', '/PID', pid],
                                            capture_output=True, timeout=5)
                             import time
@@ -5307,11 +5679,11 @@ if __name__ == '__main__':
                 # Try binding again
                 try:
                     sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    sock2.bind(('127.0.0.1', 5000))
+                    sock2.bind(('127.0.0.1', 5050))
                     sock2.close()
-                    print("Port 5000 is now available!")
+                    print("Port 5050 is now available!")
                 except:
-                    print("ERROR: Could not free port 5000.")
+                    print("ERROR: Could not free port 5050.")
                     print(
                         "Please manually close other instances or restart your computer.")
                     is_exe = getattr(sys, 'frozen', False)
@@ -5328,9 +5700,9 @@ if __name__ == '__main__':
 
     # Log available routes for debugging
     print('=' * 60)
-    print('AAMUSTED Counselling Management System')
+    print('USTED Counselling Management System')
     print('=' * 60)
-    print('Starting server on http://127.0.0.1:5000')
+    print('Starting server on http://127.0.0.1:5050')
     print('Registered routes:')
     for rule in app.url_map.iter_rules():
         if rule.endpoint not in ['static']:
@@ -5347,15 +5719,15 @@ if __name__ == '__main__':
         time.sleep(2.5)  # Wait longer for server to fully start
         try:
             # Try to open browser
-            webbrowser.open('http://127.0.0.1:5000')
+            webbrowser.open('http://127.0.0.1:5050')
             print("Browser opened automatically!")
         except Exception as e:
             print(f"Could not open browser automatically: {e}")
-            print("Please manually open: http://localhost:5000")
+            print("Please manually open: http://localhost:5050")
 
     # Open browser automatically (only if not in debug mode or forced via Env)
     is_exe = getattr(sys, 'frozen', False) or os.environ.get(
-        'AAMUSTED_AUTO_OPEN_BROWSER') == '1'
+        'USTED_AUTO_OPEN_BROWSER') == '1'
     if is_exe:
         browser_thread = threading.Thread(target=open_browser)
         browser_thread.daemon = True
@@ -5363,15 +5735,15 @@ if __name__ == '__main__':
         print("Server starting... Browser will open automatically.")
     else:
         print("Starting in development mode...")
-        print("Local access: http://localhost:5000")
-        print("Network access: http://<your-ip-address>:5000")
+        print("Local access: http://localhost:5050")
+        print("Network access: http://<your-ip-address>:5050")
 
     print()
 
     try:
         # Run app (debug=False for production EXE)
         app.run(debug=not getattr(sys, 'frozen', False),
-                host='0.0.0.0', port=5000, use_reloader=False)
+                host='0.0.0.0', port=5050, use_reloader=False)
     except Exception as e:
         print(f"Error starting server: {e}")
         input("Press Enter to exit...")

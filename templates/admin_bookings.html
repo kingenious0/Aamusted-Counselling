@@ -42,7 +42,7 @@
 <ul class="nav nav-tabs border-0 mb-4 gap-1" id="bookingTabs">
     <li class="nav-item">
         <a class="nav-link {% if current_tab == 'recent' %}active{% endif %} fw-semibold px-4 rounded-pill" href="{{ url_for('admin_bookings', tab='recent') }}">
-            <i class="bi bi-bell me-1"></i> Recent (24 hrs)
+            <i class="bi bi-bell me-1"></i> New Requests
             {% if recent_count > 0 %}<span class="badge bg-warning text-dark ms-1">{{ recent_count }}</span>{% endif %}
         </a>
     </li>
@@ -105,17 +105,15 @@
                         </div>
                         <div class="col-md-3 text-md-end text-nowrap d-flex gap-2 justify-content-end align-items-center">
                             {% if booking.is_registered %}
-                            <div class="btn btn-sm btn-outline-success rounded-pill px-3 shadow-sm border-2 fw-bold disabled" 
-                                 style="font-size: 0.75rem; pointer-events: none; opacity: 1; border-color: rgba(0,128,0,0.4) !important; color: green !important;">
-                                <i class="bi bi-check-circle-fill me-1"></i>Accepted
-                            </div>
-                            {% else %}
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill me-2" style="font-size:0.6rem;">
+                                <i class="bi bi-person-check-fill me-1"></i>Registry Match
+                            </span>
+                            {% endif %}
                             <button onclick="handleRegisterPortalBooking(this, {{ booking.id }})" 
                                class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm border-0 fw-bold"
                                style="font-size: 0.75rem; background: var(--brand-primary, #1a6b3c);">
                                 <i class="bi bi-person-plus-fill me-1"></i>Register
                             </button>
-                            {% endif %}
                             
                             <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3"
                                     data-bs-toggle="modal" data-bs-target="#detailsModal{{ booking.id }}">
@@ -163,10 +161,12 @@
                             <td><span class="badge rounded-pill {% if booking.status == 'Accepted' %}bg-success{% else %}bg-secondary{% endif %}">{{ booking.status }}</span></td>
                             <td class="pe-4 text-end text-nowrap">
                                 {% if booking.is_registered %}
-                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2 border border-success border-opacity-25" style="font-size:0.65rem;">
-                                    <i class="bi bi-check-circle-fill me-1"></i>Accepted
+                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-1 border border-success border-opacity-25" style="font-size:0.6rem; margin-right:5px;">
+                                    <i class="bi bi-person-check me-1"></i>In Registry
                                 </span>
-                                {% else %}
+                                {% endif %}
+                                
+                                {% if booking.status == 'Pending' %}
                                 <button onclick="handleRegisterPortalBooking(this, {{ booking.id }})" 
                                         class="btn btn-sm btn-link text-primary p-1 me-2" title="Register Student">
                                     <i class="bi bi-person-plus-fill fs-5"></i>

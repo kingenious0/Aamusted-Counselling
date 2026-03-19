@@ -10,37 +10,30 @@ from apscheduler.schedulers.background import BackgroundScheduler
 # Ensure the reports directory exists (works in both dev and EXE mode)
 import sys
 def get_base_path():
-    """Get base path for data files"""
+    """Get root project directory path"""
     try:
         if getattr(sys, 'frozen', False):
             # Running as compiled EXE
             return os.path.dirname(sys.executable)
         else:
             # Running as script
-            return os.path.dirname(os.path.abspath(__file__))
+            # If this file is in 'core/', we need the parent directory
+            this_file_dir = os.path.dirname(os.path.abspath(__file__))
+            if os.path.basename(this_file_dir) == 'core':
+                return os.path.dirname(this_file_dir)
+            return this_file_dir
     except:
-        return os.path.dirname(os.path.abspath(__file__))
+        return os.getcwd()
 
 base_path = get_base_path()
-REPORTS_DIR = os.path.join(base_path, "app_data", "reports")
+REPORTS_DIR = os.path.join(base_path, "reports") # Main reports folder in root
 if not os.path.exists(REPORTS_DIR):
     os.makedirs(REPORTS_DIR)
 
 DATABASE = 'counseling.db'
 
 def get_db_connection():
-    """Get database connection - works in both dev and EXE mode"""
-    import sys
-    try:
-        if getattr(sys, 'frozen', False):
-            # Running as compiled EXE
-            base_path = os.path.dirname(sys.executable)
-        else:
-            # Running as script
-            base_path = os.path.dirname(os.path.abspath(__file__))
-    except:
-        base_path = os.path.dirname(os.path.abspath(__file__))
-    
+    """Get database connection to the main project database"""
     db_path = os.path.join(base_path, DATABASE)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -235,7 +228,7 @@ def generate_report(report_type='manual'):
     except:
         base_path = os.path.dirname(os.path.abspath(__file__))
     
-    logo_path = os.path.join(base_path, 'aamusted system_logo.png')
+    logo_path = os.path.join(base_path, 'assets', 'usted_system_logo.png')
     if os.path.exists(logo_path):
         try:
             document.add_picture(logo_path, width=Inches(4))
@@ -245,7 +238,7 @@ def generate_report(report_type='manual'):
             pass
     
     # Title
-    title = document.add_heading(f'AAMUSTED Guidance & Counselling Centre: {period_name} Activity Report', 0)
+    title = document.add_heading(f'USTED Guidance & Counselling Centre: {period_name} Activity Report', 0)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     for run in title.runs:
         run.font.size = Pt(20)
@@ -261,7 +254,7 @@ def generate_report(report_type='manual'):
         run.font.size = Pt(12)
     
     # Who the report is for
-    recipient_para = document.add_paragraph('Prepared for: AAMUSTED Administration')
+    recipient_para = document.add_paragraph('Prepared for: USTED Administration')
     recipient_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
     for run in recipient_para.runs:
         run.font.size = Pt(11)
@@ -324,7 +317,7 @@ def generate_report(report_type='manual'):
     # Background
     document.add_paragraph('1.3 Background', style='Heading 2')
     document.add_paragraph(
-        "The AAMUSTED Guidance & Counselling Centre provides essential mental health support and counselling services "
+        "The USTED Guidance & Counselling Centre provides essential mental health support and counselling services "
         "to students. This report documents the Centre's activities and examines its effectiveness in meeting student needs during "
         "the specified reporting period."
     )
@@ -523,14 +516,14 @@ def generate_report(report_type='manual'):
         completion_rate = (completed_appointments / total_appointments * 100) if total_appointments > 0 else 0
     
     conclusion_text = f"""
-    This report presents a comprehensive analysis of the AAMUSTED Guidance & Counselling Centre's activities 
+    This report presents a comprehensive analysis of the USTED Guidance & Counselling Centre's activities 
     from {start_date.strftime('%B %d, %Y')} to {end_date.strftime('%B %d, %Y')}. The data demonstrates 
     that the Centre {'is actively serving' if total_appointments > 0 else 'has the capacity to serve'} the student population 
     and {'maintains' if completion_rate >= 60 else 'is working to improve'} effective engagement with students seeking support. 
     
     The findings indicate a responsive Centre that is attuned to the evolving mental health needs of the student body. Implementation 
     of the recommended strategies will further enhance the Centre's effectiveness and ensure continued high-quality 
-    support for the AAMUSTED community.
+    support for the USTED community.
     """
     
     document.add_paragraph(conclusion_text.strip())
@@ -547,9 +540,9 @@ def generate_report(report_type='manual'):
     • Report Generated: {now.strftime('%B %d, %Y at %I:%M %p')}
     • Report Type: {report_type.title()}
     • Date Range Covered: {date_range_str}
-    • Data Source: AAMUSTED Counselling Management System Database
+    • Data Source: USTED Counselling Management System Database
     
-    This report was automatically generated by the AAMUSTED Counselling Management System. 
+    This report was automatically generated by the USTED Counselling Management System. 
     For questions or additional information, please contact the Guidance & Counselling Centre.
     """
     document.add_paragraph(appendix_text.strip())
@@ -559,12 +552,11 @@ def generate_report(report_type='manual'):
     report_path = os.path.join(REPORTS_DIR, report_filename)
     document.save(report_path)
     print(f"Report generated: {report_path}")
-
+    
     # === SAVE METADATA TO DATABASE ===
     conn = get_db_connection()
     cursor = conn.cursor()
-    report_title = f"AAMUSTED Guidance & Counselling Centre: {period_name} Activity Report"
-    
+    report_title = f"USTED Guidance & Counselling Centre: {period_name} Activity Report"
     cursor.execute(
         "INSERT INTO reports (title, date_generated, report_type, file_path, summary) VALUES (?, ?, ?, ?, ?)",
         (report_title, now.strftime('%Y-%m-%d %H:%M:%S'), report_type, report_path, executive_summary.strip())

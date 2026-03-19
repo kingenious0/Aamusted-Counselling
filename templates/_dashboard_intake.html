@@ -14,7 +14,7 @@
                         <i class="bi bi-patch-check-fill me-2" style="color: #800000;"></i>USTED Portal Intake
                         <span class="badge rounded-pill ms-2" style="background: #800000; font-size: 0.65rem;">{{ latest_bookings|length }} new</span>
                     </h5>
-                    <p class="text-muted small mb-0 mt-1">Directly synced from your booking portal — valid for 24 hours.</p>
+                    <p class="text-muted small mb-0 mt-1">Directly synced from your booking portal.</p>
                 </div>
                 <a href="{{ url_for('admin_bookings') }}" class="btn btn-outline-dark btn-sm rounded-pill px-3 fw-bold border-2" style="font-size: 0.75rem;">
                     Full Queue <i class="bi bi-chevron-right ms-1"></i>
@@ -70,17 +70,16 @@
                         <!-- Actions -->
                         <div class="d-flex flex-column gap-2 flex-shrink-0 align-items-end">
                             {% if bk.is_registered %}
-                            <div class="btn btn-sm btn-outline-success rounded-pill px-3 shadow-sm border-2 fw-bold disabled" 
-                                 style="font-size: 0.75rem; pointer-events: none; opacity: 1; border-color: rgba(0,128,0,0.4) !important; color: green !important;">
-                                <i class="bi bi-check-circle-fill me-1"></i>Accepted
-                            </div>
-                            {% else %}
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill mb-1" style="font-size:0.6rem;">
+                                <i class="bi bi-person-check-fill me-1"></i>Registry Match
+                            </span>
+                            {% endif %}
+                            
                             <button onclick="handleRegisterPortalBooking(this, {{ bk.id }})" 
                                class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm border-0 fw-bold"
                                style="font-size: 0.7rem; background: var(--brand-primary, #800000);">
                                 <i class="bi bi-person-plus-fill me-1"></i>Register
                             </button>
-                            {% endif %}
                             {% if bk.phone %}
                             <a href="tel:{{ bk.phone }}" class="btn btn-sm btn-outline-primary rounded-pill shadow-sm d-flex align-items-center justify-content-center fw-bold" 
                                style="width:100%; height:32px; font-size: 0.7rem; border-color: var(--brand-primary); color: var(--brand-primary);">

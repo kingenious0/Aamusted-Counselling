@@ -7,30 +7,29 @@ from pathlib import Path
 def create_mac_distribution(source_dir, output_dir):
     """Create a Mac-ready distribution package"""
     
-    mac_dist = os.path.join(output_dir, "AAMUSTED_Mac_Version")
+    mac_dist = os.path.join(output_dir, "USTED_Mac_Version")
     if os.path.exists(mac_dist):
         shutil.rmtree(mac_dist)
     os.makedirs(mac_dist)
     
-    print("📦 Preparing Mac Distribution...")
+    print("📦 Preparing USTED Mac Distribution...")
     
     # 1. Copy Source Files
     # Exclude build artifacts, git, venv, huge files not needed
     ignore_patterns = shutil.ignore_patterns(
         "__pycache__", ".git", ".venv", "venv", "build", "dist", "*.exe", "*.spec",
-        "service_logs", "AAMUSTED_*_Distribution", "app_data"
+        "service_logs", "USTED_*_Distribution", "app_data"
     )
     
     # We need to copy manually to control what goes in
     files_to_copy = [
         "app.py", "db_setup.py", "auto_report_writer.py", "node_config.py", "sync_engine.py",
-        "windows_service.py", "service_manager.py", "desktop_app.py", # Include if they want to try
+        "windows_service.py", "service_manager.py", "desktop_app.py", 
         "requirements.txt",
-        "aamusted system_logo.png",
         "icon.png", "icon.ico"
     ]
     
-    dirs_to_copy = ["templates", "static"]
+    dirs_to_copy = ["templates", "static", "assets"]
     
     print("   ✓ Copying source files...")
     for f in files_to_copy:
@@ -62,12 +61,12 @@ def create_mac_distribution(source_dir, output_dir):
 cd "$(dirname "$0")"
 
 echo "==================================================="
-echo "  AAMUSTED Counselling System - Setup & Start"
+echo "  USTED Counselling System - Setup & Start"
 echo "==================================================="
 
-APP_NAME="com.aamusted.counseling"
+APP_NAME="com.usted.counseling"
 PLIST_PATH="$HOME/Library/LaunchAgents/$APP_NAME.plist"
-INSTALL_DIR="$HOME/Applications/AAMUSTED_Counseling"
+INSTALL_DIR="$HOME/Applications/USTED_Counseling"
 CURRENT_DIR=$(pwd)
 
 # 1. Check for Python
@@ -129,7 +128,7 @@ fi
 
 # 4. Launch App
 echo "🚀 Starting System..."
-export AAMUSTED_AUTO_OPEN_BROWSER=1
+export USTED_AUTO_OPEN_BROWSER=1
 python3 app.py
 """
     
@@ -142,7 +141,7 @@ python3 app.py
     # 5. Zip it (SINGLE FILE)
     print("   ✓ Zipping Mac Package (Single File)...")
     shutil.make_archive(
-        os.path.join(output_dir, "AAMUSTED_Mac_Installer"),
+        os.path.join(output_dir, "USTED_Mac_Installer"),
         'zip',
         mac_dist
     )
@@ -151,11 +150,11 @@ python3 app.py
 
 def main():
     print("="*60)
-    print("AAMUSTED UNIVERSAL PACKAGER")
+    print("USTED UNIVERSAL PACKAGER")
     print("="*60)
     
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    dist_root = os.path.join(base_dir, "AAMUSTED_Universal_Distribution")
+    dist_root = os.path.join(base_dir, "USTED_Universal_Distribution")
     
     if os.path.exists(dist_root):
         try:
@@ -172,8 +171,8 @@ def main():
         subprocess.run([sys.executable, "build_complete_exe.py"], check=True)
         
         # Define Paths
-        exe_source = os.path.join(base_dir, "dist", "AAMUSTED_Counseling_System.exe")
-        win_pkg_dir = os.path.join(dist_root, "AAMUSTED_Windows_Installer")
+        exe_source = os.path.join(base_dir, "dist", "USTED_Counseling_System.exe")
+        win_pkg_dir = os.path.join(dist_root, "USTED_Windows_Installer")
         
         if os.path.exists(win_pkg_dir):
             shutil.rmtree(win_pkg_dir)
@@ -186,27 +185,27 @@ def main():
             
             # 2. Create Intelligent Batch Installer
             bat_content = r"""@echo off
-echo Installing AAMUSTED Counseling System...
+echo Installing USTED Counseling System...
 echo.
 
 :: Create proper directory in Documents
-set "INSTALL_DIR=%USERPROFILE%\Documents\AAMUSTED_Counseling_System"
+set "INSTALL_DIR=%USERPROFILE%\Documents\USTED_Counseling_System"
 
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 
 :: Copy executable
-copy /Y "AAMUSTED_Counseling_System.exe" "%INSTALL_DIR%\"
+copy /Y "USTED_Counseling_System.exe" "%INSTALL_DIR%\"
 
 :: Create Startup Shortcut logic
 set "SHORTCUT_SCRIPT=%TEMP%\create_startup.vbs"
 set "STARTUP_DIR=%appdata%\Microsoft\Windows\Start Menu\Programs\Startup"
 
 echo Set oWS = WScript.CreateObject("WScript.Shell") > "%SHORTCUT_SCRIPT%"
-echo sLinkFile = "%STARTUP_DIR%\AAMUSTED System.lnk" >> "%SHORTCUT_SCRIPT%"
+echo sLinkFile = "%STARTUP_DIR%\USTED System.lnk" >> "%SHORTCUT_SCRIPT%"
 echo Set oLink = oWS.CreateShortcut(sLinkFile) >> "%SHORTCUT_SCRIPT%"
-echo oLink.TargetPath = "%INSTALL_DIR%\AAMUSTED_Counseling_System.exe" >> "%SHORTCUT_SCRIPT%"
+echo oLink.TargetPath = "%INSTALL_DIR%\USTED_Counseling_System.exe" >> "%SHORTCUT_SCRIPT%"
 echo oLink.WorkingDirectory = "%INSTALL_DIR%" >> "%SHORTCUT_SCRIPT%"
-echo oLink.Description = "AAMUSTED Counseling System" >> "%SHORTCUT_SCRIPT%"
+echo oLink.Description = "USTED Counseling System" >> "%SHORTCUT_SCRIPT%"
 echo oLink.Save >> "%SHORTCUT_SCRIPT%"
 
 cscript /nologo "%SHORTCUT_SCRIPT%"
@@ -225,7 +224,7 @@ pause
             
             # 3. Zip Windows Package
             shutil.make_archive(
-                os.path.join(dist_root, "AAMUSTED_Windows_Installer"),
+                os.path.join(dist_root, "USTED_Windows_Installer"),
                 'zip',
                 win_pkg_dir
             )

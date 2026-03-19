@@ -32,7 +32,7 @@ def load_config():
 def create_default_config():
     """Create a default config with a random Node ID"""
     config = {
-        "node_id": f"NODE_{str(uuid.uuid4())[:8].upper()}",
+        "node_id": f"USTED_{str(uuid.uuid4())[:8].upper()}",
         "node_role": "Unassigned", # e.g., 'SECRETARY', 'COUNSELLOR'
         "peer_ip": "", # Manual IP entry for the 'other' machine
         "cloud_api_url": "https://your-bridge-app.vercel.app/sync", 

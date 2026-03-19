@@ -12,10 +12,14 @@ def init_db():
             # Running as compiled EXE - database in EXE folder
             base_path = os.path.dirname(sys.executable)
         else:
-            # Running as script - database in script folder
-            base_path = os.path.dirname(os.path.abspath(__file__))
+            # Running as script
+            full_path = os.path.abspath(__file__)
+            base_path = os.path.dirname(full_path)
+            # If in 'core' folder, move up one level
+            if os.path.basename(base_path).lower() == 'core':
+                base_path = os.path.dirname(base_path)
     except:
-        base_path = os.path.dirname(os.path.abspath(__file__))
+        base_path = os.getcwd()
 
     db_path = os.path.join(base_path, 'counseling.db')
     print(f"[DB_SETUP] Initializing database at: {db_path}")
@@ -52,6 +56,7 @@ def init_db():
             department TEXT NOT NULL,
             faculty TEXT,
             programme TEXT NOT NULL,
+            email TEXT,
             parent_contact TEXT,
             hall_of_residence TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -73,6 +78,9 @@ def init_db():
             status TEXT DEFAULT 'Pending',
             decline_reason TEXT,
             hall_of_residence TEXT,
+            gender TEXT,
+            age INTEGER,
+            accepted_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -290,6 +298,13 @@ def init_db():
     # BookingRequest updates
     add_column_if_missing('BookingRequest', 'email', 'TEXT')
     add_column_if_missing('BookingRequest', 'hall_of_residence', 'TEXT')
+    add_column_if_missing('BookingRequest', 'accepted_at', 'TIMESTAMP')
+    add_column_if_missing('BookingRequest', 'gender', 'TEXT')
+    add_column_if_missing('BookingRequest', 'age', 'INTEGER')
+
+    # Student table updates
+    add_column_if_missing('Student', 'email', 'TEXT')
+    add_column_if_missing('Student', 'program', 'TEXT')
 
     # Users table updates
     add_column_if_missing('users', 'phone', 'TEXT')
@@ -308,6 +323,9 @@ def init_db():
         add_column_if_missing(table, 'global_id', 'TEXT')
         add_column_if_missing(table, 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
         add_column_if_missing(table, 'last_synced_at', 'TIMESTAMP')
+        add_column_if_missing(table, 'last_modified_by', 'TEXT')
+        add_column_if_missing(table, 'is_deleted', 'BOOLEAN DEFAULT 0')
+        add_column_if_missing(table, 'sync_status', 'TEXT DEFAULT \'pending\'')
 
         
     # Backfill global_id for all tables if missing

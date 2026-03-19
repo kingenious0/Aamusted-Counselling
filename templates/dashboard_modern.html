@@ -17,7 +17,7 @@
                         <p class="text-white text-opacity-75 mb-0 small">
                             {% if latest_bookings %}
                                 <i class="bi bi-bell-fill me-1 text-warning"></i>
-                                <strong class="text-white">{{ latest_bookings|length }} new booking{{ 's' if latest_bookings|length != 1 }}</strong> in the last 24 hrs &nbsp;·&nbsp;
+                                <strong class="text-white">{{ latest_bookings|length }} new booking{{ 's' if latest_bookings|length != 1 }}</strong> needing processing &nbsp;·&nbsp;
                             {% endif %}
                             <strong class="text-white">{{ pending_action|length }} item{{ 's' if pending_action|length != 1 }}</strong> needing attention
                         </p>
@@ -51,7 +51,7 @@
                     </div>
                     <div>
                         <small class="text-muted text-uppercase fw-bold" style="font-size:0.65rem;">Total Clients</small>
-                        <h3 class="mb-0 fw-bold">{{ stats.total_students }}</h3>
+                        <h3 id="stat-total-students" class="mb-0 fw-bold">{{ stats.total_students }}</h3>
                     </div>
                 </div>
                 <div class="progress" style="height:3px;">
@@ -112,7 +112,7 @@
                     </div>
                     <div>
                         <small class="text-muted text-uppercase fw-bold" style="font-size:0.65rem;">Today's Sessions</small>
-                        <h3 class="mb-0 fw-bold">{{ stats.today_count }}</h3>
+                        <h3 id="stat-today-sessions" class="mb-0 fw-bold">{{ stats.today_count }}</h3>
                     </div>
                 </div>
                 <div class="d-flex align-items-center small text-success">
@@ -278,13 +278,34 @@ async function handleRegisterPortalBooking(btn, bookingId) {
                 customClass: { popup: 'rounded-4' }
             });
             
-            // Remove card smoothly
-            const card = btn.closest('.card'); // or '.card-glass'
-            if (card) {
-                card.style.opacity = '0';
-                card.style.transform = 'scale(0.9)';
-                card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                setTimeout(() => card.remove(), 300);
+            // Remove item smoothly instead of the whole card
+            const item = btn.closest('.col-12'); 
+            if (item) {
+                item.style.opacity = '0';
+                item.style.transform = 'translateY(10px) scale(0.95)';
+                item.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                setTimeout(() => {
+                    item.remove();
+                    
+                    // --- REH-TIME UI UPDATE: Update Dashboard Stats dynamically ---
+                    const totalClients = document.getElementById('stat-total-students');
+                    const todaySessions = document.getElementById('stat-today-sessions');
+                    
+                    if (totalClients) {
+                        totalClients.innerText = parseInt(totalClients.innerText) + 1;
+                        // Add a little punch animation so they see it change
+                        totalClients.style.transform = 'scale(1.2)';
+                        totalClients.style.transition = 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                        setTimeout(() => totalClients.style.transform = 'scale(1)', 200);
+                    }
+                    
+                    if (todaySessions) {
+                        todaySessions.innerText = parseInt(todaySessions.innerText) + 1;
+                        todaySessions.style.transform = 'scale(1.2)';
+                        todaySessions.style.transition = 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                        setTimeout(() => todaySessions.style.transform = 'scale(1)', 200);
+                    }
+                }, 300);
             }
         } else {
             throw new Error(data.message || 'Registration failed');
@@ -312,5 +333,50 @@ async function refreshIntakeList() {
         console.error("[Dashboard] Refresh failed:", error);
     }
 }
+
+async function checkForNewBookingAlerts() {
+    try {
+        const response = await fetch('/api/sync/check_alerts');
+        const data = await response.json();
+        
+        if (data.pending) {
+            console.log("[Alert] NEW PORTAL BOOKING DETECTED! Triggering Notify...");
+            
+            // 1. Play Sound
+            const audio = new Audio('/assets/ringtone-you-would-be-glad-to-know.mp3');
+            audio.play().catch(e => console.warn("Audio play blocked:", e));
+            
+            // 2. Show Toast
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'info',
+                title: 'New Online Booking Received!',
+                text: 'A new client has booked via the portal.',
+                showConfirmButton: false,
+                timer: 6000,
+                timerProgressBar: true,
+                customClass: { popup: 'rounded-4 border-start border-4 border-info' }
+            });
+            
+            // 3. IMMEDIATELY Clear the alert on server so it doesn't loop
+            await fetch('/api/sync/clear_alerts');
+            
+            // 4. Update the intake UI locally so the user sees the new booking
+            if (typeof refreshIntakeList === 'function') {
+                refreshIntakeList();
+            }
+        }
+    } catch (err) {
+        // silent fail for background polling
+    }
+}
+
+// Initial load check
+document.addEventListener('DOMContentLoaded', () => {
+    // Check for alerts every 2 seconds
+    setInterval(checkForNewBookingAlerts, 2000);
+});
 </script>
 {% endblock %}
+```

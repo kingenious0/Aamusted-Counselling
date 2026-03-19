@@ -14,8 +14,9 @@ echo   - Delete Students, Appointments, Sessions, Referrals
 echo   - Mrs. Gertrude Effeh Brew as sole counsellor
 echo.
 
-REM Go to batch file's directory
+REM Go to batch file's directory and then UP to root
 cd /d "%~dp0"
+cd ..
 
 REM Kill any processes using port 5000
 echo [Step 1/3] Stopping old instances...
@@ -50,6 +51,7 @@ echo.
 
 timeout /t 2 >nul
 
-REM Start Flask directly from Python
+REM Start Flask directly from Python with browser auto-open enabled
+set USTED_AUTO_OPEN_BROWSER=1
 python app.py
 
