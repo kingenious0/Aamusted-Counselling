@@ -78,12 +78,6 @@
                 </a>
             </li>
 
-            <!-- PWA Install Button -->
-            <li class="nav-item" id="installContainer" style="display: none;">
-                <a href="#" class="nav-link" id="installBtn" style="background: var(--brand-primary); color: white !important;">
-                    <i class="bi bi-download me-2"></i> <span>Install USTED App</span>
-                </a>
-            </li>
 
             {# ── ALL ROLES: Clients & Appointments ── #}
             {% if session.get('role') in ['Secretary', 'Admin', 'Counsellor', 'Counselor'] %}
