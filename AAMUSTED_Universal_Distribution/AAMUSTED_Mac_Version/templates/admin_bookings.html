@@ -1,0 +1,411 @@
+{% extends "base_modern.html" %}
+
+{% block title %}Booking Requests - AAMUSTED GCC{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="fw-bold mb-1">
+                    <i class="bi bi-calendar2-week me-2 text-primary"></i>Booking Requests
+                </h2>
+                <p class="text-muted small mb-0">Student appointment requests submitted via the booking portal — auto-accepted on arrival.</p>
+            </div>
+            <div class="d-flex gap-2">
+                {% if recent_count > 0 %}
+                <span class="badge bg-success px-3 py-2 rounded-pill fs-6">
+                    <i class="bi bi-check-circle me-1"></i>{{ recent_count }} Ready
+                </span>
+                {% else %}
+                <span class="badge bg-success px-3 py-2 rounded-pill">
+                    <i class="bi bi-check-circle me-1"></i>All Clear
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show rounded-3 border-0 mb-3" role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endif %}
+{% endwith %}
+
+<!-- Tabs -->
+<ul class="nav nav-tabs border-0 mb-4 gap-1" id="bookingTabs">
+    <li class="nav-item">
+        <a class="nav-link {% if current_tab == 'recent' %}active{% endif %} fw-semibold px-4 rounded-pill" href="{{ url_for('admin_bookings', tab='recent') }}">
+            <i class="bi bi-bell me-1"></i> New Requests
+            {% if recent_count > 0 %}<span class="badge bg-warning text-dark ms-1">{{ recent_count }}</span>{% endif %}
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if current_tab == 'history' %}active{% endif %} fw-semibold px-4 rounded-pill" href="{{ url_for('admin_bookings', tab='history') }}">
+            <i class="bi bi-archive me-1"></i> Booking History
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if current_tab == 'all' %}active{% endif %} fw-semibold px-4 rounded-pill" href="{{ url_for('admin_bookings', tab='all') }}">
+            <i class="bi bi-list-ul me-1"></i> All Time
+        </a>
+    </li>
+</ul>
+
+<!-- Quick filters (for "All" tab) -->
+<div class="card card-glass border-0 shadow-sm mb-4" id="filterBar" style="display:none!important;">
+    <div class="card-body p-3">
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-sm btn-primary filter-btn active" data-filter="all">All</button>
+            <button class="btn btn-sm btn-outline-success filter-btn" data-filter="Accepted">
+                <i class="bi bi-check me-1"></i>Accepted
+            </button>
+            <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="Declined">
+                <i class="bi bi-x me-1"></i>Declined
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Bookings Content -->
+{% if bookings %}
+<div id="bookingsContainer">
+
+    {% if current_tab == 'recent' %}
+        <div class="row g-3">
+        {% for booking in bookings %}
+        <div class="col-12 booking-row" data-status="{{ booking.status }}">
+            <div class="card border-0 shadow-sm"
+                style="border-left: 4px solid var(--brand-primary, #1a6b3c) !important; border-radius: 0.75rem;">
+                <div class="card-body p-4">
+                    <div class="row align-items-center g-3">
+                        <div class="col-md-2">
+                            <div class="fw-bold font-monospace text-primary small">{{ booking.reference }}</div>
+                            <span class="badge bg-success rounded-pill mt-1">Ready</span>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center mb-1">
+                                <div class="rounded-circle bg-primary bg-opacity-10 text-primary fw-bold d-flex align-items-center justify-content-center me-2 flex-shrink-0"
+                                     style="width:36px;height:36px;">
+                                    {{ booking.full_name[0]|upper }}
+                                </div>
+                                <h6 class="fw-bold mb-0 text-dark">{{ booking.full_name }}</h6>
+                            </div>
+                            <div class="small text-muted mb-1">{{ booking.programme or '—' }}</div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="fw-medium small"><i class="bi bi-calendar3 me-1 text-primary"></i>{{ booking.preferred_date or 'Today' }}</div>
+                            <div class="text-muted small"><i class="bi bi-clock me-1"></i>{{ booking.preferred_time or 'Any' }}</div>
+                        </div>
+                        <div class="col-md-3 text-md-end text-nowrap d-flex gap-2 justify-content-end align-items-center">
+                            {% if booking.is_registered %}
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill me-2" style="font-size:0.6rem;">
+                                <i class="bi bi-person-check-fill me-1"></i>Registry Match
+                            </span>
+                            {% endif %}
+                            <button onclick="handleRegisterPortalBooking(this, {{ booking.id }})" 
+                               class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm border-0 fw-bold"
+                               style="font-size: 0.75rem; background: var(--brand-primary, #1a6b3c);">
+                                <i class="bi bi-person-plus-fill me-1"></i>Register
+                            </button>
+                            
+                            <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3"
+                                    data-bs-toggle="modal" data-bs-target="#detailsModal{{ booking.id }}">
+                                <i class="bi bi-eye me-1"></i>Details
+                            </button>
+                            {% if role in ['Secretary', 'Admin', 'Counsellor'] %}
+                            <button type="button" class="btn btn-link text-danger btn-sm text-decoration-none ms-2"
+                                    data-bs-toggle="modal" data-bs-target="#declineModal{{ booking.id }}">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        </div>
+    {% else %}
+        <!-- Table View for History/All -->
+        <div class="card border-0 shadow-sm" style="border-radius:0.75rem;overflow:hidden;">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4 py-3 small fw-bold text-muted text-uppercase">Reference</th>
+                            <th class="py-3 small fw-bold text-muted text-uppercase">Student</th>
+                            <th class="py-3 small fw-bold text-muted text-uppercase">Slot</th>
+                            <th class="py-3 small fw-bold text-muted text-uppercase">Status</th>
+                            <th class="pe-4 py-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for booking in bookings %}
+                        <tr>
+                            <td class="ps-4"><span class="font-monospace small fw-bold text-primary">{{ booking.reference }}</span></td>
+                            <td>
+                                <div class="fw-bold small">{{ booking.full_name }}</div>
+                                <div class="text-muted" style="font-size:0.7rem;">{{ booking.index_number }}</div>
+                            </td>
+                            <td class="small">
+                                <div class="fw-medium">{{ booking.preferred_date or '—' }}</div>
+                                <div class="text-muted" style="font-size:0.7rem;">{{ booking.preferred_time }}</div>
+                            </td>
+                            <td><span class="badge rounded-pill {% if booking.status == 'Accepted' %}bg-success{% else %}bg-secondary{% endif %}">{{ booking.status }}</span></td>
+                            <td class="pe-4 text-end text-nowrap">
+                                {% if booking.is_registered %}
+                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-1 border border-success border-opacity-25" style="font-size:0.6rem; margin-right:5px;">
+                                    <i class="bi bi-person-check me-1"></i>In Registry
+                                </span>
+                                {% endif %}
+                                
+                                {% if booking.status == 'Pending' %}
+                                <button onclick="handleRegisterPortalBooking(this, {{ booking.id }})" 
+                                        class="btn btn-sm btn-link text-primary p-1 me-2" title="Register Student">
+                                    <i class="bi bi-person-plus-fill fs-5"></i>
+                                </button>
+                                {% endif %}
+                                
+                                <button type="button" class="btn btn-sm btn-light border rounded-circle" data-bs-toggle="modal" data-bs-target="#detailsModal{{ booking.id }}">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% endif %}
+
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="d-flex justify-content-center mt-4">
+        <ul class="pagination pagination-rounded gap-2 border-0">
+            {% if page > 1 %}
+            <li class="page-item"><a class="page-link border-0 shadow-sm rounded-pill px-3" href="{{ url_for('admin_bookings', page=page-1, tab=current_tab) }}"><i class="bi bi-chevron-left me-1"></i>Prev</a></li>
+            {% endif %}
+
+            {% for p in range(1, total_pages + 1) %}
+                {% if p == page %}
+                <li class="page-item active"><span class="page-link border-0 shadow-sm rounded-circle px-3 bg-primary text-white fw-bold">{{ p }}</span></li>
+                {% elif p <= 3 or p > total_pages - 3 or (p >= page - 2 and p <= page + 2) %}
+                <li class="page-item"><a class="page-link border-0 shadow-sm rounded-circle px-3 text-muted bg-white" href="{{ url_for('admin_bookings', page=p, tab=current_tab) }}">{{ p }}</a></li>
+                {% elif p == 4 or p == total_pages - 3 %}
+                <li class="page-item disabled"><span class="page-link border-0 bg-transparent">...</span></li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page < total_pages %}
+            <li class="page-item"><a class="page-link border-0 shadow-sm rounded-pill px-3" href="{{ url_for('admin_bookings', page=page+1, tab=current_tab) }}">Next<i class="bi bi-chevron-right ms-1"></i></a></li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+
+</div> <!-- End TAB container or main div -->
+
+<!-- Modals for all bookings -->
+{% for booking in bookings %}
+<!-- Decline Modal -->
+{% if booking.status not in ['Accepted', 'Declined'] %}
+<div class="modal fade" id="declineModal{{ booking.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Decline Booking</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/admin/bookings/{{ booking.id }}/decline" method="POST">
+                <div class="modal-body">
+                    <p class="text-muted small">Declining booking <strong class="text-dark font-monospace">{{ booking.reference }}</strong>.</p>
+                    <label class="form-label fw-medium">Reason for declining <span class="text-muted fw-normal">(optional)</span></label>
+                    <textarea class="form-control" name="decline_reason" rows="3" placeholder="e.g. No available slots on that date..."></textarea>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-x-circle me-1"></i>Decline Booking</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Accepted bookings can still be declined -->
+{% if booking.status == 'Accepted' %}
+<div class="modal fade" id="declineModal{{ booking.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Cancel Accepted Booking</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/admin/bookings/{{ booking.id }}/decline" method="POST">
+                <div class="modal-body">
+                    <p class="text-muted small">This will cancel the accepted booking <strong class="text-dark font-monospace">{{ booking.reference }}</strong> for <strong>{{ booking.full_name }}</strong>. The appointment will remain in the system.</p>
+                    <label class="form-label fw-medium">Reason <span class="text-muted fw-normal">(optional)</span></label>
+                    <textarea class="form-control" name="decline_reason" rows="2" placeholder="e.g. Student called to cancel..."></textarea>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Keep</button>
+                    <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-x-circle me-1"></i>Cancel Booking</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Details Modal -->
+<div class="modal fade" id="detailsModal{{ booking.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white border-0 py-3">
+                <h5 class="modal-title fw-bold"><i class="bi bi-info-circle me-2"></i>Booking Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="text-center mb-4">
+                    <div class="rounded-circle bg-primary bg-opacity-10 text-primary fw-bold d-flex align-items-center justify-content-center mx-auto mb-2"
+                         style="width:64px;height:64px;font-size:1.5rem;">
+                        {{ booking.full_name[0]|upper }}
+                    </div>
+                    <h4 class="fw-bold mb-0 text-dark">{{ booking.full_name }}</h4>
+                    <div>
+                        <span class="badge bg-light text-primary border font-monospace mt-1">{{ booking.reference }}</span>
+                    </div>
+                    {% if booking.accepted_at %}
+                    <div class="text-muted mt-1" style="font-size:0.72rem;">
+                        <i class="bi bi-clock-history me-1"></i>Accepted: {{ booking.accepted_at[:16] }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="small text-muted text-uppercase fw-bold">Index Number</label>
+                        <div class="fw-medium">{{ booking.index_number }}</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="small text-muted text-uppercase fw-bold">Phone</label>
+                        <div><a href="tel:{{ booking.phone }}" class="text-decoration-none text-success fw-medium">{{ booking.phone or 'N/A' }}</a></div>
+                    </div>
+                    <div class="col-12">
+                        <label class="small text-muted text-uppercase fw-bold">Programme</label>
+                        <div class="fw-medium text-dark">{{ booking.programme or 'N/A' }}</div>
+                    </div>
+                    <div class="col-12">
+                        <label class="small text-muted text-uppercase fw-bold">Department</label>
+                        <div class="fw-medium text-dark">{{ booking.department or 'N/A' }}</div>
+                    </div>
+                    <div class="col-12 py-2 my-1 bg-light rounded-3">
+                        <div class="row text-center">
+                            <div class="col-6 border-end">
+                                <label class="small text-muted text-uppercase fw-bold d-block">Preferred Date</label>
+                                <span class="text-primary fw-medium">{{ booking.preferred_date or 'TBA' }}</span>
+                            </div>
+                            <div class="col-6">
+                                <label class="small text-muted text-uppercase fw-bold d-block">Preferred Time</label>
+                                <span class="text-primary fw-medium">{{ booking.preferred_time or 'Any' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="small text-muted text-uppercase fw-bold">Reason for Visit</label>
+                        <div class="p-3 border rounded-3 text-muted small" style="min-height:70px;background:#fafbfc;">
+                            {{ booking.reason or 'No reason provided.' }}
+                        </div>
+                    </div>
+                    {% if booking.status == 'Declined' and booking.decline_reason %}
+                    <div class="col-12">
+                        <label class="small text-danger text-uppercase fw-bold">Decline Reason</label>
+                        <div class="p-2 border border-danger border-opacity-25 rounded-3 text-danger small">"{{ booking.decline_reason }}"</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-3">
+                <button type="button" class="btn btn-light w-100" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="card card-glass border-0 shadow-sm">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-calendar2-x text-muted opacity-25" style="font-size:3rem;"></i>
+        <h6 class="text-muted mt-3">No booking requests yet</h6>
+        <p class="text-muted small">When students submit booking requests via the portal, they'll appear here automatically.</p>
+        <a href="/booking" target="_blank" class="btn btn-sm btn-outline-primary mt-1">
+            <i class="bi bi-box-arrow-up-right me-1"></i>Preview Booking Page
+        </a>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// AJAX Handling for Booking Registration
+async function handleRegisterPortalBooking(btn, bookingId) {
+    const originalContent = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>...';
+
+    try {
+        const response = await fetch(`/admin/bookings/${bookingId}/register?ajax=1`, {
+            method: 'GET', // register_portal_booking currently uses GET
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Successfully Registered',
+                text: data.message || 'Student added to registry.',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true
+            });
+
+            // Auto-Archive behavior: remove processed card/row
+            const container = btn.closest('.booking-row') || btn.closest('tr');
+            if (container) {
+                container.style.opacity = '0';
+                container.style.transform = 'scale(0.95)';
+                container.style.transition = 'all 0.4s ease';
+                setTimeout(() => {
+                    container.remove();
+                    // If no more items in recent tab, reload or show empty state
+                    const remaining = document.querySelectorAll('.booking-row');
+                    if (remaining.length === 0 && window.location.search.includes('tab=recent')) {
+                        location.reload();
+                    }
+                }, 400);
+            }
+        } else {
+            throw new Error(data.message || 'Registration failed');
+        }
+    } catch (error) {
+        Swal.fire({ icon: 'error', title: 'Registration failed', text: error.message });
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+    }
+}
+</script>
+{% endblock %}

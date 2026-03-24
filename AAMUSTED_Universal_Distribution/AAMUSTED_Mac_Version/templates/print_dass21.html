@@ -4,178 +4,157 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DASS-21 Assessment - {{ dass21.student_name }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
-        @media print {
-            @page {
-                size: A4;
-                margin: 2cm;
-            }
-            .no-print {
-                display: none;
-            }
-        }
+        :root { --primary-color: #1a365d; --text-color: #2d3748; --border-color: #e2e8f0; }
+        @page { size: A4; margin: 0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 21cm;
-            margin: 0 auto;
-            padding: 2cm;
+            font-family: 'Inter', sans-serif; font-size: 10pt; line-height: 1.5; color: var(--text-color);
+            background: #f8fafc; width: 210mm; min-height: 297mm; margin: 20px auto;
+        }
+
+        .page-container {
+            background: white; padding: 20mm; width: 210mm; min-height: 297mm;
+            margin: 0 auto; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
         .header {
-            text-align: center;
-            margin-bottom: 2em;
-            border-bottom: 2px solid #333;
-            padding-bottom: 1em;
+            text-align: center; margin-bottom: 12mm; border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 6mm;
         }
 
-        .logo {
-            font-size: 1.5em;
-            font-weight: bold;
-            margin-bottom: 0.5em;
+        .header-logo-placeholder {
+            width: 60px; height: 60px; background: var(--primary-color); border-radius: 50%;
+            margin: 0 auto 4mm; display: flex; align-items: center; justify-content: center;
+            color: white; font-weight: bold; font-size: 24px;
         }
 
-        .title {
-            font-size: 1.2em;
-            margin: 1em 0;
+        .header h1 {
+            font-family: 'Playfair Display', serif; font-size: 16pt; font-weight: 700;
+            margin-bottom: 2mm; color: var(--primary-color);
         }
 
-        .info-section {
-            margin: 1.5em 0;
+        .header h2 {
+            font-family: 'Inter', sans-serif; font-size: 10pt; font-weight: 500;
+            text-transform: uppercase; letter-spacing: 2px; color: #718096; margin-bottom: 4mm;
         }
 
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1em;
-            margin-bottom: 1.5em;
+        .doc-title {
+            background: var(--primary-color); color: white; display: inline-block; padding: 2mm 8mm;
+            border-radius: 50px; font-size: 12pt; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 1px; margin-top: 2mm;
         }
 
-        .info-item {
-            margin-bottom: 0.5em;
+        .section-title {
+            font-family: 'Playfair Display', serif; font-size: 12pt; font-weight: 700;
+            color: var(--primary-color); border-bottom: 1px solid var(--border-color);
+            padding-bottom: 2mm; margin-bottom: 6mm; margin-top: 6mm;
         }
 
-        .label {
-            font-weight: bold;
-            margin-right: 0.5em;
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; margin-bottom: 6mm; }
+
+        .field-label {
+            display: block; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.5px;
+            color: #718096; margin-bottom: 1mm; font-weight: 600;
         }
 
-        .scores-section {
-            margin: 2em 0;
+        .field-value {
+            border-bottom: 1px solid #cbd5e0; min-height: 8mm; display: flex; align-items: center;
+            font-size: 11pt; color: #1a202c; padding-bottom: 1mm; font-weight: 500;
+        }
+        
+        .field-value.highlight {
+            background-color: #f7fafc; border-bottom: none; padding: 2mm; border-radius: 4px;
         }
 
         .scores-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1.5em;
-            margin: 1em 0;
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin: 4mm 0 8mm;
         }
 
         .score-card {
-            background: #f9f9f9;
-            padding: 1.5em;
-            border-radius: 5px;
-            text-align: center;
-            border: 2px solid #ddd;
+            background: #f8fafc; padding: 6mm; border-radius: 6px; text-align: center;
+            border: 1px solid #cbd5e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
         .score-card h3 {
-            margin: 0 0 0.5em 0;
-            font-size: 1em;
-            color: #666;
+            margin: 0 0 2mm 0; font-size: 11pt; color: var(--primary-color); text-transform: uppercase; letter-spacing: 1px;
         }
 
         .score-value {
-            font-size: 2em;
-            font-weight: bold;
-            color: #333;
-            margin: 0.5em 0;
+            font-size: 24pt; font-weight: 700; color: #1a202c; margin: 2mm 0; font-family: 'Playfair Display', serif;
         }
 
         .score-label {
-            font-size: 0.9em;
-            color: #666;
-        }
-
-        .footer {
-            margin-top: 2em;
-            text-align: center;
-            font-size: 0.9em;
-            color: #666;
-        }
-
-        .no-print {
-            text-align: center;
-            margin-bottom: 1em;
-        }
-
-        .btn {
-            padding: 0.5em 1em;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-        }
-
-        .btn:hover {
-            background: #0056b3;
+            font-size: 9pt; color: #718096; font-weight: 500;
         }
 
         .severity-info {
-            margin-top: 2em;
-            padding: 1em;
-            background: #e9ecef;
-            border-radius: 5px;
+            margin-top: 8mm; padding: 6mm; background: #f1f5f9; border-radius: 6px; border-left: 4px solid var(--primary-color);
+        }
+        .severity-info h4 { margin-top: 0; margin-bottom: 4mm; font-size: 10pt; color: var(--primary-color); }
+        .severity-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; font-size: 8.5pt; color: #4a5568; line-height: 1.6; }
+        .severity-grid strong { color: #2d3748; display: block; margin-bottom: 1mm; border-bottom: 1px solid #cbd5e0; padding-bottom: 1mm;}
+
+        @media print {
+            body { background: white; margin: 0; width: 210mm; height: 297mm; }
+            .page-container { box-shadow: none; margin: 0; padding: 15mm; }
+            .no-print { display: none !important; }
         }
 
-        .severity-info h4 {
-            margin-top: 0;
+        @media screen {
+            .print-controls { position: fixed; bottom: 30px; right: 30px; display: flex; gap: 10px; z-index: 100;}
+            .btn-action { 
+                padding: 12px 24px; border-radius: 50px; border: none; font-weight: 600; cursor: pointer; color: white;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: transform 0.2s; font-family: 'Inter', sans-serif;
+            }
+            .btn-action:hover { transform: translateY(-2px); }
+            .btn-print { background: var(--primary-color); }
+            .btn-back { background: #64748b; text-decoration: none; }
         }
     </style>
 </head>
 <body>
-    <div class="no-print">
-        <button onclick="window.print()" class="btn">Print</button>
-        <a href="{{ url_for('dass21_list') }}" class="btn" style="background: #6c757d;">Back to List</a>
+    <div class="print-controls no-print">
+        <a href="{{ url_for('dass21_list') }}" class="btn-action btn-back">Back to List</a>
+        <button onclick="window.print()" class="btn-action btn-print">Print Score Report</button>
     </div>
 
-    <div class="header">
-        <div class="logo">AAMUSTED COUNSELLING SYSTEM</div>
-        <div class="title">DASS-21 Assessment Score Report</div>
-    </div>
+    <div class="page-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-logo-placeholder">U</div>
+            <h1>USTED</h1>
+            <h2>Guidance & Counselling Centre</h2>
+            <div class="doc-title">DASS-21 Assessment Score</div>
+        </div>
 
-    <div class="info-section">
-        <div class="info-grid">
-            <div class="info-item">
-                <span class="label">Student Name:</span>
-                {{ dass21.student_name or 'N/A' }}
+        <div class="section-title">Client Information</div>
+        <div class="grid-2">
+            <div>
+                <span class="field-label">Student Name</span>
+                <div class="field-value highlight">{{ dass21.student_name or 'N/A' }}</div>
             </div>
-            <div class="info-item">
-                <span class="label">Student ID:</span>
-                {{ dass21.professional_id or 'N/A' }}
+            <div>
+                <span class="field-label">Student ID</span>
+                <div class="field-value">{{ dass21.professional_id or 'N/A' }}</div>
             </div>
-            <div class="info-item">
-                <span class="label">Index Number:</span>
-                {{ dass21.index_number or 'N/A' }}
+            <div>
+                <span class="field-label">Index Number</span>
+                <div class="field-value">{{ dass21.index_number or 'N/A' }}</div>
             </div>
-            <div class="info-item">
-                <span class="label">Programme:</span>
-                {{ dass21.programme or 'N/A' }}
+            <div>
+                <span class="field-label">Programme</span>
+                <div class="field-value">{{ dass21.programme or 'N/A' }}</div>
             </div>
-            <div class="info-item">
-                <span class="label">Assessment Date:</span>
-                {{ dass21.created_at.split('.')[0] if dass21.created_at else 'N/A' }}
+             <div>
+                <span class="field-label">Assessment Date</span>
+                <div class="field-value">{{ dass21.created_at.split('.')[0] if dass21.created_at else 'N/A' }}</div>
             </div>
         </div>
-    </div>
 
-    <div class="scores-section">
-        <h2 style="text-align: center; margin-bottom: 1.5em;">Assessment Scores</h2>
+        <div class="section-title" style="text-align: center; border-bottom: none; margin-top: 10mm;">Assessment Scores</div>
         
         <div class="scores-grid">
             <div class="score-card">
@@ -194,41 +173,44 @@
                 <div class="score-label">Raw Score: {{ dass21.stress_score or '0' }}</div>
             </div>
         </div>
-    </div>
 
-    <div class="severity-info">
-        <h4>Severity Interpretation Guidelines</h4>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1em; margin-top: 1em;">
-            <div>
-                <strong>Depression:</strong><br>
-                0-9: Normal<br>
-                10-13: Mild<br>
-                14-20: Moderate<br>
-                21-27: Severe<br>
-                28+: Extremely Severe
-            </div>
-            <div>
-                <strong>Anxiety:</strong><br>
-                0-7: Normal<br>
-                8-9: Mild<br>
-                10-14: Moderate<br>
-                15-19: Severe<br>
-                20+: Extremely Severe
-            </div>
-            <div>
-                <strong>Stress:</strong><br>
-                0-14: Normal<br>
-                15-18: Mild<br>
-                19-25: Moderate<br>
-                26-33: Severe<br>
-                34+: Extremely Severe
+        <div style="text-align: center; font-size: 8pt; color: #718096; margin-bottom: 8mm;">
+            * Note: Final scores have been calculated by multiplying raw DASS-21 scores by 2.
+        </div>
+
+        <div class="severity-info">
+            <h4>Severity Interpretation Guidelines</h4>
+            <div class="severity-grid">
+                <div>
+                    <strong>Depression</strong>
+                    0-9: Normal<br>
+                    10-13: Mild<br>
+                    14-20: Moderate<br>
+                    21-27: Severe<br>
+                    28+: Extremely Severe
+                </div>
+                <div>
+                    <strong>Anxiety</strong>
+                    0-7: Normal<br>
+                    8-9: Mild<br>
+                    10-14: Moderate<br>
+                    15-19: Severe<br>
+                    20+: Extremely Severe
+                </div>
+                <div>
+                    <strong>Stress</strong>
+                    0-14: Normal<br>
+                    15-18: Mild<br>
+                    19-25: Moderate<br>
+                    26-33: Severe<br>
+                    34+: Extremely Severe
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="footer">
-        <p>Generated on {{ dass21.created_at.split('.')[0] if dass21.created_at else 'N/A' }}</p>
-        <p><em>Note: Final scores are calculated by multiplying raw scores by 2.</em></p>
+        <div style="text-align: center; margin-top: 20mm; font-size: 8pt; color: #a0aec0; border-top: 1px solid #e2e8f0; padding-top: 4mm;">
+            Generated by USTED Counselling Management System • Confidential Clinical Record
+        </div>
     </div>
 </body>
 </html>

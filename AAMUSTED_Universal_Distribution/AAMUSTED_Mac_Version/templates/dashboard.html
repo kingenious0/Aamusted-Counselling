@@ -9,9 +9,10 @@
             <div class="card-body p-5 position-relative z-1">
                 <div class="row align-items-center">
                     <div class="col-md-8">
+                        {% set role_labels = {'Secretary': 'Desk Administrator', 'Admin': 'System Administrator', 'Counsellor': 'Counsellor', 'Counselor': 'Counsellor'} %}
                         <span
                             class="badge bg-white bg-opacity-25 text-white mb-2 px-3 rounded-pill border border-white border-opacity-25">
-                            <i class="bi bi-shield-check me-1"></i> {{ role }} Mode
+                            <i class="bi bi-shield-check me-1"></i> {{ role_labels.get(role, role) }} Mode
                         </span>
                         <h1 class="display-5 fw-bold mb-2">{{ greeting }}</h1>
                         <p class="lead text-white text-opacity-75 mb-0">System status is optimal. You have <strong
@@ -152,13 +153,16 @@
 
                             <!-- Left: Profile & Info -->
                             <div class="d-flex align-items-center">
-                                <div class="avatar rounded-circle bg-light text-secondary d-flex justify-content-center align-items-center me-3 fw-bold border"
-                                    style="width: 48px; height: 48px;">
-                                    {{ item.student_name[0] }}
+                                <div class="avatar rounded-circle bg-primary bg-opacity-10 text-primary d-flex justify-content-center align-items-center me-3 fw-bold border"
+                                    style="width: 48px; height: 48px; font-size: 0.75rem;">
+                                    {{ item.case_number[-4:] if item.case_number else '?' }}
                                 </div>
                                 <div>
-                                    <h6 class="mb-1 fw-bold text-dark">{{ item.student_name }}</h6>
-                                    <div class="text-muted small d-flex align-items-center">
+                                    <h6 class="mb-0 fw-bold text-dark">{{ item.case_number or 'No Code' }}</h6>
+                                    {% if role in ['Secretary', 'Admin'] %}
+                                    <div class="text-muted small"><i class="bi bi-person me-1"></i>{{ item.student_name }}</div>
+                                    {% endif %}
+                                    <div class="text-muted small d-flex align-items-center mt-1">
                                         <i class="bi bi-clock me-1"></i> {{ item.time }}
                                         <span class="mx-2">•</span>
                                         <span>{{ item.purpose[:30] }}...</span>
@@ -250,6 +254,21 @@
                             <div>
                                 <div class="fw-bold text-dark">Schedule Appointment</div>
                                 <div class="small text-muted">Book a slot</div>
+                            </div>
+                        </div>
+                    </a>
+                    {% endif %}
+
+                    {% if role in ['Counsellor', 'Counselor', 'Admin'] %}
+                    <a href="{{ url_for('create_session') }}"
+                        class="btn btn-outline-secondary text-start p-3 border-0 bg-white shadow-sm rounded-3 mb-2 btn-hover-lift">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3 text-primary">
+                                <i class="bi bi-play-circle-fill"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-dark">Start Session</div>
+                                <div class="small text-muted">Begin clinical recording</div>
                             </div>
                         </div>
                     </a>

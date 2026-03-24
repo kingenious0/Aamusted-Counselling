@@ -28,13 +28,28 @@
                 </div>
                 <div class="card-body p-4">
 
-                    <!-- Appointment Selection -->
+                    <!-- Mode Selection: Appointment vs Walk-in -->
                     <div class="mb-4">
+                        <label class="form-label text-uppercase small text-secondary fw-bold">Session Entry Mode</label>
+                        <div class="d-flex gap-3 mt-1">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="entry_mode" id="mode_appointment" value="appointment" {% if not selected_student_id %}checked{% endif %} onchange="toggleMode()">
+                                <label class="form-check-label" for="mode_appointment">Scheduled Appointment</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="entry_mode" id="mode_walkin" value="walkin" {% if selected_student_id %}checked{% endif %} onchange="toggleMode()">
+                                <label class="form-check-label" for="mode_walkin">Walk-in (No Appointment)</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Appointment Selection (Hidden if walk-in) -->
+                    <div id="appointment_group" class="mb-4">
                         <label for="appointment_id"
                             class="form-label text-uppercase small text-secondary fw-bold">Select Scheduled Appointment
                             <span class="text-danger">*</span></label>
                         <select class="form-select form-select-lg bg-light border-0" id="appointment_id"
-                            name="appointment_id" required onchange="updateContext(this)">
+                            name="appointment_id" onchange="updateContext(this)">
                             <option value="">Choose an appointment...</option>
                             {% for appointment in appointments %}
                             <option value="{{ appointment.id }}" data-urgency="{{ appointment.urgency or 'Normal' }}"
@@ -49,6 +64,23 @@
                         </select>
                         <div class="form-text mt-2"><i class="bi bi-info-circle me-1"></i> Selecting an appointment will
                             load intake details.</div>
+                    </div>
+
+                    <!-- Student Selection (Hidden if scheduled) -->
+                    <div id="student_group" class="mb-4" style="display: none;">
+                        <label for="student_id"
+                            class="form-label text-uppercase small text-secondary fw-bold">Select Registered Student
+                            <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-lg bg-light border-0" id="student_id"
+                            name="student_id">
+                            <option value="">Select Student for Walk-in...</option>
+                            {% for student in students %}
+                            <option value="{{ student.id }}" {% if selected_student_id and selected_student_id|string==student.id|string %}selected{% endif %}>
+                                {{ student.name }} ({{ student.index_number or 'No Index' }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text mt-2"><i class="bi bi-person-plus me-1"></i> For walk-ins, select the student from the registry.</div>
                     </div>
 
                     <div class="row g-4 mb-4">
@@ -173,6 +205,38 @@
 
 {% block scripts %}
 <script>
+    function toggleMode() {
+        const isWalkin = document.getElementById('mode_walkin').checked;
+        const apptGroup = document.getElementById('appointment_group');
+        const studentGroup = document.getElementById('student_group');
+        const intakeContext = document.getElementById('intake-context');
+        const noContext = document.getElementById('no-context');
+        const apptSelect = document.getElementById('appointment_id');
+        const studentSelect = document.getElementById('student_id');
+
+        if (isWalkin) {
+            apptGroup.style.display = 'none';
+            studentGroup.style.display = 'block';
+            intakeContext.style.display = 'none';
+            noContext.style.display = 'block';
+            apptSelect.required = false;
+            studentSelect.required = true;
+            apptSelect.value = "";
+        } else {
+            apptGroup.style.display = 'block';
+            studentGroup.style.display = 'none';
+            apptSelect.required = true;
+            studentSelect.required = false;
+            studentSelect.value = "";
+            if (apptSelect.value) {
+                updateContext(apptSelect);
+            } else {
+                intakeContext.style.display = 'none';
+                noContext.style.display = 'block';
+            }
+        }
+    }
+
     function updateContext(selectElement) {
         const contextDiv = document.getElementById('intake-context');
         const noContextDiv = document.getElementById('no-context');
@@ -202,15 +266,12 @@
         noContextDiv.style.display = 'none';
     }
 
-    // Run on load if something is pre-selected
+    // Run on load
     document.addEventListener('DOMContentLoaded', function () {
+        toggleMode();
         const select = document.getElementById('appointment_id');
-        if (select.value) {
+        if (select.value && !document.getElementById('mode_walkin').checked) {
             updateContext(select);
-        } else {
-            // Ensure initial state
-            document.getElementById('intake-context').style.display = 'none';
-            document.getElementById('no-context').style.display = 'block';
         }
     });
 </script>

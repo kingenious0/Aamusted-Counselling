@@ -63,18 +63,52 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label for="department"
-                                class="form-label text-muted small fw-bold text-uppercase">Department <span
-                                    class="text-danger">*</span></label>
-                            <input type="text" class="form-control bg-light border-0" id="department" name="department"
-                                required placeholder="e.g. Psychology">
+                            <label for="programme" class="form-label text-muted small fw-bold text-uppercase">Programme
+                                <span class="text-danger">*</span></label>
+                            <select class="form-select bg-light border-0" id="programme" name="programme" onchange="handleProgrammeChange(this)" required>
+                                <option value="">Select Programme...</option>
+                                <optgroup label="Information Technology">
+                                    <option value="BSc Information Technology" data-dept="IT Education">BSc Information Technology</option>
+                                    <option value="BSc Computer Science" data-dept="IT Education">BSc Computer Science</option>
+                                </optgroup>
+                                <optgroup label="Business">
+                                    <option value="BCom Accounting" data-dept="Accounting Education">BCom Accounting</option>
+                                    <option value="BSc Management Education" data-dept="Management Education">BSc Management Education</option>
+                                </optgroup>
+                                <optgroup label="Education">
+                                    <option value="BEd Psychology" data-dept="Psychology and Education">BEd Psychology</option>
+                                    <option value="BEd Special Education" data-dept="Special Education">BEd Special Education</option>
+                                </optgroup>
+                                <option value="Other">Other</option>
+                            </select>
                         </div>
 
                         <div class="col-md-6">
-                            <label for="programme" class="form-label text-muted small fw-bold text-uppercase">Programme
-                                <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control bg-light border-0" id="programme" name="programme"
-                                required placeholder="e.g. BSc Psychology">
+                            <label for="department"
+                                class="form-label text-muted small fw-bold text-uppercase">Department <span
+                                    class="text-danger">*</span></label>
+                            <select class="form-select bg-light border-0" id="department" name="department" required>
+                                <option value="">Select Department...</option>
+                                <option value="IT Education">IT Education</option>
+                                <option value="Accounting Education">Accounting Education</option>
+                                <option value="Management Education">Management Education</option>
+                                <option value="Psychology and Education">Psychology and Education</option>
+                                <option value="Special Education">Special Education</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="hall_of_residence" class="form-label text-muted small fw-bold text-uppercase">Hall of Residence</label>
+                            <select class="form-select bg-light border-0" id="hall_of_residence" name="hall_of_residence">
+                                <option value="">Select Hall...</option>
+                                <option value="Autonomy Hall">Autonomy Hall</option>
+                                <option value="Atwima Hall">Atwima Hall</option>
+                                <option value="Opoku Ware II">Opoku Ware II</option>
+                                <option value="Winslow Hall">Winslow Hall</option>
+                                <option value="Hostel">External Hostel</option>
+                                <option value="Off-Campus">Off-Campus</option>
+                            </select>
                         </div>
 
                         <div class="col-md-6">
@@ -82,6 +116,12 @@
                                 <span class="text-danger">*</span></label>
                             <input type="text" class="form-control bg-light border-0" id="faculty" name="faculty"
                                 required placeholder="e.g. Education">
+                        </div>
+
+                        <!-- Hidden input for Other Programme -->
+                        <div id="other_programme_wrapper" class="col-12 mt-0" style="display: none;">
+                            <label for="programme_other" class="form-label text-primary small fw-bold">Specify Programme</label>
+                            <input type="text" class="form-control bg-light border-0" id="programme_other" name="programme_other" placeholder="Enter Full Programme Name">
                         </div>
 
                         <div class="col-md-6">
@@ -221,5 +261,27 @@
             }
         }
     });
+
+    function handleProgrammeChange(select) {
+        const deptSelect = document.getElementById('department');
+        const otherWrapper = document.getElementById('other_programme_wrapper');
+        const otherInput = document.getElementById('programme_other');
+        const selectedOption = select.options[select.selectedIndex];
+        const dept = selectedOption.getAttribute('data-dept');
+
+        if (select.value === 'Other') {
+            if (otherWrapper) otherWrapper.style.display = 'block';
+            if (otherInput) {
+                otherInput.required = true;
+                otherInput.focus();
+            }
+        } else {
+            if (otherWrapper) otherWrapper.style.display = 'none';
+            if (otherInput) otherInput.required = false;
+            if (dept && deptSelect) {
+                deptSelect.value = dept;
+            }
+        }
+    }
 </script>
 {% endblock %}

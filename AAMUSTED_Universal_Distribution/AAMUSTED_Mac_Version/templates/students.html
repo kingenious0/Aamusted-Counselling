@@ -61,15 +61,15 @@
 <div class="card card-glass border-0 shadow-lg">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle table-borderless mb-0" id="studentsTable">
+            <table class="table table-hover align-middle table-borderless mb-0" id="studentsTable" style="table-layout: fixed; width: 100%;">
                 <thead class="bg-light bg-opacity-50 border-bottom">
                     <tr class="text-uppercase text-muted small">
-                        <th class="ps-4">Student</th>
-                        <th>Professional ID</th>
-                        <th>Contact</th>
-                        <th>Program</th>
-                        <th>Status</th>
-                        <th class="text-end pe-4">Actions</th>
+                        <th class="ps-4" style="width: 140px; overflow: hidden;">Case / Student</th>
+                        <th style="width: 110px;">Prof. ID</th>
+                        <th style="width: 150px;">Contact Info</th>
+                        <th style="display: table-cell !important;">Prog / Dept</th>
+                        <th style="width: 55px; display: table-cell !important;">Sess.</th>
+                        <th class="text-end pe-4" style="width: 280px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -77,13 +77,12 @@
                     <tr class="row-hover border-bottom">
                         <td class="ps-4 py-3">
                             <div class="d-flex align-items-center">
-                                <div class="avatar-circle bg-primary bg-opacity-10 text-primary fw-bold me-3">
-                                    {{ student.name[:2].upper() }}
+                                <div class="avatar-circle bg-primary bg-opacity-10 text-primary fw-bold me-3" style="font-size:0.75rem;">
+                                    {{ (student.case_id or 'GCC')[-4:] }}
                                 </div>
                                 <div>
-                                    <h6 class="fw-bold mb-0 text-dark">{{ student.name }}</h6>
-                                    <small class="text-muted" style="font-size: 0.75rem;">{{ student.index_number or 'No
-                                        Index' }}</small>
+                                    <h6 class="fw-bold mb-0 text-dark font-monospace">{{ student.case_id or 'Unassigned' }}</h6>
+                                    <small class="text-muted" style="font-size: 0.75rem;">{{ student.index_number or 'No Index' }}</small>
                                 </div>
                             </div>
                         </td>
@@ -99,9 +98,12 @@
                             <div class="small text-muted"><i class="bi bi-envelope me-1"></i>{{ student.email }}</div>
                             {% endif %}
                         </td>
-                        <td>
-                            <span class="badge bg-light text-dark fw-normal border">{{ student.programme or 'General'
-                                }}</span>
+                        <td style="display: table-cell !important; overflow: hidden;">
+                            <div class="badge bg-light text-dark fw-normal border text-start p-1" 
+                                 style="width: 100%; white-space: normal; display: block !important; font-size: 0.65rem; border-radius: 4px;">
+                                <div class="fw-bold">{{ student.programme or 'General' }}</div>
+                                <div class="text-muted" style="font-size: 0.6rem;">{{ student.department or 'N/A' }}</div>
+                            </div>
                         </td>
                         <td>
                             {% if student.session_count > 0 %}
@@ -112,29 +114,35 @@
                             {% endif %}
                         </td>
                         <td class="text-end pe-4">
-                            <div class="dropdown">
-                                <button class="btn btn-light btn-sm rounded-circle" data-bs-toggle="dropdown">
-                                    <i class="bi bi-three-dots-vertical"></i>
+                            <div class="d-flex align-items-center justify-content-end gap-1">
+                                <a href="{{ url_for('student_profile', id=student.id) }}" 
+                                   class="btn btn-sm btn-outline-primary rounded-pill px-2 py-1 shadow-sm border-2" 
+                                   style="font-size: 0.65rem;">
+                                    <i class="bi bi-person-lines-fill me-1"></i> Profile
+                                </a>
+                                
+                                <button type="button" 
+                                        onclick="handleStartSession({{ student.id }}, '{{ student.name|replace("'", "\\'") }}')"
+                                        class="btn btn-sm btn-success rounded-pill px-2 py-1 fw-bold shadow-sm" 
+                                        style="font-size: 0.65rem; background: #2e7d32; border: none;">
+                                    <i class="bi bi-play-circle-fill me-1"></i> Start
                                 </button>
-                                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
-                                    <li><a class="dropdown-item"
-                                            href="{{ url_for('student_profile', id=student.id) }}"><i
-                                                class="bi bi-person-lines-fill me-2 text-primary"></i> View Profile</a>
-                                    </li>
-                                    <li><a class="dropdown-item" href="/add_student?edit={{ student.id }}"><i
-                                                class="bi bi-pencil me-2"></i> Edit Details</a></li>
-                                    <li>
-                                        <hr class="dropdown-divider">
-                                    </li>
-                                    <li>
-                                        <form action="/delete_student/{{ student.id }}" method="POST"
-                                            onsubmit="return confirm('Delete {{ student.name }}? This is irreversable.');"
-                                            class="d-inline">
-                                            <button type="submit" class="dropdown-item text-danger"><i
-                                                    class="bi bi-trash me-2"></i> Delete Record</button>
-                                        </form>
-                                    </li>
-                                </ul>
+
+                                <a href="/add_student?edit={{ student.id }}" 
+                                   class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1" 
+                                   style="font-size: 0.65rem;">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+
+                                <form action="/delete_student/{{ student.id }}" method="POST"
+                                      onsubmit="return GCC.confirmForm(event, 'Are you sure?', 'warning', 'Delete');"
+                                      class="d-inline">
+                                    <button type="submit" 
+                                            class="btn btn-link btn-sm text-danger p-0" 
+                                            style="font-size: 0.65rem;">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
                             </div>
                         </td>
                     </tr>
@@ -200,5 +208,110 @@
             }
         });
     });
+    
+    function handleStartSession(studentId, studentName) {
+        // Show loading state
+        Swal.fire({
+            title: 'Checking Appointments...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        // Check for today's appointment via API
+        fetch(`/api/check_appointment/${studentId}`)
+            .then(response => response.json())
+            .then(data => {
+                Swal.close();
+                
+                if (data.status === 'found') {
+                    if (data.is_today) {
+                        // Regular flow for today - now with overdue checking
+                        const overdueClass = data.is_overdue ? 'bg-danger bg-opacity-10' : 'bg-light';
+                        const timeClass = data.is_overdue ? 'text-danger' : 'text-primary';
+                        const icon = data.is_overdue ? '<i class="bi bi-exclamation-triangle-fill me-1"></i>' : '';
+                        const statusTag = data.is_overdue ? '<span class="badge bg-danger rounded-pill ms-2" style="font-size:0.65rem;">Late</span>' : '';
+                        
+                        Swal.fire({
+                            title: data.is_overdue ? 'Overdue Appointment' : 'Appointment Found',
+                            html: `<div class="p-3 ${overdueClass} rounded-3 mb-3 border ${data.is_overdue ? 'border-danger border-opacity-25' : 'border-light'}">
+                                    <h6 class="fw-bold text-dark mb-1">${studentName} ${statusTag}</h6>
+                                    <span class="${timeClass} fw-bold" style="font-size: 1.1rem;">${icon}Today | ${data.time}</span>
+                                   </div>
+                                   ${data.is_overdue ? 'This appointment was scheduled for earlier today. Proceed to start session?' : 'Proceed to clinical session log?'}`,
+                            icon: data.is_overdue ? 'warning' : 'success',
+                            showCancelButton: true,
+                            confirmButtonText: 'Yes, Start Session',
+                            cancelButtonText: 'Cancel',
+                            reverseButtons: true,
+                            customClass: { popup: 'rounded-4 shadow-lg border-0' }
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.location.href = `/create_session?appointment_id=${data.appointment_id || data.id}`;
+                            }
+                        });
+                    } else {
+                        // Modal for future/past appointment
+                        Swal.fire({
+                            title: 'Schedule Mismatch Detected',
+                            html: `<div class="p-3 bg-light rounded-3 mb-3 text-center">
+                                    <p class="mb-0 text-muted" style="font-size:0.95rem;">
+                                        <strong>${studentName}</strong> has a scheduled appointment on
+                                    </p>
+                                    <div class="mt-2 text-primary fw-bold" style="font-size: 1.15rem;">
+                                        ${data.date.replace(/, \d{4}$/, '')} • ${data.time}
+                                    </div>
+                                   </div>
+                                   Do you want to start this session ahead of schedule?`,
+                            icon: 'info',
+                            showCancelButton: true,
+                            confirmButtonText: 'Start Session Now',
+                            cancelButtonText: 'Return to Dashboard',
+                            confirmButtonColor: '#0d6efd',
+                            cancelButtonColor: '#6c757d',
+                            reverseButtons: true,
+                            customClass: { 
+                                popup: 'rounded-4 shadow-lg border-0',
+                                confirmButton: 'btn btn-primary px-4 rounded-pill',
+                                cancelButton: 'btn btn-link text-muted text-decoration-none'
+                            }
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.location.href = `/create_session?appointment_id=${data.appointment_id || data.id}`;
+                            }
+                        });
+                    }
+                } else if (data.status === 'not_found') {
+                    // No appointment found. Prompt for Walk-in or Schedule
+                    Swal.fire({
+                        title: 'No Appointment Found',
+                        html: `This student (<b>${studentName}</b>) has no appointment scheduled for today.<br><br>What would you like to do?`,
+                        icon: 'question',
+                        showCancelButton: true,
+                        showDenyButton: true,
+                        confirmButtonText: 'Start Walk-in Session',
+                        denyButtonText: 'Schedule Appointment First',
+                        cancelButtonText: 'Cancel',
+                        reverseButtons: true,
+                        customClass: { popup: 'rounded-4' }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Go to create_session with student_id and walk-in mode
+                            window.location.href = `/create_session?student_id=${studentId}&mode=walkin`;
+                        } else if (result.isDenied) {
+                            // Go to schedule appointment page
+                            window.location.href = `/appointment?student_id=${studentId}`;
+                        }
+                    });
+                } else {
+                    Swal.fire('Error', 'Could not verify student status. Please try again.', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Network Error', 'Failed to connect to the system.', 'error');
+            });
+    }
 </script>
 {% endblock %}

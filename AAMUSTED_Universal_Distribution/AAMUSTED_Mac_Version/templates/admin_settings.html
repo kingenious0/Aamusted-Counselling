@@ -193,6 +193,144 @@
         </div>
         {% endif %}
 
+        <!-- Data Management & Import Section -->
+        {% if (session.get('role') or '')|trim in ['Admin', 'Counsellor', 'Counselor', 'Secretary'] %}
+        <div class="card card-glass border-0 shadow-sm mt-4">
+            <div class="card-header bg-transparent border-0 pt-4 px-4">
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3 text-primary">
+                        <i class="bi bi-file-earmark-arrow-up-fill"></i>
+                    </div>
+                    <h5 class="fw-bold mb-0">Data Management & Import</h5>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted small mb-4">Upload a file to bulk import student records into the registry. Supported formats: <strong>CSV</strong>, <strong>Excel (.xlsx)</strong>.</p>
+                
+                <form action="{{ url_for('import_students') }}" method="POST" enctype="multipart/form-data" class="bg-light p-4 rounded-3 border dashed-border">
+                    <div class="text-center py-2">
+                        <div class="mb-3">
+                            <i class="bi bi-cloud-arrow-up text-primary" style="font-size: 2.5rem;"></i>
+                        </div>
+                        <label for="importFile" class="form-label fw-bold">Select Import File</label>
+                        <input type="file" class="form-control mb-3" id="importFile" name="file" accept=".csv, .xlsx, .xls" required>
+                        <button type="submit" class="btn btn-primary px-5 shadow-sm btn-hover-lift">
+                            <i class="bi bi-box-arrow-in-down me-2"></i> Start Import
+                        </button>
+                    </div>
+                </form>
+
+                <div class="mt-4">
+                    <h6 class="text-uppercase text-muted small fw-bold mb-2">Instructions:</h6>
+                    <ul class="small text-muted mb-0">
+                        <li>Ensure column headers are present (e.g., <strong>Name, Index Number, Department, Programme</strong>).</li>
+                        <li>Case numbers will be automatically generated based on student names.</li>
+                        <li>Duplicate index numbers may cause import errors.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Remote Update & Version Control -->
+        <div class="card card-glass border-0 shadow-sm mt-4 border-top border-4 border-primary">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="fw-bold mb-0">System Updates</h5>
+                    <p class="text-muted small mb-0">Synchronize code with the main GitHub repository.</p>
+                </div>
+                <div class="bg-primary bg-opacity-10 p-2 rounded-circle text-primary">
+                    <i class="bi bi-cloud-arrow-down-fill fs-5"></i>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <div class="p-3 bg-light rounded-3 mb-4 border-start border-4 border-info">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-info-circle-fill text-info me-3 fs-5"></i>
+                        <div>
+                            <span class="fw-bold d-block text-dark">One-Click Remote Update</span>
+                            <p class="small text-muted mb-0">Updates pulled from the remote server directly to this local system.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-primary fw-bold py-2 btn-hover-lift" id="updateBtn" onclick="runSystemUpdate()">
+                        <i class="bi bi-git me-2"></i> Check for Updates
+                    </button>
+                </div>
+
+                <div id="updateResultArea" class="mt-3 small" style="display:none;">
+                    <div class="alert alert-secondary border-0 p-3 mb-0 overflow-auto" style="max-height:100px; font-family: monospace;" id="updateTerminalOutput">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        async function runSystemUpdate() {
+            const btn = document.getElementById('updateBtn');
+            const outputArea = document.getElementById('updateResultArea');
+            const terminal = document.getElementById('updateTerminalOutput');
+            const originalContent = btn.innerHTML;
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Connecting to GitHub...';
+            outputArea.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/admin/update_system', { method: 'POST' });
+                
+                // Detect Non-JSON (HTML 404/Login)
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    throw new Error("Server returned an invalid response (HTML). Please refresh the page.");
+                }
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    if (data.already_latest) {
+                        Swal.fire({
+                            title: 'Up to Date!',
+                            text: data.message,
+                            icon: 'success',
+                            confirmButtonColor: '#428879'
+                        });
+                    } else {
+                        Swal.fire({
+                            title: 'Update Successful!',
+                            text: data.message + ' ' + (data.details || ''),
+                            icon: 'success',
+                            confirmButtonText: 'Great!'
+                        });
+                        if (data.details) {
+                            outputArea.style.display = 'block';
+                            terminal.innerText = data.details;
+                        }
+                    }
+                } else {
+                    Swal.fire({
+                        title: 'Update Failed',
+                        text: data.message,
+                        icon: 'error',
+                        footer: data.details ? '<pre class="small">' + data.details + '</pre>' : ''
+                    });
+                }
+            } catch (error) {
+                console.error('Update Request Error:', error);
+                Swal.fire({ 
+                    title: 'System Error', 
+                    text: 'The check could not be completed: ' + error.message, 
+                    icon: 'error' 
+                });
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            }
+        }
+        </script>
+
         <!-- Node Configuration Section -->
         <div class="card card-glass border-0 shadow-sm mt-4">
             <div class="card-header bg-transparent border-0 pt-4 px-4">
@@ -214,7 +352,7 @@
                                 <option value="Unassigned" {% if node_config.node_role=='Unassigned' %}selected{% endif
                                     %}>Unassigned</option>
                                 <option value="SECRETARY" {% if node_config.node_role=='SECRETARY' %}selected{% endif
-                                    %}>Secretary PC</option>
+                                    %}>Desk Administrator PC</option>
                                 <option value="COUNSELLOR" {% if node_config.node_role=='COUNSELLOR' %}selected{% endif
                                     %}>Counsellor Mac</option>
                                 <option value="ADMIN" {% if node_config.node_role=='ADMIN' %}selected{% endif %}>Admin
@@ -242,7 +380,6 @@
                 </form>
             </div>
         </div>
-
     </div>
 
     <!-- Preview / Info Column -->

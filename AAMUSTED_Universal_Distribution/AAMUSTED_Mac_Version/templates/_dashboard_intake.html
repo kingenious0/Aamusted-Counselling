@@ -1,0 +1,97 @@
+<style>
+    .portal-card { border-left: 5px solid var(--brand-primary, #800000) !important; margin-bottom: 1.5rem !important; }
+    .btn-register { background: var(--brand-primary, #800000) !important; color: white !important; border: none !important; }
+    .badge-portal { background: rgba(128,0,0,0.1) !important; color: #800000 !important; border: 1px solid rgba(128,0,0,0.2) !important; }
+</style>
+
+{% if latest_bookings %}
+<div class="mb-5">
+    <div class="card border-0 shadow-sm overflow-hidden portal-card">
+        <div class="card-header bg-white border-bottom-0 pt-4 px-4 pb-0">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="fw-bold mb-0 text-dark d-flex align-items-center">
+                        <i class="bi bi-patch-check-fill me-2" style="color: #800000;"></i>USTED Portal Intake
+                        <span class="badge rounded-pill ms-2" style="background: #800000; font-size: 0.65rem;">{{ latest_bookings|length }} new</span>
+                    </h5>
+                    <p class="text-muted small mb-0 mt-1">Directly synced from your booking portal.</p>
+                </div>
+                <a href="{{ url_for('admin_bookings') }}" class="btn btn-outline-dark btn-sm rounded-pill px-3 fw-bold border-2" style="font-size: 0.75rem;">
+                    Full Queue <i class="bi bi-chevron-right ms-1"></i>
+                </a>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="row g-0">
+                {% for bk in latest_bookings[:6] %}
+                <div class="col-12 p-3 {% if not loop.last %}border-bottom{% endif %} btn-hover-lift" 
+                     style="transition: all 0.3s ease; background: var(--glass-bg, #fff);">
+                    <div class="d-flex align-items-start gap-3">
+                        <!-- Avatar -->
+                        <div class="rounded-circle bg-primary bg-opacity-10 text-primary fw-bold d-flex align-items-center justify-content-center flex-shrink-0 shadow-sm border border-white"
+                             style="width:52px;height:52px;font-size:1.2rem;">
+                            {{ bk.full_name[0]|upper if bk.full_name else '?' }}
+                        </div>
+                        <!-- Info -->
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="fw-bold text-dark fs-6 text-truncate">{{ bk.full_name }}</span>
+                                <span class="badge badge-portal rounded-pill" style="font-size:0.65rem;">New Request</span>
+                            </div>
+                            <div class="small text-muted mb-1 text-truncate">
+                                <i class="bi bi-book me-1 text-primary opacity-75"></i>{{ bk.programme or 'General Enquiry' }}
+                            </div>
+                            <div class="d-flex align-items-center gap-3 info-strip py-1 px-2 rounded-2 my-2" style="background: rgba(128,0,0,0.04); width: fit-content;">
+                                <div class="small fw-medium text-dark"><i class="bi bi-calendar-event me-1 text-primary opacity-75"></i>{{ (bk.preferred_date|string).split(' 00:00:00')[0] if bk.preferred_date else 'Today' }}</div>
+                                <div class="small text-muted"><i class="bi bi-clock me-1 text-primary opacity-75"></i>{{ bk.preferred_time or 'Any' }}</div>
+                            </div>
+                            
+                            <div class="collapse" id="details-{{ bk.id }}">
+                                <div class="p-2 bg-light rounded mt-2 border border-light">
+                                    <div class="small text-muted"><strong>Email:</strong> {{ bk.email or 'N/A' }}</div>
+                                    <div class="small text-muted"><strong>Faculty:</strong> {{ bk.faculty or 'N/A' }}</div>
+                                    <div class="small text-muted"><strong>Hall:</strong> {{ bk.hall_of_residence or 'N/A' }}</div>
+                                    <div class="small text-dark mt-1"><strong>Reason:</strong> {{ bk.reason or 'No reason provided' }}</div>
+                                </div>
+                            </div>
+
+                            <!-- Bottom Footer -->
+                            <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-light border-opacity-50">
+                                <button class="btn btn-link btn-sm p-0 text-decoration-none fw-bold" 
+                                        type="button" data-bs-toggle="collapse" data-bs-target="#details-{{ bk.id }}"
+                                        style="font-size: 0.7rem; color: #800000;">
+                                    <i class="bi bi-info-circle me-1"></i>Details
+                                </button>
+                                <span class="text-muted" style="font-size:0.65rem; letter-spacing: 0.02em;">
+                                    <i class="bi bi-stopwatch me-1"></i>#{{ bk.reference }} | {{ (bk.created_at or '')[11:16] if bk.created_at else 'Just now' }}
+                                </span>
+                            </div>
+                        </div>
+                        <!-- Actions -->
+                        <div class="d-flex flex-column gap-2 flex-shrink-0 align-items-end">
+                            {% if bk.is_registered %}
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill mb-1" style="font-size:0.6rem;">
+                                <i class="bi bi-person-check-fill me-1"></i>Registry Match
+                            </span>
+                            {% endif %}
+                            
+                            <button onclick="handleRegisterPortalBooking(this, {{ bk.id }})" 
+                               class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm border-0 fw-bold"
+                               style="font-size: 0.7rem; background: var(--brand-primary, #800000);">
+                                <i class="bi bi-person-plus-fill me-1"></i>Register
+                            </button>
+                            {% if bk.phone %}
+                            <a href="tel:{{ bk.phone }}" class="btn btn-sm btn-outline-primary rounded-pill shadow-sm d-flex align-items-center justify-content-center fw-bold" 
+                               style="width:100%; height:32px; font-size: 0.7rem; border-color: var(--brand-primary); color: var(--brand-primary);">
+                                <i class="bi bi-telephone me-1"></i>Call
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}

@@ -251,6 +251,115 @@ except Exception:
     pass  # Column already exists or table not yet created — ignore
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# SILENT AUTO-UPDATER — Checks GitHub 30s after startup & applies updates
+# Protected files are NEVER touched: counseling.db, node_config.json
+# ══════════════════════════════════════════════════════════════════════════════
+def _run_silent_auto_update():
+    """Background daemon: silently pulls latest code from GitHub on startup."""
+    import time as _time
+    import zipfile as _zipfile
+    import io as _io
+    import shutil as _shutil
+
+    _REPO_OWNER   = "kingenious0"
+    _REPO_NAME    = "Aamusted-Counselling"
+    _BRANCH       = "main"
+    _API_URL      = f"https://api.github.com/repos/{_REPO_OWNER}/{_REPO_NAME}/commits/{_BRANCH}"
+    _ZIP_URL      = f"https://github.com/{_REPO_OWNER}/{_REPO_NAME}/archive/refs/heads/{_BRANCH}.zip"
+    _SHA_FILE     = os.path.join(base_dir, 'current_sha.txt')
+    _TEMP_DIR     = os.path.join(base_dir, '_update_temp')
+    _PROTECTED    = {'counseling.db', 'node_config.json', 'current_sha.txt',
+                     '.git', '_update_temp', 'PATCH.py'}
+    _HEADERS      = {'User-Agent': 'AAMUSTED-AutoUpdater/2.0'}
+
+    # Wait for system to fully start before doing anything
+    _time.sleep(30)
+    print("[AUTO-UPDATE] Checking for updates...")
+
+    try:
+        import requests as _req
+
+        # 1. Read local SHA
+        _local_sha = ""
+        if os.path.exists(_SHA_FILE):
+            with open(_SHA_FILE, 'r') as _f:
+                _local_sha = _f.read().strip()
+
+        # 2. Get latest remote SHA
+        _api_resp = _req.get(_API_URL, headers=_HEADERS, timeout=10)
+        if _api_resp.status_code != 200:
+            print(f"[AUTO-UPDATE] GitHub returned {_api_resp.status_code} — skipping.")
+            return
+
+        _remote_sha = _api_resp.json().get('sha', '')
+        if not _remote_sha or _remote_sha == _local_sha:
+            print(f"[AUTO-UPDATE] Already up to date ({_local_sha[:8]}).")
+            return
+
+        print(f"[AUTO-UPDATE] New version: {_local_sha[:8]} → {_remote_sha[:8]}. Downloading...")
+
+        # 3. Download ZIP
+        _zip_resp = _req.get(_ZIP_URL, headers=_HEADERS, timeout=120)
+        if _zip_resp.status_code != 200:
+            print(f"[AUTO-UPDATE] Download failed (HTTP {_zip_resp.status_code}).")
+            return
+
+        # 4. Extract and apply
+        if os.path.exists(_TEMP_DIR):
+            _shutil.rmtree(_TEMP_DIR)
+        os.makedirs(_TEMP_DIR)
+
+        _z = _zipfile.ZipFile(_io.BytesIO(_zip_resp.content))
+        _z.extractall(_TEMP_DIR)
+
+        _extracted = os.listdir(_TEMP_DIR)
+        if not _extracted:
+            return
+        _source = os.path.join(_TEMP_DIR, _extracted[0])
+
+        for _item in os.listdir(_source):
+            if _item in _PROTECTED:
+                continue
+            _src = os.path.join(_source, _item)
+            _dst = os.path.join(base_dir, _item)
+            try:
+                if os.path.isdir(_src):
+                    if os.path.exists(_dst):
+                        _shutil.rmtree(_dst)
+                    _shutil.copytree(_src, _dst)
+                else:
+                    _shutil.copy2(_src, _dst)
+            except Exception as _ce:
+                print(f"[AUTO-UPDATE] Could not copy {_item}: {_ce}")
+
+        # 5. Save new SHA
+        with open(_SHA_FILE, 'w') as _f:
+            _f.write(_remote_sha)
+
+        print(f"[AUTO-UPDATE] ✅ Update applied ({_remote_sha[:8]}). Restart to activate new code.")
+
+    except ImportError:
+        print("[AUTO-UPDATE] 'requests' not available — skipping update check.")
+    except Exception as _e:
+        print(f"[AUTO-UPDATE] Failed (will retry next startup): {_e}")
+    finally:
+        try:
+            if os.path.exists(_TEMP_DIR):
+                _shutil.rmtree(_TEMP_DIR)
+        except Exception:
+            pass
+
+
+# Launch auto-updater as a silent background daemon thread
+_auto_update_thread = threading.Thread(
+    target=_run_silent_auto_update,
+    name="SilentAutoUpdater",
+    daemon=True   # Dies when main app exits — never blocks shutdown
+)
+_auto_update_thread.start()
+
+
 @app.context_processor
 def inject_now():
     """Inject common variables into all templates."""

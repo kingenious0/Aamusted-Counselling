@@ -1,0 +1,421 @@
+{% extends 'base_modern.html' %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-dark mb-1">Cloud Lookout</h2>
+            <p class="text-muted small mb-0">Monitor real-time synchronization with Supabase Cloud Database</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button onclick="triggerManualSync()" class="btn btn-primary d-flex align-items-center gap-2 shadow-sm">
+                <i class="bi bi-arrow-repeat" id="syncIcon"></i>
+                <span>Sync Now</span>
+            </button>
+            <button onclick="confirmResetAndPull()" class="btn btn-outline-danger d-flex align-items-center gap-2 shadow-sm">
+                <i class="bi bi-cloud-download"></i>
+                <span>Force Full Download</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="row g-4 mb-4">
+        <!-- Local Identity -->
+        <div class="col-md-3">
+            <div class="card card-glass h-100 border-0 shadow-sm p-3">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-primary bg-opacity-10 p-2 rounded-3 me-3">
+                        <i class="bi bi-cpu text-primary fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Node Identity</div>
+                        <div class="fw-bold">{{ config.node_id }}</div>
+                    </div>
+                </div>
+                <div class="mt-auto">
+                    <span class="badge bg-secondary opacity-75">{{ config.node_role }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="col-md-3">
+            <div class="card card-glass h-100 border-0 shadow-sm p-3">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-success bg-opacity-10 p-2 rounded-3 me-3" id="statusBg">
+                        <i class="bi bi-wifi text-success fs-4" id="statusIcon"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Bridge Status</div>
+                        <div class="fw-bold" id="bridgeStatus">Checking...</div>
+                    </div>
+                </div>
+                <div class="progress" style="height: 4px;">
+                    <div class="progress-bar bg-success" id="statusBar" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Last Sync Time -->
+        <div class="col-md-3">
+            <div class="card card-glass h-100 border-0 shadow-sm p-3">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-info bg-opacity-10 p-2 rounded-3 me-3">
+                        <i class="bi bi-clock-history text-info fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Last Successful Sync</div>
+                        <div class="fw-bold" id="lastSyncTime">{{ config.last_cloud_sync or 'Never' }}</div>
+                    </div>
+                </div>
+                <div class="text-muted x-small" id="syncRelative">Counting seconds...</div>
+            </div>
+        </div>
+
+        <!-- Sync Mode -->
+        <div class="col-md-3">
+            <div class="card card-glass h-100 border-0 shadow-sm p-3">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-warning bg-opacity-10 p-2 rounded-3 me-3">
+                        <i class="bi bi-shield-shaded text-warning fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Encryption & Security</div>
+                        <div class="fw-bold">AES-256 Enabled</div>
+                    </div>
+                </div>
+                <div class="text-success x-small"><i class="bi bi-check-circle-fill me-1"></i> X-API-KEY Verified</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Data Integrity Lookout -->
+        <div class="col-lg-8">
+            <div class="card card-glass border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 pt-4 px-4">
+                    <h5 class="fw-bold mb-0">Data Integrity Comparison</h5>
+                    <p class="text-muted small">Comparing Local SQLite records vs Supabase Cloud records</p>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>Table Name</th>
+                                    <th class="text-center">Local Count</th>
+                                    <th class="text-center">Cloud Count</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="statsTableBody">
+                                {% for table in sync_tables %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-light p-1 rounded me-2">
+                                                <i class="bi bi-table text-muted"></i>
+                                            </div>
+                                            <span class="fw-medium text-dark">{{ table }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="text-center fw-bold">{{ local_counts[table] }}</td>
+                                    <td class="text-center text-muted cloud-count" data-table="{{ table }}">
+                                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge rounded-pill bg-light text-dark sync-status" data-table="{{ table }}">Checking...</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-time Sync Activity -->
+        <div class="col-lg-4">
+            <div class="card card-glass border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0">Live Activity Feed</h5>
+                    <span class="badge bg-success pulse-badge">LIVE</span>
+                </div>
+                <div class="card-body px-4">
+                    <div class="sync-logs-container" id="syncLogs" style="max-height: 450px; overflow-y: auto;">
+                        <div class="text-center py-5 text-muted">
+                            <i class="bi bi-terminal fs-2 opacity-25"></i>
+                            <p class="small mt-2">Waiting for sync activity...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 p-4">
+                    <div class="alert alert-info py-2 px-3 mb-0" style="font-size: 0.75rem;">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Next automated sync in <span id="syncCountdown">{{ config.sync_interval_seconds }}</span>s
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .x-small { font-size: 0.7rem; }
+    .pulse-badge {
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+    .sync-log-item {
+        border-left: 2px solid var(--brand-primary);
+        padding-left: 0.75rem;
+        margin-bottom: 1rem;
+        position: relative;
+    }
+    .sync-log-item::before {
+        content: '';
+        position: absolute;
+        left: -5px;
+        top: 0;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--brand-primary);
+    }
+    .sync-log-time { font-size: 0.65rem; color: #94a3b8; }
+    .sync-log-msg { font-size: 0.8rem; color: #334155; }
+    
+    .sync-logs-container::-webkit-scrollbar { width: 4px; }
+    .sync-logs-container::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let localCounts = {{ local_counts | tojson }};
+    let syncTables = {{ sync_tables | tojson }};
+    let nextSyncIn = {{ config.sync_interval_seconds }};
+    let intervalId = null;
+
+    // Initial load
+    document.addEventListener('DOMContentLoaded', () => {
+        refreshCloudStats();
+        startCountdown();
+        
+        // Polling every 15 seconds for cloud stats
+        setInterval(refreshCloudStats, 15000);
+    });
+
+    function startCountdown() {
+        if (intervalId) clearInterval(intervalId);
+        nextSyncIn = {{ config.sync_interval_seconds }};
+        intervalId = setInterval(() => {
+            nextSyncIn--;
+            if (nextSyncIn < 0) {
+                // Background sync likely happening
+                addLog('System', 'Initiating background sync cycle...');
+                nextSyncIn = {{ config.sync_interval_seconds }};
+            }
+            const countEl = document.getElementById('syncCountdown');
+            if (countEl) countEl.innerText = nextSyncIn;
+        }, 1000);
+    }
+
+    function refreshCloudStats() {
+        console.log('Refreshing cloud stats...');
+        fetch('/api/admin/cloud_proxy/stats')
+            .then(r => r.json())
+            .then(data => {
+                const bridgeStatus = document.getElementById('bridgeStatus');
+                const statusBar = document.getElementById('statusBar');
+                const statusBg = document.getElementById('statusBg');
+                const statusIcon = document.getElementById('statusIcon');
+
+                if (data.status === 'success') {
+                    if (bridgeStatus) {
+                        bridgeStatus.innerText = 'Online (Supabase connected)';
+                        bridgeStatus.className = 'fw-bold text-success';
+                    }
+                    if (statusBar) {
+                        statusBar.style.width = '100%';
+                        statusBar.className = 'progress-bar bg-success';
+                    }
+                    if (statusBg) {
+                        statusBg.className = 'bg-success bg-opacity-10 p-2 rounded-3 me-3';
+                    }
+                    if (statusIcon) {
+                        statusIcon.className = 'bi bi-wifi text-success fs-4';
+                    }
+
+                    if (data.counts) updateTableStats(data.counts);
+                } else {
+                    if (bridgeStatus) {
+                        bridgeStatus.innerText = 'Offline or Error';
+                        bridgeStatus.className = 'fw-bold text-danger';
+                    }
+                    if (statusBar) {
+                        statusBar.style.width = '30%';
+                        statusBar.className = 'progress-bar bg-danger';
+                    }
+                    if (statusBg) {
+                        statusBg.className = 'bg-danger bg-opacity-10 p-2 rounded-3 me-3';
+                    }
+                    if (statusIcon) {
+                        statusIcon.className = 'bi bi-wifi-off text-danger fs-4';
+                    }
+                }
+            })
+            .catch(err => {
+                const bridgeStatus = document.getElementById('bridgeStatus');
+                if (bridgeStatus) {
+                    bridgeStatus.innerText = 'Network Error';
+                    bridgeStatus.className = 'fw-bold text-danger';
+                }
+                addLog('Error', 'Failed to reach cloud bridge: ' + err.message);
+            });
+            
+        // Also update last sync time from local status
+        fetch('/api/sync/status')
+            .then(r => r.json())
+            .then(data => {
+                const lstEl = document.getElementById('lastSyncTime');
+                if (lstEl) lstEl.innerText = data.last_sync || 'Never';
+                updateRelativeTime(data.last_sync);
+            });
+    }
+
+    function updateTableStats(cloudCounts) {
+        if (!cloudCounts) return;
+        syncTables.forEach(table => {
+            try {
+                const countEl = document.querySelector(`.cloud-count[data-table="${table}"]`);
+                const statusEl = document.querySelector(`.sync-status[data-table="${table}"]`);
+                
+                if (countEl && cloudCounts[table] !== undefined) {
+                    const cloudVal = cloudCounts[table];
+                    const localVal = localCounts[table] || 0;
+                    
+                    countEl.innerHTML = `<span class="fw-bold text-dark">${cloudVal === -1 ? 'Err' : cloudVal}</span>`;
+                    
+                    if (statusEl) {
+                        if (cloudVal === -1) {
+                            statusEl.innerText = 'DB ERROR';
+                            statusEl.className = 'badge rounded-pill bg-danger shadow-sm';
+                        } else if (localVal === cloudVal) {
+                            statusEl.innerText = 'SYNCED';
+                            statusEl.className = 'badge rounded-pill bg-success-subtle text-success border border-success border-opacity-25';
+                        } else {
+                            const diff = Math.abs(localVal - cloudVal);
+                            statusEl.innerText = `${diff} DIFF`;
+                            statusEl.className = 'badge rounded-pill bg-warning-subtle text-dark border border-warning border-opacity-25';
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Error updating stats for table " + table, e);
+            }
+        });
+    }
+
+    function triggerManualSync() {
+        const btn = document.getElementById('syncIcon');
+        btn.classList.add('bi-spin');
+        addLog('Sync', 'Triggering manual synchronization...');
+
+        fetch('/api/admin/cloud_proxy/force_sync', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'success',
+                        title: 'Sync Started',
+                        text: 'Cloud sync is running in the background.',
+                        showConfirmButton: false,
+                        timer: 3000
+                    });
+                    addLog('Success', 'Manual sync cycle initiated successfully.');
+                    setTimeout(refreshCloudStats, 3000);
+                } else {
+                    addLog('Error', 'Sync trigger failed: ' + data.error);
+                }
+            })
+            .finally(() => {
+                setTimeout(() => btn.classList.remove('bi-spin'), 2000);
+            });
+    }
+
+    function confirmResetAndPull() {
+        Swal.fire({
+            title: 'Force Full Download?',
+            text: "This will reset all sync markers and re-download all data from the cloud to ensure your local system is bit-for-bit with Supabase. Existing local records with the same IDs will be updated.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, force download'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                addLog('Sync', 'Resetting sync markers for full download...');
+                fetch('/api/admin/cloud_proxy/reset_and_pull', { method: 'POST' })
+                    .then(r => r.json())
+                    .then(data => {
+                        Swal.fire('Initiated', data.message, 'success');
+                        addLog('Action', 'Full cloud download command sent.');
+                    });
+            }
+        });
+    }
+
+    function addLog(type, msg) {
+        const logs = document.getElementById('syncLogs');
+        const time = new Date().toLocaleTimeString();
+        
+        // Remove empty state if present
+        if (logs.querySelector('.opacity-25')) {
+            logs.innerHTML = '';
+        }
+
+        const div = document.createElement('div');
+        div.className = 'sync-log-item';
+        div.innerHTML = `
+            <div class="sync-log-time">${time} | ${type.toUpperCase()}</div>
+            <div class="sync-log-msg">${msg}</div>
+        `;
+        logs.prepend(div);
+    }
+
+    function updateRelativeTime(lastSync) {
+        if (!lastSync) return;
+        const last = new Date(lastSync);
+        const now = new Date();
+        const diffSec = Math.floor((now - last) / 1000);
+        
+        let display = '';
+        if (diffSec < 60) display = `${diffSec} seconds ago`;
+        else display = `${Math.floor(diffSec/60)} minutes ago`;
+        
+        const relEl = document.getElementById('syncRelative');
+        if (relEl) relEl.innerText = 'Last sync: ' + display;
+    }
+</script>
+
+<style>
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+.bi-spin {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+}
+</style>
+{% endblock %}

@@ -4,19 +4,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ settings.system_name or 'AAMUSTED Counselling' }} | Clinical Co-pilot</title>
+    <title>{{ settings.system_name or 'USTED Counselling System' }} | Clinical Co-pilot</title>
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Fonts (Local Fallback) -->
+    <style>
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif !important; }
+    </style>
 
-    <!-- Bootstrap 5 & Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <!-- Bootstrap 5 & Icons (Local) -->
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-icons.css') }}">
+
+    <!-- SweetAlert2 (Local) -->
+    <script src="{{ url_for('static', filename='js/sweetalert2.all.min.js') }}"></script>
 
     <!-- Custom Modern Theme -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/modern_theme.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modern_theme.css') }}?v=2.1">
+
+    <!-- PWA Manifest & Icons -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#0d6efd">
+    <link rel="apple-touch-icon" href="/static/icon.png">
 
     <style>
         /* Sidebar active state helper */
@@ -53,13 +61,11 @@
                 <img src="{{ settings.logo_url }}" class="me-2"
                     style="max-height: 40px; max-width: 40px; object-fit: contain;">
                 {% else %}
-                <div class="bg-gradient p-2 rounded-3 me-2" style="background: var(--sage-600); color: white;">
+                <div class="bg-gradient p-2 rounded-3 me-2" style="background: maroon; color: white;">
                     <i class="bi bi-heart-pulse-fill fs-4"></i>
                 </div>
                 {% endif %}
-                <span class="fs-6 fw-bold text-break lh-sm sidebar-header-text" style="color: var(--sage-900);">
-                    {{ settings.system_name or 'Counselling Hub' }}
-                </span>
+                <span class="fs-4 fw-bold sidebar-header-text" style="letter-spacing: -0.02em; color: var(--brand-primary);">{{ settings.get('system_name', 'USTED SYSTEM') }}</span>
             </a>
         </div>
 
@@ -72,7 +78,16 @@
                 </a>
             </li>
 
+            <!-- PWA Install Button -->
+            <li class="nav-item" id="installContainer" style="display: none;">
+                <a href="#" class="nav-link" id="installBtn" style="background: var(--brand-primary); color: white !important;">
+                    <i class="bi bi-download me-2"></i> <span>Install USTED App</span>
+                </a>
+            </li>
+
+            {# ── ALL ROLES: Clients & Appointments ── #}
             {% if session.get('role') in ['Secretary', 'Admin', 'Counsellor', 'Counselor'] %}
+            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-1 nav-category-header" style="font-size:0.65rem;">Clients</li>
             <li>
                 <a href="{{ url_for('students') }}"
                     class="nav-link {% if 'student' in request.endpoint and 'intake' not in request.endpoint %}active{% endif %}"
@@ -82,16 +97,19 @@
             </li>
             <li>
                 <a href="{{ url_for('intake') }}"
-                    class="nav-link {% if 'intake' in request.endpoint %}active{% endif %}" title="New Student Intake"
+                    class="nav-link {% if 'intake' in request.endpoint %}active{% endif %}" title="New Client Intake"
                     data-bs-toggle="tooltip" data-bs-placement="right">
-                    <i class="bi bi-person-plus me-2"></i> <span>New Student Intake</span>
+                    <i class="bi bi-person-plus me-2"></i> <span>New Client Intake</span>
                 </a>
             </li>
+
+
+            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-1 nav-category-header" style="font-size:0.65rem;">Appointments</li>
             <li>
                 <a href="{{ url_for('appointment') }}"
-                    class="nav-link {% if 'appointment' in request.endpoint and 'status' not in request.endpoint %}active{% endif %}"
-                    title="Appointments" data-bs-toggle="tooltip" data-bs-placement="right">
-                    <i class="bi bi-calendar-plus me-2"></i> <span>Appointments</span>
+                    class="nav-link {% if request.endpoint == 'appointment' %}active{% endif %}"
+                    title="Schedule Appointment" data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-calendar-plus me-2"></i> <span>Schedule Appt.</span>
                 </a>
             </li>
             <li>
@@ -101,11 +119,23 @@
                     <i class="bi bi-calendar-check me-2"></i> <span>Manage Appts.</span>
                 </a>
             </li>
+            <li>
+                <a href="/admin/bookings"
+                    class="nav-link {% if 'bookings' in request.endpoint %}active{% endif %}" title="Booking Requests"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-calendar2-event me-2"></i>
+                    <span>Booking Requests</span>
+                    {% if latest_booking_count and latest_booking_count > 0 %}
+                    <span class="badge rounded-pill bg-warning text-dark ms-auto" style="font-size:0.65rem;">{{ latest_booking_count }}</span>
+                    {% endif %}
+                </a>
+            </li>
             {% endif %}
 
-            {% if session.get('role') in ['Counsellor', 'Counselor', 'Admin'] %}
-            <!-- Counsellor Specific Links -->
-            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-2 nav-category-header">Clinical</li>
+
+            {% if (session.get('role') or '')|trim in ['Counsellor', 'Counselor', 'Admin'] %}
+            <!-- ── Clinical: Counsellor / Admin ── -->
+            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-1 nav-category-header" style="font-size:0.65rem;">Clinical</li>
             <li>
                 <a href="{{ url_for('my_cases') }}"
                     class="nav-link {% if 'my_cases' in request.endpoint %}active{% endif %}" title="My Cases"
@@ -148,10 +178,36 @@
                     <i class="bi bi-file-earmark-bar-graph me-2"></i> <span>Reports</span>
                 </a>
             </li>
+            <li>
+                <a href="{{ url_for('statistics') }}"
+                    class="nav-link {% if request.endpoint == 'statistics' %}active{% endif %}" title="Statistics"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-bar-chart-line me-2"></i> <span>Statistics</span>
+                </a>
+            </li>
+            {% endif %}
+
+            {% if session.get('role') == 'Secretary' %}
+            <li>
+                <a href="{{ url_for('statistics') }}"
+                    class="nav-link {% if request.endpoint == 'statistics' %}active{% endif %}" title="Statistics"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-bar-chart-line me-2"></i> <span>Statistics</span>
+                </a>
+            </li>
             {% endif %}
 
             {% if session.get('role') in ['Secretary', 'Counsellor', 'Counselor'] %}
-            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-2 nav-category-header">Configuration</li>
+            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-1 nav-category-header" style="font-size:0.65rem;">Configuration</li>
+            {% if session.get('role') in ['Secretary', 'Admin', 'Counsellor', 'Counselor'] %}
+            <li>
+                <a href="{{ url_for('import_csv') }}"
+                    class="nav-link {% if 'import' in request.endpoint %}active{% endif %}" title="Import Data"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-file-earmark-arrow-up me-2"></i> <span>Import Data</span>
+                </a>
+            </li>
+            {% endif %}
             <li>
                 <a href="{{ url_for('admin_settings') }}"
                     class="nav-link {% if 'settings' in request.endpoint %}active{% endif %}" title="Settings"
@@ -162,7 +218,14 @@
             {% endif %}
 
             {% if session.get('role') == 'Admin' %}
-            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-2 nav-category-header">Governance</li>
+            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-1 nav-category-header" style="font-size:0.65rem;">Governance</li>
+            <li>
+                <a href="{{ url_for('admin_cloud_sync') }}"
+                    class="nav-link {% if 'cloud_sync' in request.endpoint %}active{% endif %}" title="Cloud Lookout"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-cloud-check me-2 text-primary"></i> <span>Cloud Lookout</span>
+                </a>
+            </li>
             <li>
                 <a href="{{ url_for('admin_users') }}"
                     class="nav-link {% if 'users' in request.endpoint %}active{% endif %}" title="Access Control"
@@ -191,6 +254,13 @@
                     <i class="bi bi-gear me-2"></i> <span>System Settings</span>
                 </a>
             </li>
+            <li>
+                <a href="{{ url_for('statistics') }}"
+                    class="nav-link {% if request.endpoint == 'statistics' %}active{% endif %}" title="Global Analytics"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-graph-up-arrow me-2"></i> <span>Global Analytics</span>
+                </a>
+            </li>
             {% endif %}
         </ul>
 
@@ -205,10 +275,13 @@
                     style="width: 32px; height: 32px; min-width: 32px;">
                     {{ session.get('username', 'U')[0] | upper }}
                 </div>
-                <div>
-                    <div class="small fw-bold text-truncate" style="max-width: 140px;">{{ session.get('full_name',
-                        'User') }}</div>
-                    <div class="small text-muted" style="font-size: 0.75rem;">{{ session.get('role', 'Staff') }}</div>
+                    {% set role_labels = {'Secretary': 'Desk Administrator', 'Admin': 'System Administrator', 'Counsellor': 'Counsellor', 'Counselor': 'Counsellor'} %}
+                    {% set display_name = session.get('full_name', 'User') %}
+                    {% if display_name.strip().lower() in ['secretary', 'admin', 'counsellor', 'counselor'] %}
+                        {% set display_name = role_labels.get(session.get('role'), display_name) %}
+                    {% endif %}
+                    <div class="small fw-bold text-truncate" style="max-width: 140px;">{{ display_name }}</div>
+                    <div class="small text-muted" style="font-size: 0.75rem;">{{ role_labels.get(session.get('role'), 'Staff') }}</div>
                 </div>
             </a>
             <ul class="dropdown-menu text-small shadow" aria-labelledby="dropdownUser2">
@@ -238,13 +311,8 @@
                 <i class="bi bi-list fs-4"></i>
             </button>
 
-            <!-- Search Bar -->
-            <div class="position-relative flex-grow-1" style="max-width: 400px;">
-                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
-                <input type="text" class="form-control form-control-lg ps-5 border-0 shadow-sm"
-                    style="border-radius: 99px; background: white; font-size: 0.95rem; width: 100%;"
-                    placeholder="Search clients, files, or actions (Cmd+K)...">
-            </div>
+            <!-- Removed topmost global search bar; using section-specific search for better functionality -->
+            <div class="flex-grow-1"></div>
 
             <!-- Notifications / Actions -->
             <div class="d-flex align-items-center gap-3">
@@ -323,24 +391,46 @@
                     </ul>
                 </div>
 
+                <!-- Update Notification Badge (All Staff) -->
+                {% if session.get('role') in ['Admin', 'Counsellor', 'Counselor', 'Secretary'] %}
+                <div id="systemUpdateBadge" style="display:none;">
+                    <a href="{{ url_for('admin_settings') }}" class="btn btn-warning btn-sm rounded-pill px-3 fw-bold shadow-sm animate-pulse-warning">
+                        <i class="bi bi-cloud-arrow-down-fill me-1"></i> Update Available
+                    </a>
+                </div>
+                {% endif %}
+
                 <a href="{{ url_for('logout') }}" class="btn btn-outline-danger border-0 btn-sm rounded-pill px-3">
                     <i class="bi bi-power me-1"></i> Logout
                 </a>
             </div>
         </div>
 
-        <!-- Flash Messages -->
+        <!-- Flash Messages via SweetAlert2 -->
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-        {% for category, message in messages %}
-        <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show shadow-sm border-0 rounded-3"
-            role="alert">
-            <i
-                class="bi {% if category == 'success' %}bi-check-circle-fill{% else %}bi-exclamation-triangle-fill{% endif %} me-2"></i>
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        {% endfor %}
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000,
+                    timerProgressBar: true,
+                    didOpen: (toast) => {
+                        toast.addEventListener('mouseenter', Swal.stopTimer)
+                        toast.addEventListener('mouseleave', Swal.resumeTimer)
+                    }
+                });
+
+                {% for category, message in messages %}
+                Toast.fire({
+                    icon: '{{ "success" if category == "success" else "error" if category in ["danger", "error"] else "info" }}',
+                    title: '{{ message }}'
+                });
+                {% endfor %}
+            });
+        </script>
         {% endif %}
         {% endwith %}
 
@@ -349,13 +439,48 @@
     </main>
 
     <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
     <script>
         // Init tooltips
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
         var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl)
         })
+
+        // GCC Core UI Helpers
+        window.GCC = {
+            confirm: function(message, type = 'warning', confirmText = 'Yes, proceed') {
+                return Swal.fire({
+                    title: 'Are you sure?',
+                    text: message,
+                    icon: type,
+                    showCancelButton: true,
+                    confirmButtonColor: 'var(--sage-600, #4f46e5)',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: confirmText,
+                    cancelButtonText: 'Cancel',
+                    padding: '2rem',
+                    borderRadius: '1rem',
+                    customClass: {
+                        popup: 'rounded-4 shadow-lg border-0',
+                        title: 'fw-bold text-dark',
+                        confirmButton: 'btn btn-primary px-4 py-2 fw-semibold',
+                        cancelButton: 'btn btn-light px-4 py-2 text-muted'
+                    },
+                    buttonsStyling: false
+                });
+            },
+            confirmForm: function(event, message, type = 'warning', confirmText = 'Yes, proceed') {
+                event.preventDefault();
+                const form = event.target.closest('form');
+                this.confirm(message, type, confirmText).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+                return false;
+            }
+        };
 
         // Sidebar Collapse Logic
         document.addEventListener('DOMContentLoaded', function () {
@@ -417,23 +542,12 @@
 
         // Notification Sound
         function playNotificationSound() {
-            // Simple beep sequence
-            const context = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = context.createOscillator();
-            const gainNode = context.createGain();
-
-            oscillator.connect(gainNode);
-            gainNode.connect(context.destination);
-
-            oscillator.type = 'sine';
-            oscillator.frequency.value = 800; // Hz
-            gainNode.gain.value = 0.1; // Volume
-
-            oscillator.start();
-            setTimeout(function () {
-                oscillator.stop();
-            }, 100); // 100ms beep
+            const audio = document.getElementById('notificationSound');
+            if (audio) {
+                audio.play().catch(e => console.log('Audio play failed:', e));
+            }
         }
+
 
         // Mark single notification as read
         function markNotificationRead(event, id) {
@@ -490,8 +604,91 @@
                 })
                 .catch(e => console.error('Theme sync error:', e));
         }, 5000); // Check every 5 seconds
+
+        // Automated Sync & New Booking Polling (Enhanced for 5s Real-time)
+        setInterval(() => {
+            fetch('/api/sync/check_alerts')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.new_booking) {
+                        // Rate control: Don't show the same alert more than once every 30s
+                        const now = Date.now();
+                        const lastAlert = sessionStorage.getItem('last_booking_alert_time');
+                        if (!lastAlert || (now - lastAlert > 30000)) {
+                            sessionStorage.setItem('last_booking_alert_time', now);
+                            playNotificationSound();
+                            Swal.fire({
+                                toast: true,
+                                position: 'top-end',
+                                icon: 'info',
+                                title: 'New Online Booking Received!',
+                                text: 'A new client has booked via the portal.',
+                                showConfirmButton: false,
+                                timer: 10000,
+                                timerProgressBar: true
+                            });
+                        }
+                        
+                        // Silent Refresh of the intake list if on dashboard
+                        if (typeof refreshIntakeList === 'function') {
+                            refreshIntakeList();
+                        }
+                    }
+                })
+                .catch(e => console.error('Alert sync error:', e));
+        }, 2000); // Check every 2 seconds for instant notification
+
+        // Periodic Update Check (Slow - every 30 mins, or on page load)
+        function checkSystemUpdates() {
+            {% if session.get('role') == 'Admin' %}
+            fetch('/api/admin/check_update_status')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.update_available) {
+                        const badge = document.getElementById('systemUpdateBadge');
+                        if (badge) badge.style.display = 'block';
+                    }
+                })
+                .catch(e => console.error('Update check error:', e));
+            {% endif %}
+        }
+        checkSystemUpdates(); 
+        setInterval(checkSystemUpdates, 1800000); // Check once every 30 mins
+
+        // --- PWA Registration & Install Support ---
+        let deferredPrompt;
+        const installContainer = document.getElementById('installContainer');
+        const installBtn = document.getElementById('installBtn');
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/service-worker.js')
+                    .then(reg => console.log('SW Registered!', reg))
+                    .catch(err => console.log('SW Fail:', err));
+            });
+        }
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installContainer.style.display = 'block';
+        });
+
+        installBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    installContainer.style.display = 'none';
+                }
+                deferredPrompt = null;
+            }
+        });
     </script>
+    <audio id="notificationSound" src="/assets/ringtone-you-would-be-glad-to-know.mp3" preload="auto"></audio>
     {% block scripts %}{% endblock %}
+
 </body>
 
 </html>

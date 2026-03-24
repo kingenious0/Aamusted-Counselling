@@ -32,12 +32,16 @@ def load_config():
 def create_default_config():
     """Create a default config with a random Node ID"""
     config = {
-        "node_id": f"NODE_{str(uuid.uuid4())[:8].upper()}",
+        "node_id": f"USTED_{str(uuid.uuid4())[:8].upper()}",
         "node_role": "Unassigned", # e.g., 'SECRETARY', 'COUNSELLOR'
         "peer_ip": "", # Manual IP entry for the 'other' machine
+        "cloud_api_url": "https://aamusted-counselling-cloud-bridge.vercel.app/sync", 
+        "cloud_api_key": "sb_bridge_AnEpYo_2026", 
         "sync_enabled": True,
-        "sync_interval_seconds": 60
+        "sync_interval_seconds": 3,
+        "last_cloud_sync": "1970-01-01 00:00:00"
     }
+
     save_config(config)
     return config
 
