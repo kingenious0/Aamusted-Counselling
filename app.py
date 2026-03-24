@@ -269,8 +269,18 @@ def _run_silent_auto_update():
     _ZIP_URL      = f"https://github.com/{_REPO_OWNER}/{_REPO_NAME}/archive/refs/heads/{_BRANCH}.zip"
     _SHA_FILE     = os.path.join(base_dir, 'current_sha.txt')
     _TEMP_DIR     = os.path.join(base_dir, '_update_temp')
-    _PROTECTED    = {'counseling.db', 'node_config.json', 'current_sha.txt',
-                     '.git', '_update_temp', 'PATCH.py'}
+
+    # Files/folders that must NEVER be overwritten or even touched
+    _PROTECTED    = {
+        'counseling.db', 'node_config.json', 'current_sha.txt',
+        '.git', '_update_temp', 'PATCH.py',
+        # Distribution/packaging folders — contain .bat files that trigger
+        # Windows Defender WinError 225 and must be skipped entirely
+        'AAMUSTED_Universal_Distribution_Old_v2',
+        'USTED_Counseling_System_Distribution',
+        'AAMUSTED_Universal_Distribution',
+        'deployment',
+    }
     _HEADERS      = {'User-Agent': 'AAMUSTED-AutoUpdater/2.0'}
 
     # Wait for system to fully start before doing anything
@@ -305,7 +315,7 @@ def _run_silent_auto_update():
             print(f"[AUTO-UPDATE] Download failed (HTTP {_zip_resp.status_code}).")
             return
 
-        # 4. Extract and apply
+        # 4. Extract
         if os.path.exists(_TEMP_DIR):
             _shutil.rmtree(_TEMP_DIR)
         os.makedirs(_TEMP_DIR)
@@ -318,6 +328,8 @@ def _run_silent_auto_update():
             return
         _source = os.path.join(_TEMP_DIR, _extracted[0])
 
+        # 5. Copy files one-by-one — skip protected, log individual failures
+        _copied = 0
         for _item in os.listdir(_source):
             if _item in _PROTECTED:
                 continue
@@ -327,17 +339,22 @@ def _run_silent_auto_update():
                 if os.path.isdir(_src):
                     if os.path.exists(_dst):
                         _shutil.rmtree(_dst)
-                    _shutil.copytree(_src, _dst)
+                    # ignore .bat/.exe inside subdirs to avoid Windows Defender
+                    _shutil.copytree(
+                        _src, _dst,
+                        ignore=_shutil.ignore_patterns('*.bat', '*.exe', '*.msi')
+                    )
                 else:
                     _shutil.copy2(_src, _dst)
+                _copied += 1
             except Exception as _ce:
-                print(f"[AUTO-UPDATE] Could not copy {_item}: {_ce}")
+                print(f"[AUTO-UPDATE] Skipped {_item}: {_ce}")
 
-        # 5. Save new SHA
+        # 6. Save new SHA (always — even if a few non-critical files were skipped)
         with open(_SHA_FILE, 'w') as _f:
             _f.write(_remote_sha)
 
-        print(f"[AUTO-UPDATE] ✅ Update applied ({_remote_sha[:8]}). Restart to activate new code.")
+        print(f"[AUTO-UPDATE] ✅ Update applied ({_copied} items, SHA {_remote_sha[:8]}). Restart to activate.")
 
     except ImportError:
         print("[AUTO-UPDATE] 'requests' not available — skipping update check.")
@@ -351,13 +368,19 @@ def _run_silent_auto_update():
             pass
 
 
-# Launch auto-updater as a silent background daemon thread
-_auto_update_thread = threading.Thread(
-    target=_run_silent_auto_update,
-    name="SilentAutoUpdater",
-    daemon=True   # Dies when main app exits — never blocks shutdown
-)
-_auto_update_thread.start()
+# Launch auto-updater only in the main worker process (prevents double-run
+# when Flask debug mode uses the Werkzeug reloader which forks the process)
+import os as _os
+_is_reloader_child = _os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
+_is_production     = not app.debug
+
+if _is_reloader_child or _is_production:
+    _auto_update_thread = threading.Thread(
+        target=_run_silent_auto_update,
+        name="SilentAutoUpdater",
+        daemon=True
+    )
+    _auto_update_thread.start()
 
 
 @app.context_processor
