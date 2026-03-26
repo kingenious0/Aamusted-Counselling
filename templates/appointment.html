@@ -41,8 +41,8 @@
                                         {% for student in students %}
                                         <option value="{{ student.id }}" {% if selected_student_id and
                                             selected_student_id|string==student.id|string %}selected{% endif %}>
-                                            {{ student.name }}
-                                            {% if student.index_number %} — {{ student.index_number }}{% endif %}
+                                            {{ student|to_clinical_id }}
+                                            {% if student.programme %} — {{ student.programme }}{% endif %}
                                         </option>
                                         {% endfor %}
                                     </select>

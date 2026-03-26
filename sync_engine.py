@@ -281,6 +281,14 @@ def apply_incoming_changes(changes):
                 
             for r in records:
                 try:
+                    # GTEC Privacy Preservation on Pull
+                    if table == 'Student' and 'name' in r:
+                        from app import name_to_initials
+                        r['name'] = name_to_initials(r['name'])
+                    elif table == 'BookingRequest' and 'full_name' in r:
+                        from app import name_to_initials
+                        r['full_name'] = name_to_initials(r['full_name'])
+
                     merge_record(cursor, table, r)
                     processed += 1
                 except Exception as e:

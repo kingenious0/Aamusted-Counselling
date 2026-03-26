@@ -1,0 +1,202 @@
+{% extends "base_modern.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header Section -->
+    <div class="d-flex align-items-center mb-4 pb-2 border-bottom">
+        <div class="bg-primary bg-opacity-10 p-3 rounded-4 me-3">
+            <i class="bi bi-file-earmark-arrow-up fs-3 text-primary"></i>
+        </div>
+        <div>
+            <h2 class="fw-bold mb-0">Bulk Data Import</h2>
+            <p class="text-muted mb-0">Import client registry or appointments using CSV or Excel files.</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Upload Form -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold mb-4">1. Select Data Source</h5>
+                    <form action="{{ url_for('import_csv') }}" method="POST" enctype="multipart/form-data">
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Import Type</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="import_type" id="type_students" value="students" checked>
+                                <label class="btn btn-outline-primary py-3" for="type_students">
+                                    <i class="bi bi-people d-block mb-1 fs-4"></i>
+                                    Clients
+                                </label>
+                                <input type="radio" class="btn-check" name="import_type" id="type_appointments" value="appointments">
+                                <label class="btn btn-outline-primary py-3" for="type_appointments">
+                                    <i class="bi bi-calendar-check d-block mb-1 fs-4"></i>
+                                    Appointments
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="csv_file" class="form-label small fw-bold text-muted text-uppercase">File Upload (.csv, .xlsx)</label>
+                            <div class="upload-zone p-4 border-2 border-dashed rounded-4 text-center bg-light">
+                                <i class="bi bi-cloud-arrow-up fs-2 text-primary mb-2 d-inline-block"></i>
+                                <p class="small text-muted mb-3">Choose accurately formatted file</p>
+                                <input type="file" class="form-control d-none" id="csv_file" name="csv_file" accept=".csv, .xlsx, .xls" required onchange="updateFileName(this)">
+                                <label for="csv_file" class="btn btn-sm btn-primary px-4 rounded-pill">Choose File</label>
+                                <div id="fileName" class="mt-2 text-primary fw-bold small"></div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info border-0 rounded-4 p-3 mb-4" style="background-color: #f0f7ff;">
+                            <div class="d-flex">
+                                <i class="bi bi-info-circle-fill me-2 fs-5 text-info"></i>
+                                <div class="small">
+                                    <strong>Privacy Note:</strong> All client names are automatically converted to initials (e.g., A.O.) on import to ensure GTEC privacy compliance.
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow-sm">
+                             <i class="bi bi-eye me-2"></i> Preview Data
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preview / Info Section -->
+        <div class="col-lg-8">
+            {% if preview_data %}
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="fw-bold mb-0">2. Review & Confirm ({{ preview_data|length }} rows)</h5>
+                        <form action="{{ url_for('import_csv') }}" method="POST">
+                            <input type="hidden" name="confirm" value="true">
+                            <input type="hidden" name="import_type" value="{{ import_type }}">
+                            <input type="hidden" name="confirmed_data" value='{{ confirmed_data|safe }}'>
+                            <button type="submit" class="btn btn-success px-4 py-2 rounded-pill fw-bold shadow-sm">
+                                <i class="bi bi-check-lg me-2"></i> Confirm and Save
+                            </button>
+                        </form>
+                    </div>
+
+                    {% if errors %}
+                    <div class="alert alert-warning border-0 rounded-4 mb-4">
+                        <h6 class="fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>Rows Skipped ({{ errors|length }})</h6>
+                        <ul class="small mb-0 opacity-75">
+                            {% for error in errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <div class="table-responsive rounded-3 border">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    {% for header in headers %}
+                                    <th class="small fw-bold text-uppercase py-3 ps-3">{{ header|replace('_', ' ') }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in preview_data %}
+                                <tr>
+                                    {% for header in headers %}
+                                    <td class="ps-3 py-3 small text-muted">
+                                        {{ row[header] if row[header] else '—' }}
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <!-- Templates / Instructions -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold mb-4">Required Column Headers</h5>
+                    <div class="row g-4">
+                        <div class="col-md-6 border-end">
+                            <h6 class="fw-bold text-primary mb-3">Client Registry</h6>
+                            <a href="{{ url_for('import_template', import_type='students') }}" class="btn btn-sm btn-outline-primary mb-3 rounded-pill px-3">
+                                <i class="bi bi-download me-1"></i> Download Template
+                            </a>
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                <span class="badge bg-light text-dark border p-2 px-3 rounded-pill">Name</span>
+                                <span class="badge bg-light text-dark border p-2 px-3 rounded-pill">Index_Number</span>
+                                <span class="badge bg-light text-dark border p-2 px-3 rounded-pill">Email</span>
+                                <span class="badge bg-light text-dark border p-2 px-3 rounded-pill">Phone</span>
+                                <span class="badge bg-light text-dark border p-2 px-3 rounded-pill">Department</span>
+                                <span class="badge bg-light text-dark border p-2 px-3 rounded-pill">Programme</span>
+                                <span class="badge bg-light text-dark border p-2 px-3 rounded-pill">Gender</span>
+                                <span class="badge bg-light text-dark border p-2 px-3 rounded-pill">Age</span>
+                            </div>
+                            <p class="small text-muted">Headers are case-insensitive. Name and Index Number are required.</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-bold text-primary mb-3">Appointments</h6>
+                            <a href="{{ url_for('import_template', import_type='appointments') }}" class="btn btn-sm btn-outline-primary mb-3 rounded-pill px-3">
+                                <i class="bi bi-download me-1"></i> Download Template
+                            </a>
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                <span class="badge bg-light text-dark border p-2 px-3 rounded-pill">Student_Name</span>
+                                <span class="badge bg-light text-dark border p-2 px-3 rounded-pill">Index_Number</span>
+                                <span class="badge bg-light text-dark border p-2 px-3 rounded-pill">Date</span>
+                                <span class="badge bg-light text-dark border p-2 px-3 rounded-pill">Time</span>
+                                <span class="badge bg-light text-dark border p-2 px-3 rounded-pill">Purpose</span>
+                                <span class="badge bg-light text-dark border p-2 px-3 rounded-pill">Status</span>
+                            </div>
+                            <p class="small text-muted">Requires date in YYYY-MM-DD or DD/MM/YYYY format. Student name or index is used to link to registry.</p>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4 opacity-25">
+                    
+                    <div class="bg-light p-4 rounded-4 border-start border-primary border-4">
+                        <h6 class="fw-bold">Tips for successful import:</h6>
+                        <ul class="small text-muted mb-0">
+                            <li>Ensure your file is saved as **UTF-8 CSV** or **Excel (.xlsx)**</li>
+                            <li>Avoid using special characters or symbols in headers</li>
+                            <li>The system will handle column mapping automatically based on header names</li>
+                            <li>Duplicate index numbers will be skipped during client import</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .upload-zone {
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    .upload-zone:hover {
+        background-color: #f8f9fa !important;
+        border-color: var(--bs-primary) !important;
+    }
+    .badge.bg-light:hover {
+        background-color: #e9ecef !important;
+    }
+</style>
+
+<script>
+    function updateFileName(input) {
+        const fileName = input.files[0] ? input.files[0].name : '';
+        document.getElementById('fileName').textContent = fileName;
+        if (fileName) {
+            document.querySelector('.upload-zone').classList.add('bg-primary-subtle');
+        } else {
+            document.querySelector('.upload-zone').classList.remove('bg-primary-subtle');
+        }
+    }
+</script>
+{% endblock %}

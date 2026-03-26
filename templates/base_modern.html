@@ -6,9 +6,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ settings.system_name or 'USTED Counselling System' }} | Clinical Co-pilot</title>
 
-    <!-- Fonts (Local Fallback) -->
+    <!-- Fonts & Offline Resilience -->
     <style>
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif !important; }
+        /* Force professional offline font immediately to prevent 'hanging' */
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important; 
+        }
+
+        /* EMERGENCY OFFLINE STYLES (In case external CSS fails) */
+        :root {
+            --brand-primary: #800000;
+            --brand-secondary: #FFD700;
+        }
+        .btn-primary { background-color: #800000 !important; color: white !important; border-radius: 8px !important; }
+        .btn-outline-danger { border: 1px solid #dc3545 !important; color: #dc3545 !important; border-radius: 8px !important; }
+        .btn-danger { background-color: #dc3545 !important; color: white !important; border-radius: 8px !important; }
+        .btn-secondary { background-color: #6c757d !important; color: white !important; border-radius: 8px !important; }
+        
+        /* Light/Subtle Button Variations */
+        .btn-light-danger { background-color: #f8d7da !important; color: #842029 !important; border: 1px solid transparent; }
+        .btn-light-warning { background-color: #fff3cd !important; color: #664d03 !important; border: 1px solid transparent; }
+        .btn-light-primary { background-color: #cfe2ff !important; color: #084298 !important; border: 1px solid transparent; }
+        .btn-light-info { background-color: #cff4fc !important; color: #055160 !important; border: 1px solid transparent; }
+        .btn-subtle-danger { background-color: rgba(220, 53, 69, 0.05) !important; color: #dc3545 !important; border: 1px solid rgba(220, 53, 69, 0.1) !important; }
+        
+        /* Utility Classes */
+        .x-small { font-size: 0.65rem !important; }
+        .tracking-wider { letter-spacing: 0.05em !important; }
+        .shadow-sm { box-shadow: 0 .125rem .25rem rgba(0,0,0,.075) !important; }
     </style>
 
     <!-- Bootstrap 5 & Icons (Local) -->
@@ -19,7 +44,7 @@
     <script src="{{ url_for('static', filename='js/sweetalert2.all.min.js') }}"></script>
 
     <!-- Custom Modern Theme -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/modern_theme.css') }}?v=2.1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modern_theme.css') }}?v=2.2">
 
     <!-- PWA Manifest & Icons -->
     <link rel="manifest" href="/static/manifest.json">
@@ -130,13 +155,13 @@
             {% if (session.get('role') or '')|trim in ['Counsellor', 'Counselor', 'Admin'] %}
             <!-- ── Clinical: Counsellor / Admin ── -->
             <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-1 nav-category-header" style="font-size:0.65rem;">Clinical</li>
-            <li>
+            <!-- <li>
                 <a href="{{ url_for('my_cases') }}"
                     class="nav-link {% if 'my_cases' in request.endpoint %}active{% endif %}" title="My Cases"
                     data-bs-toggle="tooltip" data-bs-placement="right">
                     <i class="bi bi-journal-medical me-2"></i> <span>My Cases</span>
                 </a>
-            </li>
+            </li> -->
             <li>
                 <a href="{{ url_for('sessions_list') }}"
                     class="nav-link {% if 'session' in request.endpoint and 'case' not in request.endpoint %}active{% endif %}"
@@ -385,16 +410,6 @@
                     </ul>
                 </div>
 
-                <!-- Update Notification Badge (All Staff) -->
-                {% if session.get('role') in ['Admin', 'Counsellor', 'Counselor', 'Secretary'] %}
-                <div id="systemUpdateBadge" style="display:none;">
-                    <button id="applyUpdateBtn"
-                        class="btn btn-warning btn-sm rounded-pill px-3 fw-bold shadow-sm animate-pulse-warning"
-                        onclick="triggerSystemUpdate(this)" style="border:none; cursor:pointer;">
-                        <i class="bi bi-cloud-arrow-down-fill me-1"></i> Update Available
-                    </button>
-                </div>
-                {% endif %}
 
                 <a href="{{ url_for('logout') }}" class="btn btn-outline-danger border-0 btn-sm rounded-pill px-3">
                     <i class="bi bi-power me-1"></i> Logout
@@ -632,68 +647,7 @@
                     }
                 })
                 .catch(e => console.error('Alert sync error:', e));
-        }, 2000); // Check every 2 seconds for instant notification
-
-        // Periodic Update Check - All staff roles, every 30 mins
-        function checkSystemUpdates() {
-            {% if session.get('role') in ['Admin', 'Counsellor', 'Counselor', 'Secretary'] %}
-            fetch('/api/admin/check_update_status')
-                .then(r => r.json())
-                .then(data => {
-                    if (data.update_available) {
-                        const badge = document.getElementById('systemUpdateBadge');
-                        if (badge) badge.style.display = 'block';
-                        // Store the pending SHA for later use
-                        window._pendingUpdateSha = data.remote_sha;
-                    }
-                })
-                .catch(e => console.error('Update check error:', e));
-            {% endif %}
-        }
-        checkSystemUpdates();
-        setInterval(checkSystemUpdates, 1800000); // Check once every 30 mins
-
-        // One-click silent update: download → apply → done (no restart prompt)
-        function triggerSystemUpdate(btn) {
-            if (!btn) return;
-
-            // Show downloading state
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Downloading...';
-            btn.classList.remove('btn-warning');
-            btn.classList.add('btn-secondary');
-
-            fetch('/api/admin/update_system', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    btn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Updated!';
-                    btn.classList.remove('btn-secondary');
-                    btn.classList.add('btn-success');
-                    // Hide badge after 4 seconds — system reloaded silently
-                    setTimeout(() => {
-                        const badge = document.getElementById('systemUpdateBadge');
-                        if (badge) badge.style.display = 'none';
-                        // Soft reload to pick up new static files
-                        window.location.reload(true);
-                    }, 2500);
-                } else {
-                    btn.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Retry';
-                    btn.classList.remove('btn-secondary');
-                    btn.classList.add('btn-danger');
-                    btn.disabled = false;
-                    btn.onclick = function() { triggerSystemUpdate(btn); };
-                }
-            })
-            .catch(e => {
-                btn.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Network Error';
-                btn.classList.remove('btn-secondary');
-                btn.classList.add('btn-danger');
-                btn.disabled = false;
-            });
+        }, 2000); // Check every 2 seconds for instant       });
         }
 
         // --- PWA Registration & Install Support ---

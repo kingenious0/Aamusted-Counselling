@@ -41,7 +41,9 @@
                             <label for="index_number" class="form-label text-muted small fw-bold text-uppercase">Index
                                 Number <span class="text-danger">*</span></label>
                             <input type="text" class="form-control bg-light border-0" id="index_number"
-                                name="index_number" required placeholder="e.g. 5191040203">
+                                name="index_number" required placeholder="10-Digit Number"
+                                pattern="\d{10}" maxlength="10" inputmode="numeric"
+                                oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                         </div>
 
                         <div class="col-md-3">
@@ -65,20 +67,73 @@
                         <div class="col-md-6">
                             <label for="programme" class="form-label text-muted small fw-bold text-uppercase">Programme
                                 <span class="text-danger">*</span></label>
-                            <select class="form-select bg-light border-0" id="programme" name="programme" onchange="handleProgrammeChange(this)" required>
-                                <option value="">Select Programme...</option>
-                                <optgroup label="Information Technology">
-                                    <option value="BSc Information Technology" data-dept="IT Education">BSc Information Technology</option>
-                                    <option value="BSc Computer Science" data-dept="IT Education">BSc Computer Science</option>
-                                </optgroup>
-                                <optgroup label="Business">
-                                    <option value="BCom Accounting" data-dept="Accounting Education">BCom Accounting</option>
-                                    <option value="BSc Management Education" data-dept="Management Education">BSc Management Education</option>
-                                </optgroup>
-                                <optgroup label="Education">
-                                    <option value="BEd Psychology" data-dept="Psychology and Education">BEd Psychology</option>
-                                    <option value="BEd Special Education" data-dept="Special Education">BEd Special Education</option>
-                                </optgroup>
+                            <select class="form-select bg-light border-0" id="programme" name="programme" onchange="updateDepartment()" required>
+                                <option value="" selected disabled>Select Programme...</option>
+                                <option value="B.Sc. Economics">B.Sc. Economics</option>
+                                <option value="B.Sc. Electrical and Electronics Engineering">B.Sc. Electrical and Electronics Engineering</option>
+                                <option value="B.Sc. Electrical and Electronics Engineering Technology Education">B.Sc. Electrical and Electronics Engineering Technology Education</option>
+                                <option value="B.Sc. Fashion Design and Textiles Education">B.Sc. Fashion Design and Textiles Education</option>
+                                <option value="B.Sc. Information Technology">B.Sc. Information Technology</option>
+                                <option value="B.Sc. Marketing">B.Sc. Marketing</option>
+                                <option value="B.Sc. Entrepreneurship Education">B.Sc. Entrepreneurship Education</option>
+                                <option value="B.Sc. Marketing and Entrepreneurship">B.Sc. Marketing and Entrepreneurship</option>
+                                <option value="B.Sc. Mechanical Engineering Technology">B.Sc. Mechanical Engineering Technology</option>
+                                <option value="B.Sc. Mechanical Engineering Technology Education">B.Sc. Mechanical Engineering Technology Education</option>
+                                <option value="B.Sc. Plumbing, Gas and Sanitary Technology">B.Sc. Plumbing, Gas and Sanitary Technology</option>
+                                <option value="B.Sc. Procurement and Supply Chain Management">B.Sc. Procurement and Supply Chain Management</option>
+                                <option value="B.Sc. Welding and Fabrication Technology with Education">B.Sc. Welding and Fabrication Technology with Education</option>
+                                <option value="Diploma in Education (Competency-Based Training) CBT">Diploma in Education (Competency-Based Training) CBT</option>
+                                <option value="B.Sc. Wood Technology with Education">B.Sc. Wood Technology with Education</option>
+                                <option value="2-Year Diploma in Construction Technology">2-Year Diploma in Construction Technology</option>
+                                <option value="2-Year Diploma in Electrical and Electronics Engineering Technology">2-Year Diploma in Electrical and Electronics Engineering Technology</option>
+                                <option value="2-year Diploma in Fashion Design and Textiles">2-year Diploma in Fashion Design and Textiles</option>
+                                <option value="2-year Diploma in Office Management and Computer Applications">2-year Diploma in Office Management and Computer Applications</option>
+                                <option value="2-year Diploma in Wood Technology">2-year Diploma in Wood Technology</option>
+                                <option value="2-year in Diploma in Architecture and Digital Construction">2-year in Diploma in Architecture and Digital Construction</option>
+                                <option value="2-year Diploma in Catering and Hospitality">2-year Diploma in Catering and Hospitality</option>
+                                <option value="2-year Diploma in Business Administration, Accounting">2-year Diploma in Business Administration, Accounting</option>
+                                <option value="2-year Diploma in Business Administration, Management">2-year Diploma in Business Administration, Management</option>
+                                <option value="2-year Diploma in Economics">2-year Diploma in Economics</option>
+                                <option value="2-year Diploma in Human Resource Management">2-year Diploma in Human Resource Management</option>
+                                <option value="B.Sc. Biomedical Equipment Engineering">B.Sc. Biomedical Equipment Engineering</option>
+                                <option value="B.Ed. Applied Technology (Electrical and Electronics)">B.Ed. Applied Technology (Electrical and Electronics)</option>
+                                <option value="B.Ed. STEM (Engineering with Biomedical Science)">B.Ed. STEM (Engineering with Biomedical Science)</option>
+                                <option value="B.Ed. STEM (Engineering with Manufacturing)">B.Ed. STEM (Engineering with Manufacturing)</option>
+                                <option value="B.Ed. Computing with Internet of Things (IOT)">B.Ed. Computing with Internet of Things (IOT)</option>
+                                <option value="B.Ed. Computing with Artificial Intelligence (AI)">B.Ed. Computing with Artificial Intelligence (AI)</option>
+                                <option value="B.Ed. STEM (Engineering with Robotics)">B.Ed. STEM (Engineering with Robotics)</option>
+                                <option value="Applied Technology (Automotive and Mechanical) B.Ed.">Applied Technology (Automotive and Mechanical) B.Ed.</option>
+                                <option value="B.B.A. Human Resource Management">B.B.A. Human Resource Management</option>
+                                <option value="B.B.A. Management">B.B.A. Management</option>
+                                <option value="B.Ed Early Grade (Early Childhood)">B.Ed Early Grade (Early Childhood)</option>
+                                <option value="B.Ed Junior High">B.Ed Junior High</option>
+                                <option value="B.Ed Upper Primary">B.Ed Upper Primary</option>
+                                <option value="B.Ed. Applied Technology (Building Construction and Wood)">B.Ed. Applied Technology (Building Construction and Wood)</option>
+                                <option value="B.Ed. Arabic">B.Ed. Arabic</option>
+                                <option value="B.Ed. Business Studies (Accounting)">B.Ed. Business Studies (Accounting)</option>
+                                <option value="B.Ed. Business Studies (Management)">B.Ed. Business Studies (Management)</option>
+                                <option value="B.Ed. Computing with Artificial Intelligence">B.Ed. Computing with Artificial Intelligence</option>
+                                <option value="B.Ed. Design and Communication Technology">B.Ed. Design and Communication Technology</option>
+                                <option value="B.Ed. Economics">B.Ed. Economics</option>
+                                <option value="B.Ed. English.">B.Ed. English.</option>
+                                <option value="B.Ed. French">B.Ed. French</option>
+                                <option value="B.Ed. Geography">B.Ed. Geography</option>
+                                <option value="B.Ed. Ghanaian Language">B.Ed. Ghanaian Language</option>
+                                <option value="B.Ed. Home Economics (Clothing and Textiles)">B.Ed. Home Economics (Clothing and Textiles)</option>
+                                <option value="B.Ed. Home Economics (Food and Nutrition)">B.Ed. Home Economics (Food and Nutrition)</option>
+                                <option value="B.Ed. Information Technology">B.Ed. Information Technology</option>
+                                <option value="B.Ed. Mathematics">B.Ed. Mathematics</option>
+                                <option value="B.Ed. Physical Education and Health">B.Ed. Physical Education and Health</option>
+                                <option value="B.Ed. Social Studies">B.Ed. Social Studies</option>
+                                <option value="B.Sc Computerised Accounting">B.Sc Computerised Accounting</option>
+                                <option value="B.Sc. Accounting">B.Sc. Accounting</option>
+                                <option value="B.Sc. Admin Accounting">B.Sc. Admin Accounting</option>
+                                <option value="B.Sc. Automotive Engineering Technology Education">B.Sc. Automotive Engineering Technology Education</option>
+                                <option value="B.Sc. Banking and Finance">B.Sc. Banking and Finance</option>
+                                <option value="B.Sc. Catering and Hospitality Education">B.Sc. Catering and Hospitality Education</option>
+                                <option value="B.Sc. Civil Engineering">B.Sc. Civil Engineering</option>
+                                <option value="B.Sc. Construction Technology and Management with Education">B.Sc. Construction Technology and Management with Education</option>
+                                <option value="B.Sc. Cyber Security and Digital Forensics">B.Sc. Cyber Security and Digital Forensics</option>
                                 <option value="Other">Other</option>
                             </select>
                         </div>
@@ -87,15 +142,30 @@
                             <label for="department"
                                 class="form-label text-muted small fw-bold text-uppercase">Department <span
                                     class="text-danger">*</span></label>
-                            <select class="form-select bg-light border-0" id="department" name="department" required>
-                                <option value="">Select Department...</option>
-                                <option value="IT Education">IT Education</option>
-                                <option value="Accounting Education">Accounting Education</option>
-                                <option value="Management Education">Management Education</option>
-                                <option value="Psychology and Education">Psychology and Education</option>
-                                <option value="Special Education">Special Education</option>
-                                <option value="Other">Other</option>
+                            <select class="form-select bg-light border-0" id="department" name="department" onchange="checkOtherDept()" required>
+                                <option value="" selected disabled>Select Department...</option>
+                                <option value="ACCOUNTING EDUCATION">ACCOUNTING EDUCATION</option>
+                                <option value="CONSTRUCTION AND WOOD">CONSTRUCTION AND WOOD</option>
+                                <option value="ECONOMICS EDUCATION">ECONOMICS EDUCATION</option>
+                                <option value="ELECTRICALS AND ELECTRONICS">ELECTRICALS AND ELECTRONICS</option>
+                                <option value="FASHION AND TEXTILES">FASHION AND TEXTILES</option>
+                                <option value="HOSPITALITY AND TOURISM">HOSPITALITY AND TOURISM</option>
+                                <option value="HUMAN RESOURCE">HUMAN RESOURCE</option>
+                                <option value="IEDEI">IEDEI</option>
+                                <option value="INFORMATION TECHNOLOGY EDUCATION">INFORMATION TECHNOLOGY EDUCATION</option>
+                                <option value="INTERDISPLINARY STUDIES">INTERDISPLINARY STUDIES</option>
+                                <option value="LANGUAGES EDUCATION">LANGUAGES EDUCATION</option>
+                                <option value="MANAGEMENT EDUCATION">MANAGEMENT EDUCATION</option>
+                                <option value="MATHEMATICS EDUCATION">MATHEMATICS EDUCATION</option>
+                                <option value="MECHANICAL AND AUTOMOTIVE">MECHANICAL AND AUTOMOTIVE</option>
+                                <option value="(COMPETENCY-BASED TRAINING) CBT">(COMPETENCY-BASED TRAINING) CBT</option>
+                                <option value="OTHER">OTHER (Specify Below)</option>
                             </select>
+                            <!-- Hidden input for Other Department -->
+                            <div id="other_department_wrapper" class="col-12 mt-2" style="display: none;">
+                                <label for="department_other" class="form-label text-primary small fw-bold text-uppercase">Specify Department</label>
+                                <input type="text" class="form-control bg-light border-0" id="department_other" name="department_other" placeholder="Enter Full Department Name">
+                            </div>
                         </div>
 
                         <div class="col-md-6">
@@ -262,26 +332,112 @@
         }
     });
 
-    function handleProgrammeChange(select) {
-        const deptSelect = document.getElementById('department');
-        const otherWrapper = document.getElementById('other_programme_wrapper');
-        const otherInput = document.getElementById('programme_other');
-        const selectedOption = select.options[select.selectedIndex];
-        const dept = selectedOption.getAttribute('data-dept');
+    const PROGRAM_MAPPINGS = {
+        "B.Sc. Economics": "ECONOMICS EDUCATION",
+        "B.Sc. Electrical and Electronics Engineering": "ELECTRICALS AND ELECTRONICS",
+        "B.Sc. Electrical and Electronics Engineering Technology Education": "ELECTRICALS AND ELECTRONICS",
+        "B.Sc. Fashion Design and Textiles Education": "FASHION AND TEXTILES",
+        "B.Sc. Information Technology": "INFORMATION TECHNOLOGY EDUCATION",
+        "B.Sc. Marketing": "MANAGEMENT EDUCATION",
+        "B.Sc. Entrepreneurship Education": "IEDEI",
+        "B.Sc. Marketing and Entrepreneurship": "IEDEI",
+        "B.Sc. Mechanical Engineering Technology": "MECHANICAL AND AUTOMOTIVE",
+        "B.Sc. Mechanical Engineering Technology Education": "MECHANICAL AND AUTOMOTIVE",
+        "B.Sc. Plumbing, Gas and Sanitary Technology": "CONSTRUCTION AND WOOD",
+        "B.Sc. Procurement and Supply Chain Management": "ACCOUNTING EDUCATION",
+        "B.Sc. Welding and Fabrication Technology with Education": "MECHANICAL AND AUTOMOTIVE",
+        "Diploma in Education (Competency-Based Training) CBT": "(COMPETENCY-BASED TRAINING) CBT",
+        "B.Sc. Wood Technology with Education": "CONSTRUCTION AND WOOD",
+        "2-Year Diploma in Construction Technology": "CONSTRUCTION AND WOOD",
+        "2-Year Diploma in Electrical and Electronics Engineering Technology": "ELECTRICALS AND ELECTRONICS",
+        "2-year Diploma in Fashion Design and Textiles": "FASHION AND TEXTILES",
+        "2-year Diploma in Office Management and Computer Applications": "MANAGEMENT EDUCATION",
+        "2-year Diploma in Wood Technology": "CONSTRUCTION AND WOOD",
+        "2-year in Diploma in Architecture and Digital Construction": "MECHANICAL AND AUTOMOTIVE",
+        "2-year Diploma in Catering and Hospitality": "HOSPITALITY AND TOURISM",
+        "2-year Diploma in Business Administration, Accounting": "ACCOUNTING EDUCATION",
+        "2-year Diploma in Business Administration, Management": "MANAGEMENT EDUCATION",
+        "2-year Diploma in Economics": "ECONOMICS EDUCATION",
+        "2-year Diploma in Human Resource Management": "HUMAN RESOURCE",
+        "B.Sc. Biomedical Equipment Engineering": "ELECTRICALS AND ELECTRONICS",
+        "B.Ed. Applied Technology (Electrical and Electronics)": "ELECTRICALS AND ELECTRONICS",
+        "B.Ed. STEM (Engineering with Biomedical Science)": "ELECTRICALS AND ELECTRONICS",
+        "B.Ed. STEM (Engineering with Manufacturing)": "CONSTRUCTION AND WOOD",
+        "B.Ed. Computing with Internet of Things (IOT)": "INFORMATION TECHNOLOGY EDUCATION",
+        "B.Ed. Computing with Artificial Intelligence (AI)": "INFORMATION TECHNOLOGY EDUCATION",
+        "B.Ed. STEM (Engineering with Robotics)": "ELECTRICALS AND ELECTRONICS",
+        "Applied Technology (Automotive and Mechanical) B.Ed.": "MECHANICAL AND AUTOMOTIVE",
+        "B.B.A. Human Resource Management": "HUMAN RESOURCE",
+        "B.B.A. Management": "MANAGEMENT EDUCATION",
+        "B.Ed Early Grade (Early Childhood)": "INTERDISPLINARY STUDIES",
+        "B.Ed Junior High": "INTERDISPLINARY STUDIES",
+        "B.Ed Upper Primary": "INTERDISPLINARY STUDIES",
+        "B.Ed. Applied Technology (Building Construction and Wood)": "CONSTRUCTION AND WOOD",
+        "B.Ed. Arabic": "LANGUAGES EDUCATION",
+        "B.Ed. Business Studies (Accounting)": "ACCOUNTING EDUCATION",
+        "B.Ed. Business Studies (Management)": "MANAGEMENT EDUCATION",
+        "B.Ed. Computing with Artificial Intelligence": "INFORMATION TECHNOLOGY EDUCATION",
+        "B.Ed. Design and Communication Technology": "CONSTRUCTION AND WOOD",
+        "B.Ed. Economics": "ECONOMICS EDUCATION",
+        "B.Ed. English.": "LANGUAGES EDUCATION",
+        "B.Ed. French": "LANGUAGES EDUCATION",
+        "B.Ed. Geography": "INTERDISPLINARY STUDIES",
+        "B.Ed. Ghanaian Language": "LANGUAGES EDUCATION",
+        "B.Ed. Home Economics (Clothing and Textiles)": "FASHION AND TEXTILES",
+        "B.Ed. Home Economics (Food and Nutrition)": "HOSPITALITY AND TOURISM",
+        "B.Ed. Information Technology": "INFORMATION TECHNOLOGY EDUCATION",
+        "B.Ed. Mathematics": "MATHEMATICS EDUCATION",
+        "B.Ed. Physical Education and Health": "INTERDISPLINARY STUDIES",
+        "B.Ed. Social Studies": "INTERDISPLINARY STUDIES",
+        "B.Sc Computerised Accounting": "ACCOUNTING EDUCATION",
+        "B.Sc. Accounting": "ACCOUNTING EDUCATION",
+        "B.Sc. Admin Accounting": "ACCOUNTING EDUCATION",
+        "B.Sc. Automotive Engineering Technology Education": "MECHANICAL AND AUTOMOTIVE",
+        "B.Sc. Banking and Finance": "ACCOUNTING EDUCATION",
+        "B.Sc. Catering and Hospitality Education": "HOSPITALITY AND TOURISM",
+        "B.Sc. Civil Engineering": "CONSTRUCTION AND WOOD",
+        "B.Sc. Construction Technology and Management with Education": "CONSTRUCTION AND WOOD",
+        "B.Sc. Cyber Security and Digital Forensics": "INFORMATION TECHNOLOGY EDUCATION"
+    };
 
-        if (select.value === 'Other') {
-            if (otherWrapper) otherWrapper.style.display = 'block';
-            if (otherInput) {
-                otherInput.required = true;
-                otherInput.focus();
-            }
+    window.updateDepartment = function() {
+        const progSelect = document.getElementById('programme');
+        const deptSelect = document.getElementById('department');
+        const otherProgWrapper = document.getElementById('other_programme_wrapper');
+        const otherProgInput = document.getElementById('programme_other');
+        const prog = progSelect.value;
+        
+        if (prog === "Other") {
+            otherProgWrapper.style.display = 'block';
+            if (otherProgInput) otherProgInput.required = true;
+            deptSelect.value = "OTHER";
+            checkOtherDept();
         } else {
-            if (otherWrapper) otherWrapper.style.display = 'none';
-            if (otherInput) otherInput.required = false;
-            if (dept && deptSelect) {
-                deptSelect.value = dept;
+            otherProgWrapper.style.display = 'none';
+            if (otherProgInput) otherProgInput.required = false;
+            
+            if (PROGRAM_MAPPINGS[prog]) {
+                deptSelect.value = PROGRAM_MAPPINGS[prog];
+                // Visual feedback to show it auto-selected
+                deptSelect.classList.add('is-valid');
+                setTimeout(() => deptSelect.classList.remove('is-valid'), 1000);
             }
+            checkOtherDept();
         }
-    }
+    };
+
+    window.checkOtherDept = function() {
+        const deptSelect = document.getElementById('department');
+        const otherDeptWrapper = document.getElementById('other_department_wrapper');
+        const otherDeptInput = document.getElementById('department_other');
+        
+        if (deptSelect.value === "OTHER") {
+            otherDeptWrapper.style.display = 'block';
+            if (otherDeptInput) otherDeptInput.required = true;
+        } else {
+            otherDeptWrapper.style.display = 'none';
+            if (otherDeptInput) otherDeptInput.required = false;
+        }
+    };
 </script>
 {% endblock %}

@@ -127,9 +127,13 @@ class AutomatedSyncManager:
                             logger.info(f"Successfully pushed batch {i//batch_size + 1} for {table}")
                         else:
                             logger.warning(f"Failed to push batch for {table}: {resp.text}")
-                    except Exception as e:
-                        logger.error(f"Network error pushing batch for {table}: {e}")
+                    except requests.exceptions.RequestException as e:
+                        # Log as warning, not error - network flakiness is expected
+                        logger.warning(f"Connection issue pushing batch for {table}: {e}")
                         break # Stop further batches for this table on error
+                    except Exception as e:
+                        logger.error(f"Unexpected error pushing batch for {table}: {e}")
+                        break 
                     
         finally:
             conn.close()
@@ -148,7 +152,7 @@ class AutomatedSyncManager:
                     "node_id": node_config.get_node_id()
                 },
                 headers={"X-API-KEY": api_key},
-                timeout=15
+                timeout=30 # Increased timeout for reliability
             )
             
             if resp.status_code == 200:
@@ -201,10 +205,11 @@ class AutomatedSyncManager:
                 
                 node_config.save_config(config)
                 
+        except requests.exceptions.RequestException as e:
+            # Handle SSL/Connection/Timeout errors gracefully
+            logger.warning(f"Cloud connection lost during pull: {e}. Retrying in next cycle...")
         except Exception as e:
-            logger.error(f"Network error pulling changes: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
+            logger.error(f"Unexpected error pulling changes: {e}")
 
     def trigger_booking_alert(self):
         """Sets a flag or sends a signal for the UI to play sound/show toast."""

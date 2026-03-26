@@ -3,20 +3,62 @@
 {% block content %}
 <div class="container-fluid py-4">
     <!-- Header Section -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
+    <div class="row align-items-end mb-4">
+        <div class="col-lg-6">
             <h2 class="fw-bold text-dark mb-1">Cloud Lookout</h2>
-            <p class="text-muted small mb-0">Monitor real-time synchronization with Supabase Cloud Database</p>
+            <p class="text-muted small mb-0">Monitor and manage real-time synchronization with Supabase Cloud Database</p>
         </div>
-        <div class="d-flex gap-2">
-            <button onclick="triggerManualSync()" class="btn btn-primary d-flex align-items-center gap-2 shadow-sm">
+        <div class="col-lg-6 d-flex justify-content-end gap-2">
+            <!-- Main Live Action -->
+            <button onclick="triggerManualSync()" class="btn btn-primary d-flex align-items-center gap-2 shadow-sm rounded-pill px-4">
                 <i class="bi bi-arrow-repeat" id="syncIcon"></i>
-                <span>Sync Now</span>
+                <span class="fw-bold">Sync Now</span>
             </button>
-            <button onclick="confirmResetAndPull()" class="btn btn-outline-danger d-flex align-items-center gap-2 shadow-sm">
-                <i class="bi bi-cloud-download"></i>
-                <span>Force Full Download</span>
-            </button>
+        </div>
+    </div>
+
+    <!-- CLEAN ACTION TOOLS (Categorized & Scalable) -->
+    <div class="card card-glass border-0 shadow-sm mb-4">
+        <div class="card-body p-2 px-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                
+                <!-- Group 1: Data Health & Forcing -->
+                <div class="d-flex align-items-center gap-2 p-1 border-end pe-3 me-2" style="border-color: rgba(0,0,0,0.05) !important;">
+                    <span class="text-muted x-small text-uppercase fw-bold tracking-wider me-2">Maintenance</span>
+                    <button onclick="confirmResetAndPull()" class="btn btn-sm btn-light-danger border-0 d-flex align-items-center gap-2" title="Overwrite local data with cloud data">
+                        <i class="bi bi-cloud-download text-danger"></i>
+                        <span class="d-none d-md-inline">Pull Cloud Records</span>
+                    </button>
+                    <button onclick="confirmResetAndPush()" class="btn btn-sm btn-light-warning border-0 d-flex align-items-center gap-2" title="Force push all local data to cloud">
+                        <i class="bi bi-cloud-upload text-warning"></i>
+                        <span class="d-none d-md-inline">Push Local Records</span>
+                    </button>
+                </div>
+
+                <!-- Group 2: Backup & Portability -->
+                <div class="d-flex align-items-center gap-2 p-1 border-end pe-3 me-2" style="border-color: rgba(0,0,0,0.05) !important;">
+                    <span class="text-muted x-small text-uppercase fw-bold tracking-wider me-2">Data Portability</span>
+                    <button onclick="downloadCloudBackup()" class="btn btn-sm btn-light-primary border-0 d-flex align-items-center gap-2">
+                        <i class="bi bi-file-earmark-arrow-down fs-6"></i>
+                        <span class="d-none d-md-inline">Export JSON</span>
+                    </button>
+                    <button onclick="document.getElementById('backupFileInput').click()" class="btn btn-sm btn-light-info border-0 d-flex align-items-center gap-2">
+                        <i class="bi bi-file-earmark-arrow-up fs-6"></i>
+                        <span class="d-none d-md-inline">Import JSON</span>
+                    </button>
+                </div>
+
+                <!-- Group 3: Danger Zone -->
+                <div class="d-flex align-items-center gap-2 p-1">
+                    <span class="text-muted x-small text-uppercase fw-bold tracking-wider me-2">Privacy Control</span>
+                    <button onclick="confirmClearCloud()" class="btn btn-sm btn-subtle-danger d-flex align-items-center gap-2">
+                        <i class="bi bi-trash3-fill text-danger"></i>
+                        <span class="fw-bold text-danger">Wipe Cloud Data</span>
+                    </button>
+                </div>
+
+                <input type="file" id="backupFileInput" style="display:none;" accept=".json" onchange="handleRestoreBackup(this)">
+            </div>
         </div>
     </div>
 
@@ -351,6 +393,141 @@
             .finally(() => {
                 setTimeout(() => btn.classList.remove('bi-spin'), 2000);
             });
+    }
+
+    function handleRestoreBackup(input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        
+        Swal.fire({
+            title: 'Restore Clinical Backup?',
+            text: `This will merge clinical data from "${file.name}" into your local database. Existing records will be updated, and new ones will be created. Always backup your current data first!`,
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Restore Now',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const formData = new FormData();
+                formData.append('backup_file', file);
+                
+                addLog('Restore', 'Uploading and processing backup file...');
+                Swal.fire({
+                    title: 'Restoring Data...',
+                    text: 'Merging records. This may take a minute...',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                fetch('/api/admin/cloud_proxy/import_backup', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        Swal.fire('Restored!', `${data.count} clinical records have been restored successfully.`, 'success');
+                        addLog('Success', `Data restoration complete: ${data.count} records processed.`);
+                        setTimeout(() => window.location.reload(), 3000);
+                    } else {
+                        Swal.fire('Error', data.error || 'Restoration failed.', 'error');
+                        addLog('Error', 'Restore failed: ' + (data.error || 'Server error'));
+                    }
+                })
+                .catch(err => {
+                    Swal.fire('Network Error', err.message, 'error');
+                    addLog('Error', 'Network error during restore.');
+                });
+            }
+            // Clear input so same file can be selected again if needed
+            input.value = '';
+        });
+    }
+
+    function downloadCloudBackup() {
+        addLog('Backup', 'Initiating full cloud data dump for backup...');
+        Swal.fire({
+            title: 'Generating Backup...',
+            text: 'Fetching all data from the cloud. Please wait...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        window.location.href = '/api/admin/cloud_proxy/export_backup';
+        
+        // We close the loader after a few seconds since we can't easily track the download stream success here
+        setTimeout(() => {
+            Swal.close();
+            addLog('Success', 'Cloud backup file generated and sent to browser.');
+        }, 3000);
+    }
+
+    function confirmClearCloud() {
+        Swal.fire({
+            title: 'WIPE CLOUD DATA?',
+            text: "This will permanently delete all clinical data (Students, Appointments, Sessions, Bookings) from the cloud. This will NOT affect your local computer. Users and System Settings are safe.",
+            icon: 'error',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, WIPE CLOUD',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Type "WIPE" to confirm',
+                    input: 'text',
+                    inputPlaceholder: 'WIPE',
+                    showCancelButton: true,
+                    confirmButtonText: 'CONFIRM DELETE',
+                    preConfirm: (value) => {
+                        if (value !== 'WIPE') {
+                            Swal.showValidationMessage('You must type WIPE to confirm');
+                        }
+                    }
+                }).then((res) => {
+                   if (res.isConfirmed) {
+                       addLog('WIPE', 'Requesting cloud data purge...');
+                       fetch('/api/admin/cloud_proxy/wipe_clinical', { method: 'POST' })
+                           .then(r => r.json())
+                           .then(data => {
+                               if (data.status === 'success') {
+                                   Swal.fire('Wiped!', 'Cloud data has been cleared.', 'success');
+                                   addLog('Success', 'Cloud clinical data purge complete.');
+                                   setTimeout(refreshCloudStats, 2000);
+                               } else {
+                                   Swal.fire('Error', data.error || data.message || 'Purge failed.', 'error');
+                                   addLog('Error', 'Wipe failed: ' + (data.error || 'Server error'));
+                               }
+                           });
+                   }
+                });
+            }
+        });
+    }
+
+    function confirmResetAndPush() {
+        Swal.fire({
+            title: 'Force Full Upload?',
+            text: "This will reset sync markers for ALL local records and force the system to re-push everything to the cloud to ensure your records (e.g. all 29) are correctly uploaded. This is safest after wiping cloud data.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ffc107',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, force upload'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                addLog('Sync', 'Resetting local marker flags for full re-seed...');
+                fetch('/api/admin/cloud_proxy/reset_and_push', { method: 'POST' })
+                    .then(r => r.json())
+                    .then(data => {
+                        Swal.fire('Initiated', data.message, 'success');
+                        addLog('Action', 'Full local data push command sent.');
+                    });
+            }
+        });
     }
 
     function confirmResetAndPull() {

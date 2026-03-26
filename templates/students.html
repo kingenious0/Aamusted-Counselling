@@ -61,15 +61,15 @@
 <div class="card card-glass border-0 shadow-lg">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle table-borderless mb-0" id="studentsTable" style="table-layout: fixed; width: 100%;">
+            <table class="table table-hover align-middle table-borderless mb-0" id="studentsTable" style="table-layout: auto; width: 100%;">
                 <thead class="bg-light bg-opacity-50 border-bottom">
                     <tr class="text-uppercase text-muted small">
-                        <th class="ps-4" style="width: 140px; overflow: hidden;">Case / Student</th>
-                        <th style="width: 110px;">Prof. ID</th>
-                        <th style="width: 150px;">Contact Info</th>
+                        <th class="ps-4" style="width: 200px;">Case / Student</th>
+                        <th style="width: 180px;">Prof. ID</th>
+                        <th style="width: 160px;">Contact Info</th>
                         <th style="display: table-cell !important;">Prog / Dept</th>
-                        <th style="width: 55px; display: table-cell !important;">Sess.</th>
-                        <th class="text-end pe-4" style="width: 280px;">Actions</th>
+                        <th style="width: 80px; display: table-cell !important;">Sess.</th>
+                        <th class="text-end pe-4" style="width: 240px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -122,7 +122,7 @@
                                 </a>
                                 
                                 <button type="button" 
-                                        onclick="handleStartSession({{ student.id }}, '{{ student.name|replace("'", "\\'") }}')"
+                                        onclick="handleStartSession({{ student.id }}, '{{ (student.name or "")|replace("'", "\\'") }}')"
                                         class="btn btn-sm btn-success rounded-pill px-2 py-1 fw-bold shadow-sm" 
                                         style="font-size: 0.65rem; background: #2e7d32; border: none;">
                                     <i class="bi bi-play-circle-fill me-1"></i> Start

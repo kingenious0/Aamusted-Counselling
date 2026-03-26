@@ -1,6 +1,7 @@
 import os, sys
 import threading
 import time
+import re
 
 # ── Field-level Local-DB Encryption (GTEC Compliance) ──────────────────────
 try:
@@ -298,89 +299,81 @@ def _run_silent_auto_update():
     }
     _HEADERS      = {'User-Agent': 'AAMUSTED-AutoUpdater/2.0'}
 
-    # Wait for system to fully start before doing anything
-    _time.sleep(30)
-    print("[AUTO-UPDATE] Checking for updates...")
-
-    try:
-        import requests as _req
-
-        # 1. Read local SHA
-        _local_sha = ""
-        if os.path.exists(_SHA_FILE):
-            with open(_SHA_FILE, 'r') as _f:
-                _local_sha = _f.read().strip()
-
-        # 2. Get latest remote SHA
-        _api_resp = _req.get(_API_URL, headers=_HEADERS, timeout=10)
-        if _api_resp.status_code != 200:
-            print(f"[AUTO-UPDATE] GitHub returned {_api_resp.status_code} — skipping.")
-            return
-
-        _remote_sha = _api_resp.json().get('sha', '')
-        if not _remote_sha or _remote_sha == _local_sha:
-            print(f"[AUTO-UPDATE] Already up to date ({_local_sha[:8]}).")
-            return
-
-        print(f"[AUTO-UPDATE] New version: {_local_sha[:8]} → {_remote_sha[:8]}. Downloading...")
-
-        # 3. Download ZIP
-        _zip_resp = _req.get(_ZIP_URL, headers=_HEADERS, timeout=120)
-        if _zip_resp.status_code != 200:
-            print(f"[AUTO-UPDATE] Download failed (HTTP {_zip_resp.status_code}).")
-            return
-
-        # 4. Extract
-        if os.path.exists(_TEMP_DIR):
-            _shutil.rmtree(_TEMP_DIR)
-        os.makedirs(_TEMP_DIR)
-
-        _z = _zipfile.ZipFile(_io.BytesIO(_zip_resp.content))
-        _z.extractall(_TEMP_DIR)
-
-        _extracted = os.listdir(_TEMP_DIR)
-        if not _extracted:
-            return
-        _source = os.path.join(_TEMP_DIR, _extracted[0])
-
-        # 5. Copy files one-by-one — skip protected, log individual failures
-        _copied = 0
-        for _item in os.listdir(_source):
-            if _item in _PROTECTED:
-                continue
-            _src = os.path.join(_source, _item)
-            _dst = os.path.join(base_dir, _item)
-            try:
-                if os.path.isdir(_src):
-                    if os.path.exists(_dst):
-                        _shutil.rmtree(_dst)
-                    # ignore .bat/.exe inside subdirs to avoid Windows Defender
-                    _shutil.copytree(
-                        _src, _dst,
-                        ignore=_shutil.ignore_patterns('*.bat', '*.exe', '*.msi')
-                    )
-                else:
-                    _shutil.copy2(_src, _dst)
-                _copied += 1
-            except Exception as _ce:
-                print(f"[AUTO-UPDATE] Skipped {_item}: {_ce}")
-
-        # 6. Save new SHA (always — even if a few non-critical files were skipped)
-        with open(_SHA_FILE, 'w') as _f:
-            _f.write(_remote_sha)
-
-        print(f"[AUTO-UPDATE] ✅ Update applied ({_copied} items, SHA {_remote_sha[:8]}). Restart to activate.")
-
-    except ImportError:
-        print("[AUTO-UPDATE] 'requests' not available — skipping update check.")
-    except Exception as _e:
-        print(f"[AUTO-UPDATE] Failed (will retry next startup): {_e}")
-    finally:
+    while True:
+        # Wait for system to fully start before doing anything (or wait between cycles)
+        _time.sleep(30)
+        
         try:
-            if os.path.exists(_TEMP_DIR):
-                _shutil.rmtree(_TEMP_DIR)
-        except Exception:
-            pass
+            import requests as _req
+
+            # 1. Read local SHA
+            _local_sha = ""
+            if os.path.exists(_SHA_FILE):
+                with open(_SHA_FILE, 'r') as _f:
+                    _local_sha = _f.read().strip()
+
+            # 2. Get latest remote SHA
+            _api_resp = _req.get(_API_URL, headers=_HEADERS, timeout=15)
+            if _api_resp.status_code != 200:
+                # Silently fail, likely no internet or GitHub down
+                pass
+            else:
+                _remote_sha = _api_resp.json().get('sha', '')
+                if _remote_sha and _remote_sha != _local_sha:
+                    print(f"[AUTO-UPDATE] New version found: {_local_sha[:8]} → {_remote_sha[:8]}. Downloading...")
+
+                    # 3. Download ZIP
+                    _zip_resp = _req.get(_ZIP_URL, headers=_HEADERS, timeout=180)
+                    if _zip_resp.status_code == 200:
+                        # 4. Extract
+                        if os.path.exists(_TEMP_DIR):
+                            _shutil.rmtree(_TEMP_DIR)
+                        os.makedirs(_TEMP_DIR)
+
+                        _z = _zipfile.ZipFile(_io.BytesIO(_zip_resp.content))
+                        _z.extractall(_TEMP_DIR)
+
+                        _extracted = os.listdir(_TEMP_DIR)
+                        if _extracted:
+                            _source = os.path.join(_TEMP_DIR, _extracted[0])
+
+                            # 5. Copy files one-by-one — skip protected
+                            _copied = 0
+                            for _item in os.listdir(_source):
+                                if _item in _PROTECTED:
+                                    continue
+                                _src = os.path.join(_source, _item)
+                                _dst = os.path.join(base_dir, _item)
+                                try:
+                                    if os.path.isdir(_src):
+                                        if os.path.exists(_dst):
+                                            _shutil.rmtree(_dst)
+                                        _shutil.copytree(_src, _dst, ignore=_shutil.ignore_patterns('*.bat', '*.exe', '*.msi'))
+                                    else:
+                                        _shutil.copy2(_src, _dst)
+                                    _copied += 1
+                                except:
+                                    pass
+
+                            # 6. Save new SHA
+                            with open(_SHA_FILE, 'w') as _f:
+                                _f.write(_remote_sha)
+                            print(f"[AUTO-UPDATE] ✅ Update applied ({_copied} items). System will reload.")
+                            # After app.py is replaced, the reloader usually restarts the process.
+                            # We break the loop so the thread terminates.
+                            break
+
+        except Exception as _e:
+            print(f"[AUTO-UPDATE] Error: {_e}")
+        finally:
+            try:
+                if os.path.exists(_TEMP_DIR):
+                    _shutil.rmtree(_TEMP_DIR)
+            except:
+                pass
+        
+        # If no update was applied, sleep for 4 hours before next check
+        _time.sleep(14400) 
 
 
 # Launch auto-updater only in the main worker process (prevents double-run
@@ -428,6 +421,55 @@ def nl2br(value):
     if value:
         return value.replace('\n', '<br>')
     return ''
+
+@app.template_filter('format_datetime')
+def format_datetime_filter(value):
+    """Jinja2 filter to change raw string/timestamp to 'Mar 26, 2026 5:12 PM' format."""
+    if not value: return "N/A"
+    try:
+        # If it's already a datetime object, use it directly
+        if isinstance(value, datetime):
+            dt = value
+        else:
+            # Typical SQLite CURRENT_TIMESTAMP: 2026-03-26 17:12:00
+            val_str = str(value)[:19] 
+            dt = datetime.strptime(val_str, '%Y-%m-%d %H:%M:%S')
+            
+        return dt.strftime('%b %d, %Y %I:%M %p')
+    except Exception:
+        return str(value)
+
+@app.template_filter('to_clinical_id')
+def to_clinical_id_filter(student):
+    """Jinja2 filter to convert a student object/row to a professional ID."""
+    if not student: return "N/A"
+    
+    # Handle both dict-like objects and Row objects
+    try:
+        name = student['name'] if 'name' in student.keys() else "ST"
+        sid = student['id'] if 'id' in student.keys() else 0
+        created_at = student['created_at'] if 'created_at' in student.keys() else None
+    except (TypeError, KeyError):
+        # Fallback if it's not a dict/row
+        return "N/A"
+
+    # Get initials
+    parts = [p.strip() for p in str(name).split() if p.strip()]
+    if len(parts) >= 2:
+        initials = (parts[0][0] + parts[-1][0]).upper()
+    elif len(parts) == 1:
+        initials = parts[0][:2].upper()
+    else:
+        initials = "ST"
+    
+    # Get year
+    year = datetime.now().year
+    if created_at:
+        try:
+            year = str(created_at)[:4]
+        except: pass
+            
+    return f"{initials}-{year}-{str(sid).zfill(3)}"
 
 @app.route('/assets/<path:filename>')
 def serve_assets(filename):
@@ -506,29 +548,26 @@ def login_required(f):
     return decorated_function
 
 
-def name_to_initials(name_input: str | None) -> str:
-    """
-    Convert any name or initials string to a safe, standardised initials format.
-    GTEC guideline: never store full student names.
-    Examples:
-      'Ama Osei'  -> 'A.O.'
-      'A.O.'      -> 'A.O.'   (already initials — returned as-is)
-      'John'      -> 'J.'
-    """
-    if not name_input:
-        return ''
-    raw = name_input.strip()
-    import re as _re
-    # Already looks like initials: has at least one dot (e.g. 'A.O.' or 'K.A.M.')
-    if '.' in raw and _re.match(r'^[A-Za-z](\.[A-Za-z])*\.?$', raw):
-        letters = [c.upper() for c in raw if c.isalpha()]
-        return '.'.join(letters) + '.'
-    # Otherwise build initials from space-separated words
+def name_to_initials(name_input):
+    if not name_input: return "N/A"
+    # Preserve numeric ID suffix if present: e.g. "A. (14)"
+    suffix = ""
+    match_id = re.search(r'\s*\(\d+\)$', str(name_input))
+    if match_id:
+        suffix = match_id.group(0)
+        name_input = str(name_input)[:match_id.start()]
+    
+    # Sanitize: replace dots/commas with spaces to handle both "Manu, Yaw" and "M.Y"
+    raw = str(name_input).replace('.', ' ').replace(',', ' ').strip()
     parts = [p.strip() for p in raw.split() if p.strip()]
-    letters = [p[0].upper() for p in parts if p and p[0].isalpha()]
+    
+    # Extract first letter of each part if it's alphanumeric
+    letters = [p[0].upper() for p in parts if p and (p[0].isalpha() or p[0].isdigit())]
+    
     if not letters:
-        return raw[:4].upper()  # Fallback
-    return '.'.join(letters) + '.'
+        return str(name_input)[:2].upper() + suffix
+        
+    return ".".join(letters) + "." + suffix
 
 
 def generate_professional_id(conn, name=None):
@@ -921,6 +960,169 @@ def reset_and_pull():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/admin/cloud_proxy/wipe_clinical', methods=['POST'])
+@login_required
+def wipe_clinical_data():
+    if session.get('role') != 'Admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    try:
+        config = node_config.load_config()
+        cloud_url = config.get('cloud_api_url')
+        api_key = config.get('cloud_api_key')
+        
+        if not cloud_url:
+            return jsonify({'error': 'Cloud URL not configured'}), 400
+            
+        # Clinical tables to be purged
+        clinical_tables = [
+            'Student', 'Appointment', 'session', 'Referral', 
+            'CaseManagement', 'OutcomeQuestionnaire', 'DASS21', 
+            'Feedback', 'SessionIssue', 'Notification', 'BookingRequest'
+        ]
+        
+        resp = requests.post(
+            f"{cloud_url}/wipe", 
+            json={"tables": clinical_tables, "api_key": api_key},
+            headers={"X-API-KEY": api_key},
+            timeout=15
+        )
+        
+        if resp.status_code == 200:
+            # Also reset local sync timestamp so we don't try to pull ghosts
+            config['last_cloud_sync'] = '1970-01-01 00:00:00'
+            node_config.save_config(config)
+            return jsonify({'status': 'success', 'message': 'Cloud data purged successfully.'})
+        else:
+            try:
+                err_msg = resp.json().get('error', resp.text)
+            except:
+                err_msg = resp.text
+            return jsonify({'status': 'error', 'message': f'Cloud Bridge Error: {err_msg}'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/cloud_proxy/export_backup')
+@login_required
+def export_cloud_backup():
+    if session.get('role') != 'Admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    try:
+        config = node_config.load_config()
+        cloud_url = config.get('cloud_api_url')
+        api_key = config.get('cloud_api_key')
+        
+        if not cloud_url:
+            return "Cloud URL not configured", 400
+            
+        # Pull everything (full dump)
+        import requests
+        resp = requests.post(
+            f"{cloud_url}/pull", 
+            json={
+                "last_sync_timestamp": "1970-01-01 00:00:00", 
+                "api_key": api_key, 
+                "node_id": node_config.get_node_id()
+            },
+            headers={"X-API-KEY": api_key},
+            timeout=120 
+        )
+        
+        if resp.status_code == 200:
+            data = resp.json()
+            import io
+            from flask import send_file
+            
+            output = io.BytesIO()
+            output.write(json.dumps(data, indent=4).encode('utf-8'))
+            output.seek(0)
+            
+            filename = f"USTED_Clinical_Cloud_Backup_{datetime.now().strftime('%Y-%m-%d_%H%M')}.json"
+            return send_file(
+                output, 
+                mimetype='application/json',
+                as_attachment=True, 
+                download_name=filename
+            )
+        else:
+            return f"Cloud Bridge Error: {resp.text}", 500
+            
+    except Exception as e:
+        return str(e), 500
+
+@app.route('/api/admin/cloud_proxy/import_backup', methods=['POST'])
+@login_required
+def import_cloud_backup():
+    if session.get('role') != 'Admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    try:
+        if 'backup_file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+            
+        file = request.files['backup_file']
+        if not file or not file.filename.endswith('.json'):
+            return jsonify({'error': 'Invalid file format. Please upload a .json file.'}), 400
+            
+        # Parse JSON
+        import json
+        data = json.load(file)
+        
+        # The backup format from /pull contains metadata and a 'changes' key
+        changes = data.get('changes', data) # Support both raw changes and full pull response
+        
+        if not changes:
+            return jsonify({'error': 'No data found in backup file.'}), 400
+            
+        # Apply changes using the Sync Engine's merge logic
+        # This ensures GTEC privacy initiails and Last-Write-Wins logic
+        from sync_engine import apply_incoming_changes
+        processed_count = apply_incoming_changes(changes)
+        
+        # Reset sync marker so these records are seen as "dirty" and eventually pushed to cloud
+        # if the cloud was previously wiped.
+        # Actually, we should trigger a sync push.
+        from sync_engine import trigger_sync_immediate
+        trigger_sync_immediate()
+        
+        return jsonify({
+            'status': 'success', 
+            'message': 'Backup restored successfully.',
+            'count': processed_count
+        })
+            
+    except Exception as e:
+        return jsonify({'error': f'Import failed: {str(e)}'}), 500
+
+@app.route('/api/admin/cloud_proxy/reset_and_push', methods=['POST'])
+@login_required
+def reset_and_push():
+    if session.get('role') != 'Admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    try:
+        from sync_engine import SYNC_TABLES, trigger_sync_immediate
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Reset markers for all tables
+        for table in SYNC_TABLES:
+            try:
+                cursor.execute(f"UPDATE {table} SET last_synced_at = NULL")
+            except:
+                pass # Skip if table missing or column missing
+        
+        conn.commit()
+        conn.close()
+        
+        # Trigger sync immediately
+        trigger_sync_immediate()
+        return jsonify({'status': 'success', 'message': 'Markers reset. Cloud re-seeding started.'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/admin/sync/now')
 @login_required
 def manual_sync():
@@ -981,7 +1183,7 @@ def audit_logs():
     try:
         conn = get_db_connection()
         logs = conn.execute('''
-            SELECT al.*, u.username, u.full_name 
+            SELECT al.created_at as timestamp, al.*, u.username, u.full_name 
             FROM audit_logs al 
             JOIN users u ON al.user_id = u.id 
             ORDER BY al.created_at DESC LIMIT 100
@@ -1327,6 +1529,12 @@ def dashboard():
                     "SELECT 1 FROM Student WHERE name = ? OR index_number = ?", 
                     (b_dict['full_name'], b_dict['index_number'])
                 ).fetchone()
+                # Decrypt sensitive fields for dashboard view
+                if b_dict.get('phone'):
+                    b_dict['phone'] = decrypt_field(b_dict['phone'])
+                if b_dict.get('email'):
+                    b_dict['email'] = decrypt_field(b_dict['email'])
+                    
                 b_dict['is_registered'] = True if exists else False
                 latest_formatted.append(b_dict)
             latest_bookings = latest_formatted
@@ -1419,6 +1627,12 @@ def dashboard_intake_list():
                 "SELECT 1 FROM Student WHERE name = ? OR index_number = ?", 
                 (b_dict['full_name'], b_dict['index_number'])
             ).fetchone()
+            # Decrypt sensitive fields for dashboard view
+            if b_dict.get('phone'):
+                b_dict['phone'] = decrypt_field(b_dict['phone'])
+            if b_dict.get('email'):
+                b_dict['email'] = decrypt_field(b_dict['email'])
+                
             b_dict['is_registered'] = True if exists else False
             latest_bookings.append(b_dict)
             
@@ -2197,7 +2411,11 @@ def sessions_list():
         sessions = []
         for sess in sessions_raw:
             sess_dict = dict(sess)
-            # Add case number as professional ID
+            
+            # GTEC REQUIRED: Standardize name to initials at runtime
+            sess_dict['student_name'] = name_to_initials(sess_dict.get('student_name', 'Client'))
+            
+            # Use case number as professional ID
             sess_dict['professional_id'] = sess_dict.get('case_number') or 'N/A'
             
             # Clean display dates/times
@@ -2702,20 +2920,23 @@ def students():
         students_raw = []
         program_rows = []
         try:
-            # Get all students and their information
+            # Get all students and their information with session counts
             students_raw = conn.execute('''
-                SELECT s.*, 
+                SELECT s.id, s.name, s.index_number, s.gender, s.age, s.faculty, s.department, s.programme,
+                       s.hall_of_residence, s.contact, s.email, s.parent_contact, s.created_at,
+                       s.case_number, s.global_id, s.updated_at, s.last_synced_at,
                        COUNT(DISTINCT sess.id) as session_count
                 FROM Student s
                 LEFT JOIN Appointment a ON s.id = a.student_id
                 LEFT JOIN session sess ON a.id = sess.appointment_id
+                WHERE s.is_deleted = 0
                 GROUP BY s.id
                 ORDER BY s.id DESC
             ''').fetchall()
 
-            # Get all unique programs for the filter dropdown (extract as strings, not Row objects)
+            # Get unique programs for the filter
             program_rows = conn.execute(
-                "SELECT DISTINCT programme FROM Student WHERE programme IS NOT NULL AND programme != '' ORDER BY programme").fetchall()
+                "SELECT DISTINCT programme FROM Student WHERE programme IS NOT NULL AND is_deleted = 0").fetchall()
         except Exception as e:
             print(f"[STUDENTS] Error getting students: {e}")
             students_raw = []
@@ -2730,24 +2951,26 @@ def students():
         students = []
         for student in students_raw:
             student_dict = dict(student)
+
+            # GTEC REQUIRED: Standardize name to initials at runtime
+            orig_name = student_dict.get('name', 'User')
+            # Only convert if it doesn't already look like our processed format
+            if "(" not in orig_name:
+                student_dict['name'] = name_to_initials(orig_name)
             
             # 1. Case ID (GCC-2026-####)
-            # Use stored case_number or fallback
             student_dict['case_id'] = student_dict.get('case_number') or f"GCC-{datetime.now().year}-{student_dict.get('id', 0):04d}"
             
-            # 2. Professional ID (NW-2026-####)
-            # We use a derived initials-based ID for professional display
-            s_name = student_dict.get('name', 'User')
-            parts = [p.strip() for p in s_name.split() if p.strip()]
-            initials = "ST"
-            if len(parts) >= 2:
-                initials = (parts[0][0] + parts[-1][0]).upper()
-            elif len(parts) == 1:
-                initials = parts[0][:2].upper()
-            
-            # Use the consistent initials format as the primary display ID
-            student_dict['professional_id'] = f"{initials}-{datetime.now().year}-{student_dict.get('id', 0):04d}"
-                
+            # 2. Professional ID (Standardized: INITIALS-YYYY-INDEX)
+            # Remove the (ID) suffix from name for the clean Professional ID string
+            prof_init = re.sub(r'\s*\(\d+\)$', '', student_dict['name'])
+            student_dict['professional_id'] = f"{prof_init}-{datetime.now().year}-{student_dict.get('id', 0):04d}"
+
+            # Decrypt sensitive fields
+            for field in STUDENT_SENSITIVE_FIELDS:
+                if field in student_dict and student_dict[field]:
+                    student_dict[field] = decrypt_field(student_dict[field])
+
             students.append(student_dict)
 
         # Convert Row objects to strings
@@ -2919,9 +3142,20 @@ def student_profile(id):
             flash('Student not found', 'error')
             return redirect(url_for('students'))
 
+        # Standardize name for GTEC privacy at runtime (Detect existing initials)
+        student = dict(student)
+        if "(" not in student.get('name', ''):
+            student['name'] = name_to_initials(student['name'])
+
+        # Decrypt sensitive fields
+        for field in STUDENT_SENSITIVE_FIELDS:
+            if field in student and student[field]:
+                student[field] = decrypt_field(student[field])
+
         # Get all sessions for this student
+        sessions_raw = []
         try:
-            sessions = conn.execute('''
+            sessions_raw = conn.execute('''
                 SELECT sess.id, sess.session_type, sess.notes, sess.created_at,
                        s.name as student_name,
                        c.name as Counsellor_name,
@@ -2935,7 +3169,14 @@ def student_profile(id):
             ''', (id,)).fetchall()
         except Exception as e:
             print(f"[STUDENT_PROFILE] Error getting sessions: {e}")
-            sessions = []
+            sessions_raw = []
+
+        # Convert sessions to list and initialize student names
+        sessions = []
+        for s in sessions_raw:
+            s_dict = dict(s)
+            s_dict['student_name'] = name_to_initials(s_dict.get('student_name', 'Client'))
+            sessions.append(s_dict)
 
         # Get all referrals for this student
         try:
@@ -3912,6 +4153,10 @@ def import_template(import_type):
 @app.route('/import_csv', methods=['GET', 'POST'])
 @login_required
 def import_csv():
+    """
+    General Import Utility for Students and Appointments.
+    Complies with GTEC privacy (initials) and local encryption.
+    """
     if request.method == 'POST':
         if 'confirm' in request.form:
             # ── Process confirmed import ──
@@ -3930,19 +4175,17 @@ def import_csv():
                 if import_type == 'students':
                     for row in data:
                         try:
+                            # ── GTEC Privacy & Encryption ──
+                            raw_name = row.get('name', '').strip()
+                            name = name_to_initials(raw_name)
+                            
+                            # Encrypt sensitive contact fields
+                            contact        = encrypt_field(row.get('phone') or row.get('contact'))
+                            parent_contact = encrypt_field(row.get('parent_contact'))
+                            email          = encrypt_field(row.get('email'))
+
                             # Generate a case number for the new student
-                            year = datetime.now().year
-                            last = conn.execute(
-                                "SELECT case_number FROM Student ORDER BY id DESC LIMIT 1"
-                            ).fetchone()
-                            next_num = 1
-                            if last and last['case_number']:
-                                try:
-                                    next_num = int(last['case_number'].split('-')[-1]) + 1
-                                except Exception:
-                                    next_num = 1
-                            # initials = ''.join([w[0].upper() for w in (row.get('name') or 'GC').split()[:2]]) or 'GC' # Not used in current case_number format
-                            case_number = f"GCC-{year}-{next_num:04d}"
+                            case_number = generate_case_number(conn, name)
 
                             conn.execute('''
                                 INSERT INTO Student
@@ -3950,13 +4193,13 @@ def import_csv():
                                  parent_contact, gender, age, hall_of_residence, case_number)
                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                             ''', (
-                                row.get('name', ''),
+                                name,
                                 row.get('index_number', ''),
-                                row.get('email', ''),
-                                row.get('phone', '') or row.get('contact', ''),
+                                email,
+                                contact,
                                 row.get('department', ''),
                                 row.get('programme', ''),
-                                row.get('parent_contact', ''),
+                                parent_contact,
                                 row.get('gender', ''),
                                 row.get('age', ''),
                                 row.get('hall_of_residence', ''),
@@ -3964,14 +4207,16 @@ def import_csv():
                             ))
                             imported += 1
                         except Exception as row_err:
-                            print(f"[IMPORT] Skipping row: {row_err}")
+                            print(f"[IMPORT] Skipping student row: {row_err}")
 
                 elif import_type == 'appointments':
                     for row in data:
+                        # Try to find student via index number (most reliable) then name
                         student = conn.execute(
-                            'SELECT id FROM Student WHERE name = ? OR index_number = ?',
-                            (row.get('student_name', ''), row.get('student_name', ''))
+                            'SELECT id FROM Student WHERE index_number = ? OR name = ?',
+                            (row.get('index_number', ''), row.get('student_name', ''))
                         ).fetchone()
+                        
                         if student:
                             conn.execute('''
                                 INSERT INTO Appointment
@@ -4012,19 +4257,16 @@ def import_csv():
             try:
                 # Support both CSV and Excel
                 if filename.endswith('.xlsx') or filename.endswith('.xls'):
-                    try:
-                        import openpyxl
-                        wb = openpyxl.load_workbook(upload_file, read_only=True)
-                        ws = wb.active
-                        rows = list(ws.iter_rows(values_only=True))
-                        if not rows:
-                            flash('Excel file is empty', 'error')
-                            return redirect(url_for('import_csv'))
-                        headers_row = [str(h).strip().lower() if h else '' for h in rows[0]]
-                        data_rows = [dict(zip(headers_row, [str(c).strip() if c is not None else '' for c in r])) for r in rows[1:]]
-                    except ImportError:
-                        flash('Excel support requires openpyxl. Please install it or use a CSV file.', 'error')
+                    import openpyxl
+                    wb = openpyxl.load_workbook(upload_file, data_only=True, read_only=True)
+                    ws = wb.active
+                    rows = list(ws.iter_rows(values_only=True))
+                    if not rows:
+                        flash('Excel file is empty', 'error')
                         return redirect(url_for('import_csv'))
+                    
+                    headers = [str(h).strip().lower() if h else '' for h in rows[0]]
+                    data_rows = [dict(zip(headers, [str(c).strip() if c is not None else '' for c in r])) for r in rows[1:]]
                 else:
                     # CSV
                     content = upload_file.read()
@@ -4040,8 +4282,8 @@ def import_csv():
                     row = {k.lower().strip(): (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
 
                     if import_type == 'students':
-                        name = row.get('name') or row.get('full name') or ''
-                        index = row.get('index_number') or row.get('index number') or row.get('id') or ''
+                        name = row.get('name') or row.get('full name') or row.get('student name') or ''
+                        index = row.get('index_number') or row.get('index number') or row.get('id') or row.get('student id') or ''
                         if not name:
                             errors.append(f'Row {row_num}: Missing name — skipped')
                         else:
@@ -4049,17 +4291,18 @@ def import_csv():
                                 'name': name,
                                 'index_number': index,
                                 'email': row.get('email', ''),
-                                'phone': row.get('phone', '') or row.get('contact', ''),
+                                'phone': row.get('phone') or row.get('contact') or row.get('phone number') or '',
                                 'department': row.get('department', ''),
-                                'programme': row.get('programme', '') or row.get('program', ''),
+                                'programme': row.get('programme') or row.get('program') or row.get('course') or '',
                                 'gender': row.get('gender', ''),
                                 'age': row.get('age', ''),
-                                'hall_of_residence': row.get('hall_of_residence', '') or row.get('hall', ''),
-                                'parent_contact': row.get('parent_contact', '')
+                                'hall_of_residence': row.get('hall_of_residence') or row.get('hall') or '',
+                                'parent_contact': row.get('parent_contact') or row.get('parent number') or ''
                             })
 
                     elif import_type == 'appointments':
-                        sname = row.get('student_name') or row.get('student name') or ''
+                        sname = row.get('student_name') or row.get('student name') or row.get('name') or ''
+                        index = row.get('index_number') or row.get('index number') or ''
                         date = row.get('date', '')
                         time = row.get('time', '')
                         if not sname or not date or not time:
@@ -4067,11 +4310,11 @@ def import_csv():
                         else:
                             preview_data.append({
                                 'student_name': sname,
+                                'index_number': index,
                                 'date': date,
                                 'time': time,
-                                'counsellor': row.get('counsellor', ''),
                                 'purpose': row.get('purpose', ''),
-                                'status': row.get('status', 'Scheduled')
+                                'status': row.get('status') or 'Scheduled'
                             })
 
                 if not preview_data:
@@ -4089,7 +4332,6 @@ def import_csv():
                 flash(f'Error reading file: {str(e)}', 'error')
                 return redirect(url_for('import_csv'))
 
-    # GET — display the upload form
     return render_template('import_csv.html')
 
 
@@ -4192,7 +4434,7 @@ def appointment():
             counsellors = []
             try:
                 students = conn.execute(
-                    'SELECT id, name, case_number, programme FROM Student ORDER BY name').fetchall()
+                    'SELECT id, name, case_number, programme, created_at FROM Student ORDER BY name').fetchall()
                 counsellors = conn.execute(
                     'SELECT id, name FROM Counsellor ORDER BY name').fetchall()
             except Exception as e:
@@ -4249,7 +4491,7 @@ def appointment():
         counsellors = []
         try:
             students = conn.execute(
-                'SELECT id, name, case_number, programme FROM Student ORDER BY name').fetchall()
+                'SELECT id, name, case_number, programme, created_at FROM Student ORDER BY name').fetchall()
             counsellors = conn.execute(
                 'SELECT id, name FROM Counsellor ORDER BY name').fetchall()
         except Exception as e:
