@@ -89,7 +89,7 @@
                         <td class="ps-4">
                             <div class="d-flex align-items-center">
                                 <div class="avatar-circle bg-primary bg-opacity-10 text-primary me-2">
-                                    {{ (session.case_number or 'GCC')[-4:] }}
+                                    {{ (session.case_number or session.student_clinical_id or 'GCC')[-4:] }}
                                 </div>
                                 <div class="d-flex flex-column">
                                     <span class="fw-bold text-dark font-monospace">{{ session.case_number or 'Unassigned' }}</span>

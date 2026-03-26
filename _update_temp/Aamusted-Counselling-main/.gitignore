@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Mac
+.DS_Store
+
+# Virtual Env
+venv/
+env/
+.env
+Lib/
+Scripts/
+
+# Database (local only)
+*.db
+
+# Logs & debug output
+logs/
+*.txt
+!README.md
+!docs/**
+
+# Distribution zips
+distribution/*.zip
+*.zip
+
+# App runtime data
+app_data/reports/
+service_logs/
+
+# Reports generated at runtime
+reports/
+
+# Profile pictures (user uploaded)
+static/profile_pics/
+
+# IDE
+.vscode/
+.idea/

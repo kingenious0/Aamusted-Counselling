@@ -90,10 +90,11 @@
                         <td class="appt-search-field">
                             <div class="d-flex align-items-center">
                                 <div class="avatar-circle bg-primary bg-opacity-10 text-primary me-2">
-                                    {{ appointment.student_name[0] if appointment.student_name else '?' }}
+                                    {% set clinical_id = {'name': appointment.student_name, 'id': appointment.student_record_id, 'created_at': appointment.student_created_at}|to_clinical_id %}
+                                    {{ clinical_id[0] }}
                                 </div>
                                 <div class="d-flex flex-column">
-                                    <span class="fw-bold text-dark">{{ appointment.student_name or 'N/A' }}</span>
+                                    <span class="fw-bold text-dark">{{ clinical_id }}</span>
                                     <span class="small text-muted font-monospace">{{ appointment.index_number }}</span>
                                 </div>
                             </div>
@@ -202,7 +203,7 @@
                                         </li>
                                         <li>
                                             <form action="/delete_appointment/{{ appointment.id }}" method="POST"
-                                                onsubmit="return GCC.confirmForm(event, 'Are you sure you want to delete this appointment for {{ appointment.student_name }}?', 'warning', 'Yes, Delete');">
+                                                onsubmit="return GCC.confirmForm(event, 'Are you sure you want to delete this appointment for {{ clinical_id }}?', 'warning', 'Yes, Delete');">
                                                 <button type="submit"
                                                     class="dropdown-item rounded-2 py-2 text-danger fw-bold d-flex align-items-center small">
                                                     <i class="bi bi-trash me-2"></i> Delete
