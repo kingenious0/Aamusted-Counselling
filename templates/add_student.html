@@ -11,9 +11,9 @@
                 <i class="bi bi-arrow-left"></i>
             </a>
             <div>
-                <h2 class="fw-bold mb-0">{% if student %}Edit Student Record{% else %}Student Registration{% endif %}
+                <h2 class="fw-bold mb-0">{% if student %}Edit Client Record{% else %}Client Registration{% endif %}
                 </h2>
-                <p class="text-muted mb-0">{% if student %}Update existing{% else %}Create new{% endif %} student
+                <p class="text-muted mb-0">{% if student %}Update existing{% else %}Register new{% endif %} client
                     profile in the registry.</p>
             </div>
         </div>
@@ -29,11 +29,15 @@
 
                     <div class="row g-4 mb-4">
                         <div class="col-md-12">
-                            <label for="name" class="form-label text-muted small fw-bold text-uppercase">Full Legal
-                                Name</label>
+                            <label for="name" class="form-label text-muted small fw-bold text-uppercase">Client Initials
+                                <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;">Privacy</span></label>
                             <input type="text" class="form-control form-control-lg bg-light border-0" id="name"
-                                name="name" required value="{{ student.name if student }}" placeholder="e.g. Ama Osei">
-                            <div class="invalid-feedback">Please provide the student's full name.</div>
+                                name="name" required value="{{ student.name if student }}" placeholder="e.g. A.O. or Ama Osei (auto-converted)">
+                            <div class="form-text text-muted" style="font-size:0.75rem;">
+                                <i class="bi bi-shield-check text-success me-1"></i>
+                                <strong>GTEC Compliant:</strong> Full names are automatically converted to initials (e.g. "A.O.") and never stored. Only enter initials if preferred.
+                            </div>
+                            <div class="invalid-feedback">Please provide the client's initials.</div>
                         </div>
 
                         <div class="col-md-6">
@@ -260,9 +264,9 @@
                     <h5 class="fw-bold mb-0 text-primary">Data Privacy</h5>
                 </div>
                 <p class="small text-muted mb-0">
-                    All student information entered here is stored securely and is only accessible to authorized
-                    counselling staff.
-                    Ensure accurate contact details for emergency protocols.
+                    <strong>GTEC Data Privacy:</strong> All client information is stored securely with field-level encryption.
+                    Only initials are stored — full names are <em>never</em> retained. Access is restricted to authorised
+                    counselling staff only.
                 </p>
             </div>
         </div>

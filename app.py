@@ -2,6 +2,21 @@ import os, sys
 import threading
 import time
 
+# ── Field-level Local-DB Encryption (GTEC Compliance) ──────────────────────
+try:
+    from crypto_utils import (
+        encrypt_field, decrypt_field,
+        STUDENT_SENSITIVE_FIELDS, BOOKING_SENSITIVE_FIELDS,
+        CASENOTE_SENSITIVE_FIELDS, REFERRAL_SENSITIVE_FIELDS,
+        SESSION_SENSITIVE_FIELDS
+    )
+    _CRYPTO_AVAILABLE = True
+except ImportError:
+    _CRYPTO_AVAILABLE = False
+    def encrypt_field(v): return v
+    def decrypt_field(v): return v
+    print("[STARTUP] crypto_utils not loaded — fields stored as plaintext")
+
 # Ensure core directory is in the path for imports
 base_dir = os.path.dirname(os.path.abspath(__file__))
 core_dir = os.path.join(base_dir, 'core')
@@ -491,6 +506,31 @@ def login_required(f):
     return decorated_function
 
 
+def name_to_initials(name_input: str | None) -> str:
+    """
+    Convert any name or initials string to a safe, standardised initials format.
+    GTEC guideline: never store full student names.
+    Examples:
+      'Ama Osei'  -> 'A.O.'
+      'A.O.'      -> 'A.O.'   (already initials — returned as-is)
+      'John'      -> 'J.'
+    """
+    if not name_input:
+        return ''
+    raw = name_input.strip()
+    import re as _re
+    # Already looks like initials: has at least one dot (e.g. 'A.O.' or 'K.A.M.')
+    if '.' in raw and _re.match(r'^[A-Za-z](\.[A-Za-z])*\.?$', raw):
+        letters = [c.upper() for c in raw if c.isalpha()]
+        return '.'.join(letters) + '.'
+    # Otherwise build initials from space-separated words
+    parts = [p.strip() for p in raw.split() if p.strip()]
+    letters = [p[0].upper() for p in parts if p and p[0].isalpha()]
+    if not letters:
+        return raw[:4].upper()  # Fallback
+    return '.'.join(letters) + '.'
+
+
 def generate_professional_id(conn, name=None):
     """Generate an INITIALS-YYYY-XXXX professional ID based on first/last name initials."""
     year = datetime.now().year
@@ -845,9 +885,9 @@ def update_system():
         
         return jsonify({
             'status': 'success', 
-            'message': 'System Updated Successfully!', 
-            'details': f'Local SHA is now {latest_sha[:8]}. Please restart the portal.',
-            'requires_restart': True
+            'message': 'System updated successfully!',
+            'details': f'Now at SHA {latest_sha[:8]}.',
+            'requires_restart': False   # UI does a silent reload
         })
             
     except Exception as e:
@@ -1987,7 +2027,11 @@ def add_student():
         if request.method == 'POST':
             edit_id = request.form.get('edit_id')
 
-            name = request.form.get('name')
+            # ── GTEC: Store initials only, never the full name ──────────────
+            raw_name_input = request.form.get('name', '').strip()
+            name = name_to_initials(raw_name_input)  # e.g. "A.O."
+            # ────────────────────────────────────────────────────────────────
+
             age = request.form.get('age')
             gender = request.form.get('gender')
             index_number = request.form.get('index_number')
@@ -1995,9 +2039,11 @@ def add_student():
             programme_base = request.form.get('programme')
             programme_other = request.form.get('programme_other')
             programme = programme_other if programme_base == 'Other' else programme_base
-            
-            contact = request.form.get('contact')
-            parent_contact = request.form.get('parent_contact')
+
+            # ── Encrypt sensitive contact fields before storage ─────────────
+            contact       = encrypt_field(request.form.get('contact'))
+            parent_contact = encrypt_field(request.form.get('parent_contact'))
+            # ────────────────────────────────────────────────────────────────
             hall_of_residence = request.form.get('hall_of_residence')
             faculty = request.form.get('faculty', '')
 
@@ -2010,7 +2056,7 @@ def add_student():
                         WHERE id=?
                     ''', (name, age if age else None, gender, index_number, department, faculty,
                           programme, contact, parent_contact, hall_of_residence, edit_id))
-                    flash('Student updated successfully!', 'success')
+                    flash('Client record updated successfully!', 'success')
                 else:
                     case_num = generate_case_number(conn, name)
                     conn.execute(
@@ -2019,7 +2065,7 @@ def add_student():
                          faculty, programme, contact, parent_contact, hall_of_residence)
                     )
                     flash(
-                        f'Student registered! Case Number: {case_num}', 'success')
+                        f'Client registered! Case Number: {case_num}', 'success')
                 conn.commit()
                 trigger_sync_immediate()
                 return redirect(url_for('students'))
@@ -2063,21 +2109,36 @@ def add_student():
             edit_id = request.args.get('edit')
             if edit_id:
                 try:
-                    student = conn.execute(
+                    raw = conn.execute(
                         'SELECT * FROM Student WHERE id = ?', (edit_id,)).fetchone()
+                    if raw:
+                        # ── Decrypt sensitive fields for display in edit form ──
+                        student = dict(raw)
+                        student['contact']        = decrypt_field(student.get('contact'))
+                        student['parent_contact']  = decrypt_field(student.get('parent_contact'))
+                        # Convert Row back to a simple namespace for template access
+                        from types import SimpleNamespace
+                        student = SimpleNamespace(**student)
+                    else:
+                        student = None
                 except Exception as e:
                     print(f"[ADD_STUDENT] Error loading student for edit: {e}")
                     import traceback
                     traceback.print_exc()
-                    # Check if it's a table missing error and reinitialize
                     if 'no such table' in str(e).lower() or 'Student' in str(e):
                         print(
                             "[ADD_STUDENT] Table missing error detected in GET, reinitializing database...")
                         try:
                             ensure_database_initialized()
                             conn = get_db_connection()
-                            student = conn.execute(
+                            raw = conn.execute(
                                 'SELECT * FROM Student WHERE id = ?', (edit_id,)).fetchone()
+                            if raw:
+                                student = dict(raw)
+                                student['contact']       = decrypt_field(student.get('contact'))
+                                student['parent_contact'] = decrypt_field(student.get('parent_contact'))
+                                from types import SimpleNamespace
+                                student = SimpleNamespace(**student)
                         except Exception as init_error:
                             print(
                                 f"[ADD_STUDENT] Error reinitializing: {init_error}")

@@ -26,8 +26,8 @@ from datetime import datetime
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 REPO_OWNER = "kingenious0"
-REPO_NAME  = "Aamusted-Counselling"
-BRANCH     = "main"
+REPO_NAME = "Aamusted-Counselling"
+BRANCH = "main"
 GITHUB_ZIP_URL = f"https://github.com/{REPO_OWNER}/{REPO_NAME}/archive/refs/heads/{BRANCH}.zip"
 GITHUB_API_URL = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/commits/{BRANCH}"
 
@@ -42,22 +42,29 @@ PROTECTED = {
 }
 
 # ─── HELPERS ─────────────────────────────────────────────────────────────────
+
+
 def banner(text, char='=', width=62):
     print(char * width)
     print(f"  {text}")
     print(char * width)
 
+
 def step(n, total, text):
     print(f"\n[{n}/{total}] {text}...")
+
 
 def ok(text):
     print(f"    ✓ {text}")
 
+
 def warn(text):
     print(f"    ! {text}")
 
+
 def fail(text):
     print(f"    ✗ ERROR: {text}")
+
 
 def find_system_dir():
     """Locate the system root — where app.py and counseling.db live."""
@@ -93,6 +100,7 @@ def find_system_dir():
 
     return None
 
+
 def get_requests():
     """Return requests module — prefers installed, falls back to urllib."""
     try:
@@ -109,11 +117,13 @@ def get_requests():
         def __init__(self, status_code, content):
             self.status_code = status_code
             self.content = content
+
         def json(self):
             return json.loads(self.content.decode())
 
     class _FakeRequests:
         UA = 'AAMUSTED-Patcher/2.0'
+
         def get(self, url, headers=None, timeout=30):
             req = urllib.request.Request(url, headers={'User-Agent': self.UA})
             try:
@@ -125,6 +135,8 @@ def get_requests():
     return _FakeRequests()
 
 # ─── MAIN PATCH ──────────────────────────────────────────────────────────────
+
+
 def main():
     print()
     banner("AAMUSTED COUNSELLING SYSTEM — UNIVERSAL PATCH v2.0")
@@ -145,8 +157,8 @@ def main():
         sys.exit(1)
     ok(f"Found at: {system_dir}")
 
-    sha_file  = os.path.join(system_dir, 'current_sha.txt')
-    temp_dir  = os.path.join(system_dir, '_update_temp')
+    sha_file = os.path.join(system_dir, 'current_sha.txt')
+    temp_dir = os.path.join(system_dir, '_update_temp')
 
     # Read current SHA
     old_sha = "unknown"
@@ -164,13 +176,15 @@ def main():
             timeout=15
         )
         if api_resp.status_code != 200:
-            raise ConnectionError(f"GitHub API returned HTTP {api_resp.status_code}")
+            raise ConnectionError(
+                f"GitHub API returned HTTP {api_resp.status_code}")
         new_sha = api_resp.json().get('sha', '')
         if not new_sha:
             raise ValueError("Could not read SHA from GitHub API response")
         ok(f"Latest GitHub SHA: {new_sha[:8]}")
     except Exception as e:
-        fail(f"Cannot reach GitHub — check internet connection.\n    Detail: {e}")
+        fail(
+            f"Cannot reach GitHub — check internet connection.\n    Detail: {e}")
         sys.exit(1)
 
     # ── STEP 3: Download the update ZIP ──────────────────────────────────────
@@ -183,7 +197,8 @@ def main():
             timeout=120
         )
         if zip_resp.status_code != 200:
-            raise ConnectionError(f"Download failed — HTTP {zip_resp.status_code}")
+            raise ConnectionError(
+                f"Download failed — HTTP {zip_resp.status_code}")
         size_kb = len(zip_resp.content) / 1024
         ok(f"Downloaded ({size_kb:.0f} KB)")
     except Exception as e:
@@ -214,7 +229,7 @@ def main():
 
     copied = 0
     skipped = []
-    errors  = []
+    errors = []
 
     for item in os.listdir(source_root):
         if item in PROTECTED:
@@ -310,6 +325,7 @@ def main():
         print()
 
     input("  Press ENTER to close this window...")
+
 
 if __name__ == "__main__":
     main()

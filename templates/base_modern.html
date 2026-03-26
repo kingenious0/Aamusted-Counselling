@@ -388,9 +388,11 @@
                 <!-- Update Notification Badge (All Staff) -->
                 {% if session.get('role') in ['Admin', 'Counsellor', 'Counselor', 'Secretary'] %}
                 <div id="systemUpdateBadge" style="display:none;">
-                    <a href="{{ url_for('admin_settings') }}" class="btn btn-warning btn-sm rounded-pill px-3 fw-bold shadow-sm animate-pulse-warning">
+                    <button id="applyUpdateBtn"
+                        class="btn btn-warning btn-sm rounded-pill px-3 fw-bold shadow-sm animate-pulse-warning"
+                        onclick="triggerSystemUpdate(this)" style="border:none; cursor:pointer;">
                         <i class="bi bi-cloud-arrow-down-fill me-1"></i> Update Available
-                    </a>
+                    </button>
                 </div>
                 {% endif %}
 
@@ -632,22 +634,67 @@
                 .catch(e => console.error('Alert sync error:', e));
         }, 2000); // Check every 2 seconds for instant notification
 
-        // Periodic Update Check (Slow - every 30 mins, or on page load)
+        // Periodic Update Check - All staff roles, every 30 mins
         function checkSystemUpdates() {
-            {% if session.get('role') == 'Admin' %}
+            {% if session.get('role') in ['Admin', 'Counsellor', 'Counselor', 'Secretary'] %}
             fetch('/api/admin/check_update_status')
                 .then(r => r.json())
                 .then(data => {
                     if (data.update_available) {
                         const badge = document.getElementById('systemUpdateBadge');
                         if (badge) badge.style.display = 'block';
+                        // Store the pending SHA for later use
+                        window._pendingUpdateSha = data.remote_sha;
                     }
                 })
                 .catch(e => console.error('Update check error:', e));
             {% endif %}
         }
-        checkSystemUpdates(); 
+        checkSystemUpdates();
         setInterval(checkSystemUpdates, 1800000); // Check once every 30 mins
+
+        // One-click silent update: download → apply → done (no restart prompt)
+        function triggerSystemUpdate(btn) {
+            if (!btn) return;
+
+            // Show downloading state
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Downloading...';
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-secondary');
+
+            fetch('/api/admin/update_system', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    btn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Updated!';
+                    btn.classList.remove('btn-secondary');
+                    btn.classList.add('btn-success');
+                    // Hide badge after 4 seconds — system reloaded silently
+                    setTimeout(() => {
+                        const badge = document.getElementById('systemUpdateBadge');
+                        if (badge) badge.style.display = 'none';
+                        // Soft reload to pick up new static files
+                        window.location.reload(true);
+                    }, 2500);
+                } else {
+                    btn.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Retry';
+                    btn.classList.remove('btn-secondary');
+                    btn.classList.add('btn-danger');
+                    btn.disabled = false;
+                    btn.onclick = function() { triggerSystemUpdate(btn); };
+                }
+            })
+            .catch(e => {
+                btn.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Network Error';
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-danger');
+                btn.disabled = false;
+            });
+        }
 
         // --- PWA Registration & Install Support ---
         let deferredPrompt;
