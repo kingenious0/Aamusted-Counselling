@@ -3,7 +3,10 @@ const ASSETS = [
     '/static/icon.png',
     '/static/manifest.json',
     '/static/css/bootstrap.min.css',
-    '/static/css/bootstrap-icons.css'
+    '/static/css/bootstrap-icons.css',
+    '/static/css/modern_theme.css',
+    '/static/fonts/inter/Inter-Regular.woff2',
+    '/static/fonts/inter/Inter-Bold.woff2'
 ];
 
 self.addEventListener('install', (event) => {

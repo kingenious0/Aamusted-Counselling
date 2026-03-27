@@ -444,14 +444,24 @@ def get_clinical_id(name, sid, created_at=None):
     """Core logic to generate a professional clinical privacy ID."""
     if not name: return "N/A"
     
-    # Get initials
-    parts = [p.strip() for p in str(name).split() if p.strip()]
-    if len(parts) >= 2:
-        initials = (parts[0][0] + parts[-1][0]).upper()
-    elif len(parts) == 1:
-        initials = parts[0][:2].upper()
+    name_str = str(name).strip()
+    
+    # Detect if the name is already stored as initials (e.g. "Z.M." or "A.O.")
+    # Initials look like: one or two letters separated by dots
+    import re as _re
+    if _re.match(r'^[A-Z](\.[A-Z])*\.?$', name_str):
+        # Already initials — extract the letters only and use them directly
+        letters = [c for c in name_str if c.isalpha()]
+        initials = "".join(letters[:2]).upper() if letters else "ST"
     else:
-        initials = "ST"
+        # Full name — take first letter of first + last word
+        parts = [p.strip() for p in name_str.split() if p.strip()]
+        if len(parts) >= 2:
+            initials = (parts[0][0] + parts[-1][0]).upper()
+        elif len(parts) == 1:
+            initials = parts[0][:2].upper()
+        else:
+            initials = "ST"
     
     # Get year
     year = datetime.now().year
@@ -560,22 +570,24 @@ def login_required(f):
 
 def name_to_initials(name_input):
     if not name_input: return "N/A"
+    name_str = str(name_input).strip()
+    
     # Preserve numeric ID suffix if present: e.g. "A. (14)"
     suffix = ""
-    match_id = re.search(r'\s*\(\d+\)$', str(name_input))
+    match_id = re.search(r'\s*\(\d+\)$', name_str)
     if match_id:
         suffix = match_id.group(0)
-        name_input = str(name_input)[:match_id.start()]
+        name_str = name_str[:match_id.start()]
     
-    # Sanitize: replace dots/commas with spaces to handle both "Manu, Yaw" and "M.Y"
-    raw = str(name_input).replace('.', ' ').replace(',', ' ').strip()
+    # Sanitize: replace dots/commas with spaces
+    raw = name_str.replace('.', ' ').replace(',', ' ').strip()
     parts = [p.strip() for p in raw.split() if p.strip()]
     
     # Extract first letter of each part if it's alphanumeric
-    letters = [p[0].upper() for p in parts if p and (p[0].isalpha() or p[0].isdigit())]
+    letters = [p[0].upper() for p in parts if p and (p[0].isalnum())]
     
     if not letters:
-        return str(name_input)[:2].upper() + suffix
+        return name_str[:2].upper() + suffix
         
     return ".".join(letters) + "." + suffix
 
@@ -586,13 +598,18 @@ def generate_professional_id(conn, name=None):
     initials = "ST" # Default for Student
     
     if name:
-        parts = [p.strip() for p in name.split() if p.strip()]
+        # Improved Initials Logic: Split by space and dots
+        raw = str(name).replace('.', ' ').replace(',', ' ').strip()
+        parts = [p.strip() for p in raw.split() if p.strip()]
+        
         if len(parts) >= 2:
             initials = (parts[0][0] + parts[-1][0]).upper()
         elif len(parts) == 1:
             initials = parts[0][:2].upper()
             
-        initials = "".join([c for c in initials if c.isalpha()]) or "ST"
+        # Ensure only alphanumeric characters make it to the final prefix
+        initials = "".join([c for c in initials if c.isalnum()]) or "ST"
+        if len(initials) == 1: initials += "X" # Ensure 2 chars
 
     try:
         # We'll use the Student table's global_id for this
@@ -609,34 +626,36 @@ def generate_professional_id(conn, name=None):
                 pass
         
         new_num = last_num + 1
-        return f"{initials}-{year}-{str(new_num).zfill(4)}"
+        return f"{initials}-{year}-{str(new_num).zfill(3)}"
     except Exception as e:
         print(f"[PROF_ID] Error: {e}")
         return f"{initials}-{year}-0001"
 
 def generate_case_number(conn, name=None):
-    """Generate a fixed GCC-YYYY-XXXX case number."""
-    year = datetime.now().year
-    prefix = "GCC"
-    
+    """Generate a GCC/MONTH/YY/XXXX case number for easy auditing."""
+    now = datetime.now()
+    month = now.strftime('%B').upper()   # e.g. MARCH
+    year  = now.strftime('%y')           # e.g. 26
+    prefix_pattern = f"GCC/{month}/{year}/%"
+
     try:
         row = conn.execute(
             "SELECT case_number FROM Student WHERE case_number LIKE ? ORDER BY id DESC LIMIT 1",
-            (f"{prefix}-{year}-%",)
+            (prefix_pattern,)
         ).fetchone()
-        
+
         last_num = 0
         if row and row[0]:
             try:
-                last_num = int(row[0].split('-')[-1])
+                last_num = int(row[0].split('/')[-1])
             except (ValueError, IndexError):
                 pass
-                
+
         new_num = last_num + 1
-        return f"{prefix}-{year}-{str(new_num).zfill(4)}"
+        return f"GCC/{month}/{year}/{str(new_num).zfill(3)}"
     except Exception as e:
         print(f"[CASE_NUMBER] Error generating: {e}")
-        return f"{prefix}-{year}-0001"
+        return f"GCC/{month}/{year}/001"
 
 
 
@@ -4246,10 +4265,17 @@ def import_csv():
                 conn.commit()
                 trigger_sync_immediate()
                 conn.close()
-                flash(f'✅ Successfully imported {imported} {import_type}!', 'success')
+                if imported == 0 and row_errors:
+                    flash(f'⚠️ Imported 0 records. Errors: {"; ".join(row_errors[:5])}', 'error')
+                elif row_errors:
+                    flash(f'✅ Imported {imported} {import_type}. Skipped {len(row_errors)} rows with errors.', 'warning')
+                else:
+                    flash(f'✅ Successfully imported {imported} {import_type}!', 'success')
                 return redirect(url_for('students') if import_type == 'students' else url_for('manage_appointments'))
 
             except Exception as e:
+                import traceback
+                traceback.print_exc()
                 flash(f'Error importing data: {str(e)}', 'error')
                 return redirect(url_for('import_csv'))
 
