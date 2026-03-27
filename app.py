@@ -319,8 +319,9 @@ def _run_silent_auto_update():
                 pass
             else:
                 _remote_sha = _api_resp.json().get('sha', '')
-                if _remote_sha and _remote_sha != _local_sha:
-                    print(f"[AUTO-UPDATE] New version found: {_local_sha[:8]} → {_remote_sha[:8]}. Downloading...")
+                _known_outdated_github_sha = '77a1dfd657b3da5c29a3ffc09055da13222cd34c'
+                if _remote_sha and _remote_sha != _local_sha and _remote_sha != _known_outdated_github_sha:
+                    print(f"[AUTO-UPDATE] New version found: {_local_sha[:8]} -> {_remote_sha[:8]}. Downloading...")
 
                     # 3. Download ZIP
                     _zip_resp = _req.get(_ZIP_URL, headers=_HEADERS, timeout=180)
@@ -4172,15 +4173,20 @@ def import_csv():
                 return redirect(url_for('import_csv'))
 
             try:
+                import traceback as _tb
                 data = json.loads(confirmed_data)
                 conn = get_db_connection()
                 imported = 0
+                row_errors = []
 
                 if import_type == 'students':
-                    for row in data:
+                    for idx, row in enumerate(data, start=1):
                         try:
                             # ── GTEC Privacy & Encryption ──
                             raw_name = row.get('name', '').strip()
+                            if not raw_name:
+                                row_errors.append(f'Row {idx}: Missing name')
+                                continue
                             name = name_to_initials(raw_name)
                             
                             # Encrypt sensitive contact fields
@@ -4211,7 +4217,9 @@ def import_csv():
                             ))
                             imported += 1
                         except Exception as row_err:
-                            print(f"[IMPORT] Skipping student row: {row_err}")
+                            row_errors.append(f'Row {idx} ({row.get("name","?")}): {row_err}')
+                            print(f"[IMPORT] Skipping student row {idx}: {row_err}")
+                            _tb.print_exc()
 
                 elif import_type == 'appointments':
                     for row in data:

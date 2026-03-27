@@ -167,8 +167,10 @@ def main():
     # --- WINDOWS BUILD ---
     print("\n🖥️  Step 1: Building Windows Executable...")
     try:
-        # We call the existing build logic via subprocess to ensure clean state
-        subprocess.run([sys.executable, "build_complete_exe.py"], check=True)
+        # Get path to build script (one level up then into build folder)
+        build_script_path = os.path.join(os.path.dirname(base_dir), "build", "build_complete_exe.py")
+        print(f"   [.] Calling build script: {build_script_path}")
+        subprocess.run([sys.executable, build_script_path], check=True)
         
         # Define Paths
         exe_source = os.path.join(base_dir, "dist", "USTED_Counseling_System.exe")
