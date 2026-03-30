@@ -76,7 +76,7 @@
                             <option value="">Select Student for Walk-in...</option>
                             {% for student in students %}
                             <option value="{{ student.id }}" {% if selected_student_id and selected_student_id|string==student.id|string %}selected{% endif %}>
-                                {{ student.name }} ({{ student.index_number or 'No Index' }})
+                                {{ student|to_clinical_id }} — {{ student.name }}
                             </option>
                             {% endfor %}
                         </select>

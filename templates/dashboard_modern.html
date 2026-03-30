@@ -19,7 +19,8 @@
                                 <i class="bi bi-bell-fill me-1 text-warning"></i>
                                 <strong class="text-white">{{ latest_bookings|length }} new booking{{ 's' if latest_bookings|length != 1 }}</strong> needing processing &nbsp;·&nbsp;
                             {% endif %}
-                            <strong class="text-white">{{ pending_action|length }} item{{ 's' if pending_action|length != 1 }}</strong> needing attention
+                            <strong class="text-white">{{ pending_action|length }} item{{ 's' if pending_action|length != 1 }}</strong> needing attention &nbsp;·&nbsp;
+                            <span class="text-white text-opacity-75"><i class="bi bi-cloud-check me-1"></i> Last Synced: <strong>{{ last_sync }}</strong></span>
                         </p>
                     </div>
                     <div class="col-md-4 text-end d-none d-md-flex align-items-center justify-content-end gap-3">

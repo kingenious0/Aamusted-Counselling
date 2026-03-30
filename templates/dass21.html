@@ -31,7 +31,7 @@
                             required>
                             <option value="">choose a student...</option>
                             {% for student in students %}
-                            <option value="{{ student.id }}">{{ student.name }} - {{ student.programme }}</option>
+                            <option value="{{ student.id }}">{{ student|to_clinical_id }} — {{ student.name }}</option>
                             {% endfor %}
                         </select>
                         <div class="invalid-feedback">Please select a student.</div>

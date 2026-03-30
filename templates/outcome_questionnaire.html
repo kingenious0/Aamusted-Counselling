@@ -34,7 +34,7 @@
                                 name="student_id" required>
                                 <option value="">Choose student...</option>
                                 {% for student in students %}
-                                <option value="{{ student.id }}">{{ student.name }} - {{ student.programme }}</option>
+                                <option value="{{ student.id }}">{{ student|to_clinical_id }} — {{ student.name }}</option>
                                 {% endfor %}
                             </select>
                             <div class="invalid-feedback">Please select a student.</div>
@@ -230,11 +230,14 @@
 
         sessions.forEach(option => {
             if (option.value === '') return;
-            // Naive matching based on name presence. 
-            const studentNameInOption = option.text;
-            const selectedStudentName = e.target.options[e.target.selectedIndex].text.split(' - ')[0];
+            // Robust matching: Check if the clinical ID or Name is present in the option text
+            const selectedText = e.target.options[e.target.selectedIndex].text;
+            const parts = selectedText.split(' — ');
+            const clinicalId = parts[0].trim();
+            const studentName = parts[1] ? parts[1].trim() : clinicalId;
 
-            if (studentNameInOption && studentNameInOption.includes(selectedStudentName)) {
+            const optionText = option.text;
+            if (optionText.includes(clinicalId) || optionText.includes(studentName)) {
                 option.style.display = '';
             } else {
                 option.style.display = 'none';

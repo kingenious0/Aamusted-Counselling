@@ -427,6 +427,11 @@
                 </div>
 
 
+                <button id="manualSyncBtn" class="btn btn-light rounded-circle shadow-sm" title="Sync with Cloud"
+                        style="width: 42px; height: 42px;" onclick="triggerManualSync()">
+                    <i class="bi bi-cloud-arrow-up text-primary"></i>
+                </button>
+
                 <a href="{{ url_for('logout') }}" class="btn btn-outline-danger border-0 btn-sm rounded-pill px-3">
                     <i class="bi bi-power me-1"></i> Logout
                 </a>
@@ -616,6 +621,49 @@
                 })
                 .catch(error => console.error('Error:', error));
         }
+
+        // Manual Sync Trigger
+        function triggerManualSync() {
+            const btn = document.getElementById('manualSyncBtn');
+            const icon = btn.querySelector('i');
+            
+            // Animation
+            icon.classList.remove('bi-cloud-arrow-up');
+            icon.classList.add('bi-arrow-repeat', 'spin');
+            btn.disabled = true;
+
+            fetch('/api/sync/trigger', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        Swal.fire({
+                            toast: true,
+                            position: 'top-end',
+                            icon: 'success',
+                            title: 'Sync Triggered',
+                            text: 'Background synchronization started.',
+                            showConfirmButton: false,
+                            timer: 3000
+                        });
+                        // Optional: Refresh dashboard if we are on it
+                        if (window.location.pathname === '/dashboard') {
+                            setTimeout(() => window.location.reload(), 2000);
+                        }
+                    } else {
+                        throw new Error(data.message);
+                    }
+                })
+                .catch(e => {
+                    Swal.fire({ icon: 'error', title: 'Sync Failed', text: e.message });
+                })
+                .finally(() => {
+                    setTimeout(() => {
+                        icon.classList.remove('bi-arrow-repeat', 'spin');
+                        icon.classList.add('bi-cloud-arrow-up');
+                        btn.disabled = false;
+                    }, 2000);
+                });
+        }
     </script>
     <script>
         // Real-time Theme Sync
@@ -664,7 +712,6 @@
                 })
                 .catch(e => console.error('Alert sync error:', e));
         }, 12000); // Check every 12 seconds for background alerts
-        }
 
         // --- PWA Registration & Install Support ---
         let deferredPrompt;

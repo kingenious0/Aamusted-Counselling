@@ -19,7 +19,11 @@ except ImportError:
     print("[STARTUP] crypto_utils not loaded — fields stored as plaintext")
 
 # Ensure core directory is in the path for imports
-base_dir = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, 'frozen', False):
+    base_dir = os.path.dirname(sys.executable)
+else:
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+
 core_dir = os.path.join(base_dir, 'core')
 if os.path.exists(core_dir) and core_dir not in sys.path:
     sys.path.insert(0, core_dir)
@@ -477,25 +481,28 @@ def to_clinical_id_filter(student):
     """Jinja2 filter to convert a student object/row to a professional ID."""
     if not student: return "N/A"
     
-    # Handle both dict-like objects and Row objects
     try:
-        # Normalize the dictionary keys to find what's available
         s_dict = dict(student) if hasattr(student, 'keys') else student
+        
+        # Prioritize the case_number column if available
+        case_num = s_dict.get('case_number')
+        if case_num:
+            return case_num
+            
+        # Fallback to initials-year-id if case_number is missing
         name = s_dict.get('name') or s_dict.get('student_name') or "ST"
         sid = s_dict.get('id') or s_dict.get('student_record_id') or s_dict.get('student_db_id') or 0
         created_at = s_dict.get('created_at') or s_dict.get('student_created_at')
         
         return get_clinical_id(name, sid, created_at)
     except (TypeError, KeyError, AttributeError):
-        # Fallback if it's not a dict/row or data missing
         return "N/A"
 
 
 @app.route('/assets/<path:filename>')
 def serve_assets(filename):
     """Serve files from the root assets directory safely."""
-    asset_path = os.path.join(os.path.dirname(
-        os.path.abspath(__file__)), 'assets', filename)
+    asset_path = os.path.join(base_dir, 'assets', filename)
     if not os.path.exists(asset_path):
         return "Asset not found", 404
     return send_file(asset_path)
@@ -747,32 +754,7 @@ def get_theme():
         return jsonify({'theme': 'default'})
 
 
-@app.route('/api/sync/clear_alerts')
-@login_required
-def clear_alerts():
-    try:
-        conn = get_db_connection()
-        conn.execute(
-            "UPDATE app_settings SET setting_value = 'false' WHERE setting_name = 'pending_booking_alert'"
-        )
-        conn.commit()
-        conn.close()
-        return jsonify({"status": "success"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/api/sync/check_alerts')
-@login_required
-def check_alerts():
-    try:
-        conn = get_db_connection()
-        res = conn.execute(
-            "SELECT setting_value FROM app_settings WHERE setting_name = 'pending_booking_alert'"
-        ).fetchone()
-        conn.close()
-        return jsonify({"pending": res[0] == 'true' if res else False})
-    except:
-        return jsonify({"pending": False})
 
 
 @app.route('/admin/cloud_sync')
@@ -2522,10 +2504,12 @@ def create_session():
                         appointment_status = appointment['status']
 
                         # Insert new session
+                        import uuid as _uuid
+                        sess_gid = str(_uuid.uuid4())
                         conn.execute('''
-                            INSERT INTO session (appointment_id, session_type, notes, outcome, created_at)
-                            VALUES (?, ?, ?, ?, ?)
-                        ''', (appointment_id, session_type, notes, outcome, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+                            INSERT INTO session (appointment_id, session_type, notes, outcome, created_at, global_id)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        ''', (appointment_id, session_type, notes, outcome, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), sess_gid))
 
                         # Update appointment status
                         if appointment_status.lower() in ['scheduled', 'sent to counsellor']:
@@ -2647,13 +2631,15 @@ def case_note():
                           next_visit_date, counsellor_signature, session_id))
                 else:
                     # Insert new record
+                    import uuid as _uuid
+                    cm_gid = str(_uuid.uuid4())
                     conn.execute('''
                         INSERT INTO CaseManagement 
                         (session_id, client_appearance, problems, interventions, recommendations, 
-                         next_visit_date, counsellor_signature, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                         next_visit_date, counsellor_signature, created_at, global_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (session_id, client_appearance, problems, interventions, recommendations,
-                          next_visit_date, counsellor_signature, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+                          next_visit_date, counsellor_signature, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), cm_gid))
 
                 conn.commit()
                 trigger_sync_immediate()
@@ -3675,10 +3661,12 @@ def referral():
                 return redirect(url_for('dashboard'))
 
             try:
+                import uuid as _uuid
+                ref_gid = str(_uuid.uuid4())
                 conn.execute('''
-                    INSERT INTO Referral (session_id, referred_by, contact, reasons, action_taken, outcome, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (session_id, referred_by, contact, reasons, action_taken, outcome, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+                    INSERT INTO Referral (session_id, referred_by, contact, reasons, action_taken, outcome, created_at, global_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (session_id, referred_by, contact, reasons, action_taken, outcome, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), ref_gid))
                 conn.commit()
                 trigger_sync_immediate()
                 flash('Referral created successfully!', 'success')
@@ -3944,16 +3932,19 @@ def outcome_questionnaire():
 
             # Insert questionnaire data into database
             try:
+                import uuid as _uuid
+                oq_gid = str(_uuid.uuid4())
                 # Use correct table name and column names (item1, item2, etc. without underscores)
                 conn.execute('''
                     INSERT INTO OutcomeQuestionnaire 
                     (student_id, session_id, age, sex, item1, item2, item3, item4, item5,
                      item6, item7, item8, item9, item10, item11, item12, item13, item14, item15,
                      item16, item17, item18, item19, item20, item21, item22, item23, item24, item25,
-                     total_score, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (student_id, session_id, age if age else None, sex if sex else None, *item_scores, total_score, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+                     total_score, created_at, global_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (student_id, session_id, age if age else None, sex if sex else None, *item_scores, total_score, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), oq_gid))
                 conn.commit()
+                from sync_engine import trigger_sync_immediate
                 trigger_sync_immediate()
                 flash('Outcome questionnaire submitted successfully!', 'success')
                 return redirect(url_for('dashboard'))
@@ -4088,13 +4079,17 @@ def dass21():
 
             # Insert DASS-21 scores into database
             try:
+                import uuid as _uuid
+                dass_gid = str(_uuid.uuid4())
                 conn.execute('''
                     INSERT INTO DASS21 
-                    (student_id, depression_score, anxiety_score, stress_score, created_at)
-                    VALUES (?, ?, ?, ?, ?)
+                    (student_id, depression_score, anxiety_score, stress_score, created_at, global_id)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 ''', (student_id, depression_score, anxiety_score, stress_score,
-                      datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+                      datetime.now().strftime('%Y-%m-%d %H:%M:%S'), dass_gid))
                 conn.commit()
+                from sync_engine import trigger_sync_immediate
+                trigger_sync_immediate()
                 trigger_sync_immediate()
                 flash('DASS-21 scores saved successfully!', 'success')
                 return redirect(url_for('dashboard'))
@@ -4215,12 +4210,14 @@ def import_csv():
 
                             # Generate a case number for the new student
                             case_number = generate_case_number(conn, name)
+                            import uuid
+                            g_id = str(uuid.uuid4())
 
                             conn.execute('''
                                 INSERT INTO Student
                                 (name, index_number, email, contact, department, programme,
-                                 parent_contact, gender, age, hall_of_residence, case_number)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                 parent_contact, gender, age, hall_of_residence, case_number, global_id)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                             ''', (
                                 name,
                                 row.get('index_number', ''),
@@ -4232,7 +4229,8 @@ def import_csv():
                                 row.get('gender', ''),
                                 row.get('age', ''),
                                 row.get('hall_of_residence', ''),
-                                case_number
+                                case_number,
+                                g_id
                             ))
                             imported += 1
                         except Exception as row_err:
@@ -4423,21 +4421,27 @@ def intake():
                 # Optional: Update contact info if changed
             else:
                 case_num = generate_case_number(conn, name)
+                import uuid as _uuid
+                g_id = str(_uuid.uuid4())
                 cursor = conn.execute('''
                     INSERT INTO Student (name, case_number, age, gender, index_number, department, 
-                    faculty, programme, contact, parent_contact, hall_of_residence)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (name, case_num, age, gender, index_number, department, faculty, programme, contact, parent_contact, hall))
+                    faculty, programme, contact, parent_contact, hall_of_residence, global_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (name, case_num, age, gender, index_number, department, faculty, programme, contact, parent_contact, hall, g_id))
                 student_id = cursor.lastrowid
                 conn.commit()
 
             # 4. Create Appointment (The "Intake Record")
+            import uuid as _uuid
+            appt_gid = str(_uuid.uuid4())
             conn.execute('''
-                INSERT INTO Appointment (student_id, date, time, purpose, status, urgency, referral_source)
-                VALUES (?, ?, ?, ?, 'Scheduled', ?, ?)
-            ''', (student_id, appt_date, appt_time, purpose, urgency, referral))
+                INSERT INTO Appointment (student_id, date, time, purpose, status, urgency, referral_source, global_id)
+                VALUES (?, ?, ?, ?, 'Scheduled', ?, ?, ?)
+            ''', (student_id, appt_date, appt_time, purpose, urgency, referral, appt_gid))
 
             conn.commit()
+            from sync_engine import trigger_sync_immediate
+            trigger_sync_immediate()
             flash(
                 'Student intake registered and appointment scheduled successfully.', 'success')
             return redirect(url_for('dashboard'))
@@ -4510,11 +4514,15 @@ def appointment():
 
             # Save appointment to database
             try:
+                import uuid as _uuid
+                g_id = str(_uuid.uuid4())
                 conn.execute('''
-                        INSERT INTO Appointment (student_id, date, time, purpose, Counsellor_id, status, urgency, referral_source)
-                    VALUES (?, ?, ?, ?, ?, 'Scheduled', ?, ?)
-                ''', (student_id, appointment_date, appointment_time, purpose, counselor_id, urgency, referral))
+                        INSERT INTO Appointment (student_id, date, time, purpose, Counsellor_id, status, urgency, referral_source, global_id)
+                    VALUES (?, ?, ?, ?, ?, 'Scheduled', ?, ?, ?)
+                ''', (student_id, appointment_date, appointment_time, purpose, counselor_id, urgency, referral, g_id))
                 conn.commit()
+                from sync_engine import trigger_sync_immediate
+                trigger_sync_immediate()
                 flash('Appointment scheduled successfully!', 'success')
                 return redirect(url_for('manage_appointments'))
             except Exception as e:
@@ -5676,14 +5684,16 @@ def register_portal_booking(booking_id):
 
         if not student:
             # Generate both identifiers as per spec
-            case_num = generate_case_number(conn)
+            case_num = generate_case_number(conn, booking['full_name'])
+            import uuid as _uuid
             prof_id = generate_professional_id(conn, booking['full_name'])
+            g_id = str(_uuid.uuid4())
             
             cursor = conn.cursor()
             cursor.execute(
                 '''INSERT INTO Student (name, case_number, global_id, index_number, department, programme, program, faculty, hall_of_residence, contact, email, age, gender)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                (booking['full_name'], case_num, prof_id, booking['index_number'],
+                (booking['full_name'], case_num, g_id, booking['index_number'],
                  booking['department'], booking['programme'], booking['programme'], 
                  booking.get('faculty', 'General'), booking.get('hall_of_residence'), 
                  booking['phone'], booking.get('email'), booking.get('age'), booking.get('gender'))
@@ -5697,18 +5707,22 @@ def register_portal_booking(booking_id):
         clean_d = clean_date_string(booking['preferred_date'] or datetime.now().strftime('%Y-%m-%d'))
         clean_t = clean_time_string(booking['preferred_time'] or '09:00')
         
+        import uuid as _uuid
+        appt_gid = str(_uuid.uuid4())
         conn.execute(
-            '''INSERT INTO Appointment (student_id, Counsellor_id, date, time, purpose, status, booking_ref)
-               VALUES (?, ?, ?, ?, ?, 'Scheduled', ?)''',
+            '''INSERT INTO Appointment (student_id, Counsellor_id, date, time, purpose, status, booking_ref, global_id)
+               VALUES (?, ?, ?, ?, ?, 'Scheduled', ?, ?)''',
             (student_id, counsellor_id, clean_d, clean_t,
              f"[Portal] {booking['reason'] or 'Session request'}",
-             booking['reference'])
+             booking['reference'], appt_gid)
         )
         
         # 5. Update booking status
         conn.execute("UPDATE BookingRequest SET status = 'Accepted' WHERE id = ?", (booking_id,))
         
         conn.commit()
+        from sync_engine import trigger_sync_immediate
+        trigger_sync_immediate()
         conn.close()
         msg = f"Successfully registered {booking['full_name']} and scheduled appointment."
         if is_ajax: return jsonify({'status': 'success', 'message': msg}), 200
@@ -5793,15 +5807,19 @@ def api_submit_booking():
                 return response, 400
 
             ref = generate_booking_ref(conn)
+            import uuid as _uuid
+            booking_gid = str(_uuid.uuid4())
             conn.execute(
                 '''INSERT INTO BookingRequest
                    (reference, full_name, index_number, department, programme, phone,
-                    preferred_date, preferred_time, reason, status, email, hall_of_residence)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?)''',
+                    preferred_date, preferred_time, reason, status, email, hall_of_residence, global_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)''',
                 (ref, full_name, index_number, department, programme, phone,
-                 preferred_date, preferred_time, reason, email, hall_of_residence)
+                 preferred_date, preferred_time, reason, email, hall_of_residence, booking_gid)
             )
             conn.commit()
+            from sync_engine import trigger_sync_immediate
+            trigger_sync_immediate()
 
             # Fire in-app notification to all Desk Admins and Counsellors
             try:
@@ -5872,25 +5890,27 @@ def booking_portal():
             ref = generate_booking_ref(conn)
             now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
+            import uuid as _uuid
+            booking_gid = str(_uuid.uuid4())
             # ── AUTO-ACCEPT: Insert as Accepted immediately ──
             try:
                 conn.execute(
                     '''INSERT INTO BookingRequest
                        (reference, full_name, index_number, department, programme, phone,
-                        preferred_date, preferred_time, reason, status, accepted_at, hall_of_residence)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Accepted', ?, ?)''',
+                        preferred_date, preferred_time, reason, status, accepted_at, hall_of_residence, global_id)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Accepted', ?, ?, ?)''',
                     (ref, full_name, index_number, department, programme, phone,
-                     preferred_date, preferred_time, reason, now_str, hall_of_residence)
+                     preferred_date, preferred_time, reason, now_str, hall_of_residence, booking_gid)
                 )
             except Exception:
                 # Fallback if accepted_at column not yet present in older DBs
                 conn.execute(
                     '''INSERT INTO BookingRequest
                        (reference, full_name, index_number, department, programme, phone,
-                        preferred_date, preferred_time, reason, status, hall_of_residence)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Accepted', ?)''',
+                        preferred_date, preferred_time, reason, status, hall_of_residence, global_id)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Accepted', ?, ?)''',
                     (ref, full_name, index_number, department, programme, phone,
-                     preferred_date, preferred_time, reason, hall_of_residence)
+                     preferred_date, preferred_time, reason, hall_of_residence, booking_gid)
                 )
 
             # Find or create the Student record
@@ -5900,11 +5920,13 @@ def booking_portal():
 
             if not student:
                 case_num = generate_case_number(conn, full_name)
+                import uuid as _uuid
+                stud_gid = str(_uuid.uuid4())
                 conn.execute(
                     '''INSERT INTO Student (name, case_number, index_number, department,
-                       programme, contact, created_at, hall_of_residence)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-                    (full_name, case_num, index_number, department, programme, phone, now_str, hall_of_residence)
+                       programme, contact, created_at, hall_of_residence, global_id)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                    (full_name, case_num, index_number, department, programme, phone, now_str, hall_of_residence, stud_gid)
                 )
                 conn.commit()
                 student = conn.execute(
@@ -5915,17 +5937,21 @@ def booking_portal():
             counsellor = conn.execute("SELECT id FROM Counsellor LIMIT 1").fetchone()
             counsellor_id = counsellor['id'] if counsellor else None
 
+            import uuid as _uuid
+            appt_gid = str(_uuid.uuid4())
             conn.execute(
                 '''INSERT INTO Appointment (student_id, Counsellor_id, date, time, purpose,
-                   status, booking_ref)
-                   VALUES (?, ?, ?, ?, ?, 'Scheduled', ?)''',
+                   status, booking_ref, global_id)
+                   VALUES (?, ?, ?, ?, ?, 'Scheduled', ?, ?)''',
                 (student['id'], counsellor_id,
                  preferred_date or datetime.now().strftime('%Y-%m-%d'),
                  preferred_time or '09:00',
                  f"[Booked via Portal] {reason or 'Counselling session'}",
-                 ref)
+                 ref, appt_gid)
             )
             conn.commit()
+            from sync_engine import trigger_sync_immediate
+            trigger_sync_immediate()
 
             # Notify all staff of the new auto-accepted booking
             try:

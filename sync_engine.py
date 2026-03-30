@@ -6,6 +6,7 @@ import time
 import logging
 from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app
+from functools import wraps
 import node_config
 
 # Configure logging
@@ -15,7 +16,7 @@ logger = logging.getLogger("SyncEngine")
 # Create Blueprint
 sync_bp = Blueprint('sync', __name__, url_prefix='/api/sync')
 
-# Tables to sync
+# Tables to sync (Properly Cased for Cloud Bridge matching)
 SYNC_TABLES = [
     'Student', 'Appointment', 'session', 'Referral', 
     'CaseManagement', 'OutcomeQuestionnaire', 'DASS21', 
@@ -73,14 +74,42 @@ class AutomatedSyncManager:
         if not cloud_url:
             return
 
-        # 1. PUSH local changes (where updated_at > last_synced_at)
+        # 1. PUSH local changes to Cloud
         self.push_pending_changes(cloud_url, api_key)
 
-        # 2. PULL remote changes (specifically new BookingRequests)
+        # 2. PULL remote changes from Cloud
         self.pull_remote_changes(cloud_url, api_key)
+
+        # 3. LOCAL P2P Fallback (Sync with Peer if on same Wi-Fi)
+        peer_ip = config.get('peer_ip')
+        if peer_ip:
+            self.p2p_network_sync(peer_ip, api_key)
+
+    def p2p_network_sync(self, peer_ip, api_key):
+        """Attempts to sync directly with a peer on the same local network."""
+        peer_url = f"http://{peer_ip}:5050/api/sync"
+        try:
+            # Simple health check to see if peer is reachable
+            # (Just try to push a small batch or check status)
+            logger.info(f"Attempting Local P2P Sync with {peer_ip}...")
+            
+            # Re-use push logic but directed at peer
+            # We don't mark as 'synced' with cloud because the cloud still needs it,
+            # but we update the peer's database.
+            self._push_to_target(peer_url, api_key, mark_as_synced=False)
+            
+            # Pull from peer (mimic cloud pull)
+            self._pull_from_target(peer_url, api_key)
+            
+        except Exception as e:
+            logger.debug(f"P2P sync skipped (Peer unreachable): {e}")
 
     def push_pending_changes(self, cloud_url, api_key):
         """Finds all records changed locally and pushes them to cloud with batching."""
+        self._push_to_target(cloud_url, api_key, mark_as_synced=True)
+
+    def _push_to_target(self, target_url, api_key, mark_as_synced=True):
+        """Generic push logic for any target (Cloud or Peer)."""
         conn = get_db_connection()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -104,7 +133,7 @@ class AutomatedSyncManager:
                     
                     try:
                         resp = requests.post(
-                            f"{cloud_url}/push", 
+                            f"{target_url}/push", 
                             json={
                                 "table": table, 
                                 "records": records, 
@@ -119,14 +148,16 @@ class AutomatedSyncManager:
                             # Mark as synced locally
                             sync_timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
                             for record in batch_rows:
-                                cursor.execute(
-                                    f"UPDATE {table} SET last_synced_at = ? WHERE global_id = ?",
-                                    (sync_timestamp, record['global_id'])
-                                )
+                                # Ensure we have a global_id before updating local marker
+                                if record.get('global_id'):
+                                    cursor.execute(
+                                        f"UPDATE {table} SET last_synced_at = ? WHERE global_id = ?",
+                                        (sync_timestamp, record['global_id'])
+                                    )
                             conn.commit()
-                            logger.info(f"Successfully pushed batch {i//batch_size + 1} for {table}")
+                            logger.info(f"Successfully pushed batch {i//batch_size + 1} for {table}. Bridge said: {resp.text[:100]}")
                         else:
-                            logger.warning(f"Failed to push batch for {table}: {resp.text}")
+                            logger.warning(f"Failed to push batch for {table}: Code {resp.status_code} - {resp.text[:200]}")
                     except Exception as e:
                         logger.error(f"Network error pushing batch for {table}: {e}")
                         break # Stop further batches for this table on error
@@ -136,12 +167,16 @@ class AutomatedSyncManager:
 
     def pull_remote_changes(self, cloud_url, api_key):
         """Pulls changes from cloud to local (e.g. new BookingRequests)."""
+        self._pull_from_target(cloud_url, api_key)
+
+    def _pull_from_target(self, target_url, api_key):
+        """Generic pull logic for any target (Cloud or Peer)."""
         config = node_config.load_config()
         last_pull_ts = config.get('last_cloud_sync', '1970-01-01 00:00:00')
         
         try:
             resp = requests.post(
-                f"{cloud_url}/pull", 
+                f"{target_url}/pull", 
                 json={
                     "last_sync_timestamp": last_pull_ts, 
                     "api_key": api_key, 
@@ -232,7 +267,17 @@ def trigger_sync_immediate():
 # API ENDPOINTS (Local Integration)
 # ==========================================
 
+def login_required_local(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        from flask import session
+        if 'logged_in' not in session:
+            return jsonify({"status": "error", "message": "Unauthorized"}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
 @sync_bp.route('/check_alerts')
+@login_required_local
 def check_alerts():
     """Endpoint for the dashboard to poll for real-time notifications."""
     try:
@@ -250,8 +295,8 @@ def check_alerts():
         return jsonify({"new_booking": has_alert})
     except:
         return jsonify({"new_booking": False})
-
 @sync_bp.route('/status')
+@login_required_local
 def get_sync_status():
     """Returns the current sync status for the UI."""
     config = node_config.load_config()
@@ -260,6 +305,64 @@ def get_sync_status():
         "enabled": config.get('sync_enabled'),
         "cloud_url": config.get('cloud_api_url')
     })
+
+@sync_bp.route('/trigger', methods=['POST'])
+@login_required_local
+def manual_trigger():
+    """Manual trigger to start a sync cycle immediately."""
+    try:
+        trigger_sync_immediate()
+        return jsonify({"status": "success", "message": "Synchronization triggered."})
+    except Exception as e:
+        logger.error(f"Manual sync trigger error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@sync_bp.route('/push', methods=['POST'])
+def receive_push():
+    """Endpoint for other nodes to push data directly to this node."""
+    try:
+        data = request.get_json()
+        table = data.get('table')
+        records = data.get('records', [])
+        api_key = data.get('api_key')
+        
+        config = node_config.load_config()
+        if api_key != config.get('cloud_api_key'):
+            return jsonify({"status": "error", "message": "Unauthorized"}), 403
+            
+        applied = apply_incoming_changes({table: records})
+        return jsonify({"status": "success", "applied": applied})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@sync_bp.route('/pull', methods=['POST'])
+def handle_pull():
+    """Endpoint for other nodes to pull data from this node."""
+    try:
+        data = request.get_json()
+        last_sync = data.get('last_sync_timestamp', '1970-01-01 00:00:00')
+        api_key = data.get('api_key')
+        
+        config = node_config.load_config()
+        if api_key != config.get('cloud_api_key'):
+            return jsonify({"status": "error", "message": "Unauthorized"}), 403
+            
+        conn = get_db_connection()
+        conn.row_factory = sqlite3.Row
+        changes = {}
+        total_count = 0
+        
+        for table in SYNC_TABLES:
+            # Simple query to find records changed since last sync
+            rows = conn.execute(f"SELECT * FROM {table} WHERE updated_at > ?", (last_sync,)).fetchall()
+            if rows:
+                changes[table] = [dict(r) for r in rows]
+                total_count += len(rows)
+        conn.close()
+        
+        return jsonify({"status": "success", "changes": changes, "count": total_count, "server_time": datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # ==========================================
 # MERGE ENGINE (LWW)
