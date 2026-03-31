@@ -2252,9 +2252,9 @@ def add_student():
         if request.method == 'POST':
             edit_id = request.form.get('edit_id')
 
-            # ── GTEC: Store initials only, never the full name ──────────────
+            # ── GTEC: Preserving full names as requested ──────────────
             raw_name_input = request.form.get('name', '').strip()
-            name = name_to_initials(raw_name_input)  # e.g. "A.O."
+            name = raw_name_input  # Previously name_to_initials(raw_name_input)
             # ────────────────────────────────────────────────────────────────
 
             age = request.form.get('age')
@@ -2423,12 +2423,12 @@ def sessions_list():
         for sess in sessions_raw:
             sess_dict = dict(sess)
             
-            # GTEC REQUIRED: Use clinical ID for name/identity masking
+            # Use clinical ID for identity masking BUT maintain name for visibility if requested
             clinical_id = get_clinical_id(sess_dict.get('student_name'), 
                                            sess_dict.get('student_db_id'), 
                                            sess_dict.get('student_created_at'))
             sess_dict['student_clinical_id'] = clinical_id
-            sess_dict['student_name'] = clinical_id
+            # sess_dict['student_name'] = clinical_id # DON'T OVERWRITE NAME
             sess_dict['professional_id'] = sess_dict.get('case_number') or clinical_id
             # Clean display dates/times
             sess_dict['date'] = clean_date_string(sess_dict.get('date'))
