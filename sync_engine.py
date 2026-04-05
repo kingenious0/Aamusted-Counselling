@@ -147,7 +147,7 @@ class AutomatedSyncManager:
                         if resp.status_code == 200:
                             # Mark as synced locally
                             sync_timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-                            for record in batch_rows:
+                            for record in records:
                                 # Ensure we have a global_id before updating local marker
                                 if record.get('global_id'):
                                     cursor.execute(
@@ -384,13 +384,13 @@ def apply_incoming_changes(changes):
                 
             for r in records:
                 try:
-                    # GTEC Privacy Preservation on Pull (DISABLED -Preserving full names for node consistency)
-                    # if table == 'Student' and 'name' in r:
-                    #     from app import name_to_initials
-                    #     r['name'] = name_to_initials(r['name'])
-                    # elif table == 'BookingRequest' and 'full_name' in r:
-                    #     from app import name_to_initials
-                    #     r['full_name'] = name_to_initials(r['full_name'])
+                    # GTEC Privacy Preservation on Pull
+                    if table == 'Student' and 'name' in r:
+                        from app import name_to_initials
+                        r['name'] = name_to_initials(r['name'])
+                    elif table == 'BookingRequest' and 'full_name' in r:
+                        from app import name_to_initials
+                        r['full_name'] = name_to_initials(r['full_name'])
 
                     merge_record(cursor, table, r)
                     processed += 1

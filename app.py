@@ -576,27 +576,15 @@ def login_required(f):
 
 
 def name_to_initials(name_input):
-    if not name_input: return "N/A"
-    name_str = str(name_input).strip()
+    """Converts a full name to clinical initials for GTEC compliance."""
+    if not name_input: return "???"
+    parts = str(name_input).strip().split()
+    if not parts: return "???"
     
-    # Preserve numeric ID suffix if present: e.g. "A. (14)"
-    suffix = ""
-    match_id = re.search(r'\s*\(\d+\)$', name_str)
-    if match_id:
-        suffix = match_id.group(0)
-        name_str = name_str[:match_id.start()]
-    
-    # Sanitize: replace dots/commas with spaces
-    raw = name_str.replace('.', ' ').replace(',', ' ').strip()
-    parts = [p.strip() for p in raw.split() if p.strip()]
-    
-    # Extract first letter of each part if it's alphanumeric
-    letters = [p[0].upper() for p in parts if p and (p[0].isalnum())]
-    
-    if not letters:
-        return name_str[:2].upper() + suffix
-        
-    return ".".join(letters) + "." + suffix
+    # Take first and last name initials
+    if len(parts) >= 2:
+        return f"{parts[0][0]}.{parts[-1][0]}.".upper()
+    return f"{parts[0][0]}.".upper()
 
 
 def generate_professional_id(conn, name=None):
@@ -2254,7 +2242,7 @@ def add_student():
 
             # ── GTEC: Preserving full names as requested ──────────────
             raw_name_input = request.form.get('name', '').strip()
-            name = raw_name_input  # Previously name_to_initials(raw_name_input)
+            name = name_to_initials(raw_name_input)
             # ────────────────────────────────────────────────────────────────
 
             age = request.form.get('age')
@@ -2423,12 +2411,9 @@ def sessions_list():
         for sess in sessions_raw:
             sess_dict = dict(sess)
             
-            # Use clinical ID for identity masking BUT maintain name for visibility if requested
-            clinical_id = get_clinical_id(sess_dict.get('student_name'), 
-                                           sess_dict.get('student_db_id'), 
-                                           sess_dict.get('student_created_at'))
+            # GTEC REQUIREMENT: Always mask name for display
+            sess_dict['student_name'] = name_to_initials(sess_dict.get('student_name'))
             sess_dict['student_clinical_id'] = clinical_id
-            # sess_dict['student_name'] = clinical_id # DON'T OVERWRITE NAME
             sess_dict['professional_id'] = sess_dict.get('case_number') or clinical_id
             # Clean display dates/times
             sess_dict['date'] = clean_date_string(sess_dict.get('date'))
@@ -2968,10 +2953,12 @@ def students():
         for student in students_raw:
             student_dict = dict(student)
             
-            # GTEC REQUIRED: Standardize to INITIALS-YYYY-ID
+            # GTEC REQUIRED: Standardize identifiers while preserving full name
             clinical_id = get_clinical_id(student_dict.get('name'), student_dict.get('id'), student_dict.get('created_at'))
             student_dict['clinical_id'] = clinical_id
             student_dict['professional_id'] = clinical_id
+            # Ensure name is full name (not masked)
+            student_dict['name'] = name_to_initials(student_dict.get('name', 'User'))
             
             # 1. Case ID (GCC-2026-####)
             student_dict['case_id'] = student_dict.get('case_number') or f"GCC-{datetime.now().year}-{student_dict.get('id', 0):04d}"
@@ -4201,7 +4188,7 @@ def import_csv():
                             if not raw_name:
                                 row_errors.append(f'Row {idx}: Missing name')
                                 continue
-                            name = name_to_initials(raw_name)
+                            name = raw_name  # Disable initials masking
                             
                             # Encrypt sensitive contact fields
                             contact        = encrypt_field(row.get('phone') or row.get('contact'))
@@ -6025,14 +6012,18 @@ def admin_bookings():
         bookings = []
         for b in bookings_raw:
             b_dict = dict(b)
-            # GTEC REQUIRED: Privacy Masking for booking portal
+            # GTEC REQUIRED: Identification while preserving namevisibility
             clinical_id = get_clinical_id(b_dict.get('full_name'), b_dict.get('id'), b_dict.get('created_at'))
-            b_dict['masked_name'] = clinical_id
+            b_dict['masked_name'] = name_to_initials(b_dict.get('full_name'))
+            b_dict['clinical_id'] = clinical_id
+            
+            # GTEC Compliance: Hide original full name
+            b_dict['full_name'] = b_dict['masked_name']
             
             # Check by index, name, or email for safety
             exists = conn.execute(
                 "SELECT 1 FROM Student WHERE index_number = ? OR name = ? OR (email = ? AND email IS NOT NULL AND email != '')",
-                (b_dict['index_number'], b_dict['full_name'], b_dict.get('email', ''))
+                (b_dict['index_number'], b_dict['masked_name'], b_dict.get('email', ''))
             ).fetchone()
             b_dict['is_registered'] = True if exists else False
             bookings.append(b_dict)

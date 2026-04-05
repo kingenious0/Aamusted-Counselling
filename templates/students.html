@@ -81,8 +81,9 @@
                                     {{ (student.case_id or 'GCC')[-4:] }}
                                 </div>
                                 <div>
-                                    <h6 class="fw-bold mb-0 text-dark font-monospace">{{ student.case_id or 'Unassigned' }}</h6>
-                                    <small class="text-muted" style="font-size: 0.75rem;">{{ student.index_number or 'No Index' }}</small>
+                                    <h6 class="fw-bold mb-0 text-dark">{{ student.name }}</h6>
+                                    <div class="font-monospace text-primary" style="font-size: 0.7rem;">{{ student.case_id or 'Unassigned' }}</div>
+                                    <small class="text-muted" style="font-size: 0.7rem;">{{ student.index_number or 'No Index' }}</small>
                                 </div>
                             </div>
                         </td>
@@ -122,7 +123,7 @@
                                 </a>
                                 
                                 <button type="button" 
-                                        onclick="handleStartSession({{ student.id }}, '{{ student.clinical_id }}')"
+                                        onclick="handleStartSession({{ student.id }}, '{{ student.name[:2] + '***' }}')"
                                         class="btn btn-sm btn-success rounded-pill px-2 py-1 fw-bold shadow-sm" 
                                         style="font-size: 0.65rem; background: #2e7d32; border: none;">
                                     <i class="bi bi-play-circle-fill me-1"></i> Start
