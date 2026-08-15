@@ -507,6 +507,18 @@ def serve_assets(filename):
         return "Asset not found", 404
     return send_file(asset_path)
 
+# CRITICAL FOR PWA SCOPE: Serve sw.js from root domain
+@app.route('/sw.js')
+def serve_service_worker():
+    response = send_from_directory(
+        os.path.join(app.root_path, 'static'), 
+        'service-worker.js', 
+        mimetype='application/javascript'
+    )
+    response.headers['Service-Worker-Allowed'] = '/'
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
+
 # ---------- Helper Functions ----------
 
 

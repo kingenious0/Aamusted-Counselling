@@ -59,13 +59,21 @@
     <!-- SweetAlert2 (Local) -->
     <script src="{{ url_for('static', filename='js/sweetalert2.all.min.js') }}"></script>
 
+    <!-- Offline Storage & Supabase Sync Engine -->
+    <script src="{{ url_for('static', filename='js/db.js') }}"></script>
+
     <!-- Custom Modern Theme -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modern_theme.css') }}?v=2.2">
 
     <!-- PWA Manifest & Icons -->
     <link rel="manifest" href="/static/manifest.json">
-    <meta name="theme-color" content="#0d6efd">
-    <link rel="apple-touch-icon" href="/static/icon.png">
+    <meta name="theme-color" content="#7A0019">
+
+    <!-- macOS Safari & iOS Desktop/Tablet Optimization -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="AAMUSTED GCC">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
 
     <style>
         /* Sidebar active state helper */
@@ -92,6 +100,11 @@
 </head>
 
 <body data-theme="{{ settings.get('active_theme', 'default') }}">
+
+<!-- Desktop UI Connectivity Status Indicator -->
+<div id="connection-badge" style="position: fixed; bottom: 15px; right: 15px; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold; z-index: 9999; background: #28a745; color: #fff;">
+  🟢 Online (Synced)
+</div>
 
     <!-- SIDEBAR -->
     <nav class="sidebar-glass d-flex flex-column flex-shrink-0 p-3" id="sidebar">
