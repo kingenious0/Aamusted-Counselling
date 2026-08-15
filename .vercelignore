@@ -1,0 +1,16 @@
+# Exclude heavy desktop distribution packages from Vercel Serverless Function bundle
+AAMUSTED_Counseling_System_Distribution/
+AAMUSTED_Universal_Distribution/
+AAMUSTED_Universal_Distribution_Old_v2/
+USTED_Counseling_System_Distribution/
+USTED_Mac_Version/
+_update_temp/
+build/
+dist/
+*.exe
+*.bat
+*.command
+*.db
+Lib/
+Scripts/
+counseling.db*

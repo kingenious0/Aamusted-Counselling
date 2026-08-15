@@ -44,3 +44,11 @@ static/profile_pics/
 # IDE
 .vscode/
 .idea/
+
+# Distribution folders
+AAMUSTED_Counseling_System_Distribution/
+AAMUSTED_Universal_Distribution/
+AAMUSTED_Universal_Distribution_Old_v2/
+USTED_Counseling_System_Distribution/
+USTED_Mac_Version/
+_update_temp/
