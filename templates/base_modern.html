@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ settings.system_name or 'USTED Counselling System' }} | Clinical Co-pilot</title>
+
+    <!-- Fonts & Offline Resilience -->
+    <style>
+        /* Force professional offline font immediately to prevent 'hanging' */
+        /* Local Inter font integration (Offline resilience) */
+        @font-face {
+            font-family: 'Inter';
+            src: url('/static/fonts/inter/Inter-Regular.woff2') format('woff2');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'Inter';
+            src: url('/static/fonts/inter/Inter-Bold.woff2') format('woff2');
+            font-weight: 700;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important; 
+        }
+
+        /* EMERGENCY OFFLINE STYLES (In case external CSS fails) */
+        :root {
+            --brand-primary: #800000;
+            --brand-secondary: #FFD700;
+        }
+        .btn-primary { background-color: #800000 !important; color: white !important; border-radius: 8px !important; }
+        .btn-outline-danger { border: 1px solid #dc3545 !important; color: #dc3545 !important; border-radius: 8px !important; }
+        .btn-danger { background-color: #dc3545 !important; color: white !important; border-radius: 8px !important; }
+        .btn-secondary { background-color: #6c757d !important; color: white !important; border-radius: 8px !important; }
+        
+        /* Light/Subtle Button Variations */
+        .btn-light-danger { background-color: #f8d7da !important; color: #842029 !important; border: 1px solid transparent; }
+        .btn-light-warning { background-color: #fff3cd !important; color: #664d03 !important; border: 1px solid transparent; }
+        .btn-light-primary { background-color: #cfe2ff !important; color: #084298 !important; border: 1px solid transparent; }
+        .btn-light-info { background-color: #cff4fc !important; color: #055160 !important; border: 1px solid transparent; }
+        .btn-subtle-danger { background-color: rgba(220, 53, 69, 0.05) !important; color: #dc3545 !important; border: 1px solid rgba(220, 53, 69, 0.1) !important; }
+        
+        /* Utility Classes */
+        .x-small { font-size: 0.65rem !important; }
+        .tracking-wider { letter-spacing: 0.05em !important; }
+        .shadow-sm { box-shadow: 0 .125rem .25rem rgba(0,0,0,.075) !important; }
+    </style>
+
+    <!-- Bootstrap 5 & Icons (Local) -->
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-icons.css') }}">
+
+    <!-- SweetAlert2 (Local) -->
+    <script src="{{ url_for('static', filename='js/sweetalert2.all.min.js') }}"></script>
+
+    <!-- Offline Storage & Supabase Sync Engine -->
+    <script src="{{ url_for('static', filename='js/db.js') }}"></script>
+
+    <!-- Custom Modern Theme -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modern_theme.css') }}?v=2.2">
+
+    <!-- PWA Manifest & Icons -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#7A0019">
+
+    <!-- macOS Safari & iOS Desktop/Tablet Optimization -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="AAMUSTED GCC">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+
+    <style>
+        /* Sidebar active state helper */
+        .nav-link.active {
+            background-color: var(--sage-200);
+            color: var(--sage-900);
+            font-weight: 600;
+            border-right: 4px solid var(--sage-600);
+        }
+
+        .nav-link {
+            transition: all 0.2s;
+            margin-bottom: 0.5rem;
+            border-radius: 0.5rem 0 0 0.5rem;
+            color: #64748b;
+        }
+
+        .nav-link:hover {
+            background-color: var(--sage-100);
+            color: var(--sage-700);
+            transform: translateX(4px);
+        }
+    </style>
+</head>
+
+<body data-theme="{{ settings.get('active_theme', 'default') }}">
+
+<!-- Desktop UI Connectivity Status Indicator -->
+<div id="connection-badge" style="position: fixed; bottom: 15px; right: 15px; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold; z-index: 9999; background: #28a745; color: #fff;">
+  🟢 Online (Synced)
+</div>
+
+    <!-- SIDEBAR -->
+    <nav class="sidebar-glass d-flex flex-column flex-shrink-0 p-3" id="sidebar">
+        <!-- Header / Logo -->
+        <div class="mb-4">
+            <a href="/" class="d-flex align-items-center link-dark text-decoration-none logo-container ps-2">
+                {% if settings.logo_url %}
+                <img src="{{ settings.logo_url }}" class="me-2"
+                    style="max-height: 40px; max-width: 40px; object-fit: contain;">
+                {% else %}
+                <div class="bg-gradient p-2 rounded-3 me-2" style="background: maroon; color: white;">
+                    <i class="bi bi-heart-pulse-fill fs-4"></i>
+                </div>
+                {% endif %}
+                <span class="fs-4 fw-bold sidebar-header-text" style="letter-spacing: -0.02em; color: var(--brand-primary);">{{ settings.get('system_name', 'USTED SYSTEM') }}</span>
+            </a>
+        </div>
+
+        <ul class="nav nav-pills flex-column mb-auto">
+            <li class="nav-item">
+                <a href="{{ url_for('dashboard') }}"
+                    class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" title="Dashboard"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-grid-1x2 me-2"></i> <span>Dashboard</span>
+                </a>
+            </li>
+
+
+            {# ── ALL ROLES: Clients & Appointments ── #}
+            {% if session.get('role') in ['Secretary', 'Admin', 'Counsellor', 'Counselor'] %}
+            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-1 nav-category-header" style="font-size:0.65rem;">Clients</li>
+            <li>
+                <a href="{{ url_for('students') }}"
+                    class="nav-link {% if 'student' in request.endpoint and 'intake' not in request.endpoint %}active{% endif %}"
+                    title="Client Registry" data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-people me-2"></i> <span>Client Registry</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('intake') }}"
+                    class="nav-link {% if 'intake' in request.endpoint %}active{% endif %}" title="New Client Intake"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-person-plus me-2"></i> <span>New Client Intake</span>
+                </a>
+            </li>
+
+
+            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-1 nav-category-header" style="font-size:0.65rem;">Appointments</li>
+            <li>
+                <a href="{{ url_for('appointment') }}"
+                    class="nav-link {% if request.endpoint == 'appointment' %}active{% endif %}"
+                    title="Schedule Appointment" data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-calendar-plus me-2"></i> <span>Schedule Appt.</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('manage_appointments') }}"
+                    class="nav-link {% if 'manage_appointments' in request.endpoint %}active{% endif %}"
+                    title="Manage Appointments" data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-calendar-check me-2"></i> <span>Manage Appts.</span>
+                </a>
+            </li>
+            <li>
+                <a href="/admin/bookings"
+                    class="nav-link {% if 'bookings' in request.endpoint %}active{% endif %}" title="Booking Requests"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-calendar2-event me-2"></i>
+                    <span>Booking Requests</span>
+                    {% if latest_booking_count and latest_booking_count > 0 %}
+                    <span class="badge rounded-pill bg-warning text-dark ms-auto" style="font-size:0.65rem;">{{ latest_booking_count }}</span>
+                    {% endif %}
+                </a>
+            </li>
+            {% endif %}
+
+
+            {% if (session.get('role') or '')|trim in ['Counsellor', 'Counselor', 'Admin'] %}
+            <!-- ── Clinical: Counsellor / Admin ── -->
+            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-1 nav-category-header" style="font-size:0.65rem;">Clinical</li>
+            <!-- <li>
+                <a href="{{ url_for('my_cases') }}"
+                    class="nav-link {% if 'my_cases' in request.endpoint %}active{% endif %}" title="My Cases"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-journal-medical me-2"></i> <span>My Cases</span>
+                </a>
+            </li> -->
+            <li>
+                <a href="{{ url_for('sessions_list') }}"
+                    class="nav-link {% if 'session' in request.endpoint and 'case' not in request.endpoint %}active{% endif %}"
+                    title="Session Log" data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-clock-history me-2"></i> <span>Session Log</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('case_notes_list') }}"
+                    class="nav-link {% if 'case_notes' in request.endpoint %}active{% endif %}" title="Case Notes"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-journal-richtext me-2"></i> <span>Case Notes</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('dass21_list') }}"
+                    class="nav-link {% if 'dass21' in request.endpoint %}active{% endif %}" title="Assessments"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-clipboard-data me-2"></i> <span>Assessments</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('all_referrals') }}"
+                    class="nav-link {% if 'referral' in request.endpoint %}active{% endif %}" title="Referrals"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-arrow-up-right-square me-2"></i> <span>Referrals</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('reports_list') }}"
+                    class="nav-link {% if 'report' in request.endpoint %}active{% endif %}" title="Reports"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-file-earmark-bar-graph me-2"></i> <span>Reports</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('statistics') }}"
+                    class="nav-link {% if request.endpoint == 'statistics' %}active{% endif %}" title="Statistics"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-bar-chart-line me-2"></i> <span>Statistics</span>
+                </a>
+            </li>
+            {% endif %}
+
+            {% if session.get('role') == 'Secretary' %}
+            <li>
+                <a href="{{ url_for('statistics') }}"
+                    class="nav-link {% if request.endpoint == 'statistics' %}active{% endif %}" title="Statistics"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-bar-chart-line me-2"></i> <span>Statistics</span>
+                </a>
+            </li>
+            {% endif %}
+
+            {% if session.get('role') in ['Secretary', 'Counsellor', 'Counselor'] %}
+            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-1 nav-category-header" style="font-size:0.65rem;">Configuration</li>
+            {% if session.get('role') in ['Secretary', 'Admin', 'Counsellor', 'Counselor'] %}
+            <li>
+                <a href="{{ url_for('import_csv') }}"
+                    class="nav-link {% if 'import' in request.endpoint %}active{% endif %}" title="Import Data"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-file-earmark-arrow-up me-2"></i> <span>Import Data</span>
+                </a>
+            </li>
+            {% endif %}
+            <li>
+                <a href="{{ url_for('admin_settings') }}"
+                    class="nav-link {% if 'settings' in request.endpoint %}active{% endif %}" title="Settings"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-gear me-2"></i> <span>Settings</span>
+                </a>
+            </li>
+            {% endif %}
+
+            {% if session.get('role') == 'Admin' %}
+            <li class="mt-3 text-uppercase small text-muted fw-bold ps-3 mb-1 nav-category-header" style="font-size:0.65rem;">Governance</li>
+            <li>
+                <a href="{{ url_for('admin_cloud_sync') }}"
+                    class="nav-link {% if 'cloud_sync' in request.endpoint %}active{% endif %}" title="Cloud Lookout"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-cloud-check me-2 text-primary"></i> <span>Cloud Lookout</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('admin_users') }}"
+                    class="nav-link {% if 'users' in request.endpoint %}active{% endif %}" title="Access Control"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-shield-lock me-2"></i> <span>Access Control</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('audit_logs') }}"
+                    class="nav-link {% if 'audit' in request.endpoint %}active{% endif %}" title="Audit Trails"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-activity me-2"></i> <span>Audit Trails</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('admin_workflow') }}"
+                    class="nav-link {% if 'workflow' in request.endpoint %}active{% endif %}" title="Workflow Rules"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-diagram-3 me-2"></i> <span>Workflow Rules</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('admin_settings') }}"
+                    class="nav-link {% if 'settings' in request.endpoint %}active{% endif %}" title="System Settings"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-gear me-2"></i> <span>System Settings</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('statistics') }}"
+                    class="nav-link {% if request.endpoint == 'statistics' %}active{% endif %}" title="Global Analytics"
+                    data-bs-toggle="tooltip" data-bs-placement="right">
+                    <i class="bi bi-graph-up-arrow me-2"></i> <span>Global Analytics</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+
+        <hr class="text-secondary opacity-25 mt-4">
+
+        <!-- User Profile Dropdown -->
+        <div class="dropdown">
+            <a href="#"
+                class="d-flex align-items-center link-dark text-decoration-none dropdown-toggle px-2 py-1 rounded hover-bg"
+                id="dropdownUser2" data-bs-toggle="dropdown" aria-expanded="false">
+                <div class="rounded-circle bg-secondary d-flex justify-content-center align-items-center text-white me-2"
+                    style="width: 32px; height: 32px; min-width: 32px;">
+                    {{ session.get('username', 'U')[0] | upper }}
+                </div>
+                    {% set role_labels = {'Secretary': 'Desk Administrator', 'Admin': 'System Administrator', 'Counsellor': 'Counsellor', 'Counselor': 'Counsellor'} %}
+                    {% set display_name = session.get('full_name', 'User') %}
+                    {% if display_name.strip().lower() in ['secretary', 'admin', 'counsellor', 'counselor'] %}
+                        {% set display_name = role_labels.get(session.get('role'), display_name) %}
+                    {% endif %}
+                    <div class="small fw-bold text-truncate" style="max-width: 140px;">{{ display_name }}</div>
+                    <div class="small text-muted" style="font-size: 0.75rem;">{{ role_labels.get(session.get('role'), 'Staff') }}</div>
+                </div>
+            </a>
+            <ul class="dropdown-menu text-small shadow" aria-labelledby="dropdownUser2">
+                <li><a class="dropdown-item" href="{{ url_for('profile') }}">Profile</a></li>
+                <li>
+                    <hr class="dropdown-divider">
+                </li>
+                <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}">Sign out</a></li>
+            </ul>
+        </div>
+
+        <!-- Collapse Toggle -->
+        <button
+            class="btn btn-sm btn-light border position-absolute bottom-0 end-0 m-3 rounded-circle shadow-sm d-none d-md-flex align-items-center justify-content-center"
+            id="sidebarToggle" style="width: 32px; height: 32px; z-index: 1050;">
+            <i class="bi bi-chevron-left"></i>
+        </button>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+        <!-- Command Palette / Top Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4 gap-3">
+
+            <!-- Mobile Toggle -->
+            <button class="btn btn-light shadow-sm d-lg-none" id="mobileMenuBtn">
+                <i class="bi bi-list fs-4"></i>
+            </button>
+
+            <!-- Removed topmost global search bar; using section-specific search for better functionality -->
+            <div class="flex-grow-1"></div>
+
+            <!-- Notifications / Actions -->
+            <div class="d-flex align-items-center gap-3">
+
+                <!-- Notification Dropdown -->
+                <div class="dropdown">
+                    <button class="btn btn-light rounded-circle position-relative shadow-sm" type="button"
+                        id="notifDropdown" data-bs-toggle="dropdown" aria-expanded="false"
+                        style="width: 42px; height: 42px;">
+                        <i class="bi bi-bell text-secondary"></i>
+                        {% if unread_count and unread_count > 0 %}
+                        <span
+                            class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light">
+                            {{ unread_count }}
+                            <span class="visually-hidden">unread messages</span>
+                        </span>
+                        {% endif %}
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 p-0" aria-labelledby="notifDropdown"
+                        style="width: 350px; max-height: 400px; overflow-y: auto; border-radius: 12px;">
+                        <li class="p-3 border-bottom bg-light rounded-top">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0 fw-bold">Notifications</h6>
+                                <div class="d-flex align-items-center gap-2">
+                                    <small class="text-muted">{{ unread_count }} new</small>
+                                    {% if unread_count > 0 %}
+                                    <button class="btn btn-link p-0 text-decoration-none small"
+                                        style="font-size: 0.75rem;" onclick="markAllNotificationsRead(event)">Mark all
+                                        read</button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </li>
+
+                        {% if notifications %}
+                        {% for n in notifications %}
+                        <li>
+                            <div class="dropdown-item p-3 border-bottom position-relative notification-item {% if not n.is_read %}bg-light{% endif %}"
+                                onclick="window.location.href='{{ n.link or '#' }}'">
+                                <div class="d-flex align-items-start justify-content-between">
+                                    <div class="d-flex align-items-start" style="flex: 1;">
+                                        <div class="bg-primary bg-opacity-10 text-primary rounded-circle p-2 me-3 flex-shrink-0"
+                                            style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                                            <i class="bi bi-info-circle-fill" style="font-size: 0.8rem;"></i>
+                                        </div>
+                                        <div>
+                                            <div class="fw-semibold text-dark mb-1"
+                                                style="font-size: 0.9rem; white-space: normal;">{{ n.message }}</div>
+                                            <div class="text-muted" style="font-size: 0.75rem;">Just now</div>
+                                        </div>
+                                    </div>
+
+                                    {% if not n.is_read %}
+                                    <button class="btn btn-sm btn-link text-secondary p-0 ms-2"
+                                        onclick="markNotificationRead(event, {{ n.id }})" title="Mark as read">
+                                        <i class="bi bi-check2-circle"></i>
+                                    </button>
+                                    <span
+                                        class="position-absolute top-50 start-0 translate-middle-y ms-1 bg-primary rounded-circle unread-dot"
+                                        style="width: 6px; height: 6px;"></span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </li>
+                        {% endfor %}
+                        <li><a class="dropdown-item text-center small text-primary py-3 fw-bold bg-light rounded-bottom"
+                                href="#">View All Notifications</a></li>
+                        {% else %}
+                        <li>
+                            <div class="text-center py-5">
+                                <i class="bi bi-bell-slash text-muted opacity-25 fs-1"></i>
+                                <p class="text-muted small mt-2 mb-0">No new notifications</p>
+                            </div>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+
+
+                <button id="manualSyncBtn" class="btn btn-light rounded-circle shadow-sm" title="Sync with Cloud"
+                        style="width: 42px; height: 42px;" onclick="triggerManualSync()">
+                    <i class="bi bi-cloud-arrow-up text-primary"></i>
+                </button>
+
+                <a href="{{ url_for('logout') }}" class="btn btn-outline-danger border-0 btn-sm rounded-pill px-3">
+                    <i class="bi bi-power me-1"></i> Logout
+                </a>
+            </div>
+        </div>
+
+        <!-- Flash Messages via SweetAlert2 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000,
+                    timerProgressBar: true,
+                    didOpen: (toast) => {
+                        toast.addEventListener('mouseenter', Swal.stopTimer)
+                        toast.addEventListener('mouseleave', Swal.resumeTimer)
+                    }
+                });
+
+                {% for category, message in messages %}
+                Toast.fire({
+                    icon: '{{ "success" if category == "success" else "error" if category in ["danger", "error"] else "info" }}',
+                    title: '{{ message }}'
+                });
+                {% endfor %}
+            });
+        </script>
+        {% endif %}
+        {% endwith %}
+
+        <!-- Content Injection -->
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Bootstrap JS -->
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <script>
+        // Init tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+
+        // GCC Core UI Helpers
+        window.GCC = {
+            confirm: function(message, type = 'warning', confirmText = 'Yes, proceed') {
+                return Swal.fire({
+                    title: 'Are you sure?',
+                    text: message,
+                    icon: type,
+                    showCancelButton: true,
+                    confirmButtonColor: 'var(--sage-600, #4f46e5)',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: confirmText,
+                    cancelButtonText: 'Cancel',
+                    padding: '2rem',
+                    borderRadius: '1rem',
+                    customClass: {
+                        popup: 'rounded-4 shadow-lg border-0',
+                        title: 'fw-bold text-dark',
+                        confirmButton: 'btn btn-primary px-4 py-2 fw-semibold',
+                        cancelButton: 'btn btn-light px-4 py-2 text-muted'
+                    },
+                    buttonsStyling: false
+                });
+            },
+            confirmForm: function(event, message, type = 'warning', confirmText = 'Yes, proceed') {
+                event.preventDefault();
+                const form = event.target.closest('form');
+                this.confirm(message, type, confirmText).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+                return false;
+            }
+        };
+
+        // Sidebar Collapse Logic
+        document.addEventListener('DOMContentLoaded', function () {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.querySelector('.main-content');
+            const toggleBtn = document.getElementById('sidebarToggle');
+            const toggleIcon = toggleBtn.querySelector('i');
+            const isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+
+            // Function to set state
+            function setSidebarState(collapsed) {
+                if (collapsed) {
+                    sidebar.classList.add('sidebar-collapsed');
+                    mainContent.classList.add('expanded');
+                    toggleIcon.classList.remove('bi-chevron-left');
+                    toggleIcon.classList.add('bi-chevron-right');
+                } else {
+                    sidebar.classList.remove('sidebar-collapsed');
+                    mainContent.classList.remove('expanded');
+                    toggleIcon.classList.remove('bi-chevron-right');
+                    toggleIcon.classList.add('bi-chevron-left');
+                }
+                localStorage.setItem('sidebar-collapsed', collapsed);
+            }
+
+            // Initial State
+            setSidebarState(isCollapsed);
+
+            // Toggle Event
+            toggleBtn.addEventListener('click', function () {
+                const currentlyCollapsed = sidebar.classList.contains('sidebar-collapsed');
+                setSidebarState(!currentlyCollapsed);
+            });
+
+            // Mobile Menu Logic
+            const mobileBtn = document.getElementById('mobileMenuBtn');
+            if (mobileBtn) {
+                mobileBtn.addEventListener('click', function () {
+                    sidebar.classList.toggle('show-mobile');
+                });
+            }
+
+            // Close sidebar when clicking outside on mobile
+            document.addEventListener('click', function (event) {
+                const isClickInsideSidebar = sidebar.contains(event.target);
+                const isClickOnButton = mobileBtn && mobileBtn.contains(event.target);
+
+                if (window.innerWidth < 992 && !isClickInsideSidebar && !isClickOnButton && sidebar.classList.contains('show-mobile')) {
+                    sidebar.classList.remove('show-mobile');
+                }
+            });
+
+            // Check for new notifications to play sound (simple check based on count logic if available, or just play if recent)
+            // For now, let's play a sound if there are unread messages on page load
+            {% if unread_count and unread_count > 0 %}
+            // playNotificationSound();
+            {% endif %}
+        });
+
+        // Notification Sound
+        function playNotificationSound() {
+            const audio = document.getElementById('notificationSound');
+            if (audio) {
+                audio.play().catch(e => console.log('Audio play failed:', e));
+            }
+        }
+
+
+        // Mark single notification as read
+        function markNotificationRead(event, id) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            fetch(`/notifications/mark_read/${id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Reduce unread count or reload
+                        window.location.reload();
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Mark all as read
+        function markAllNotificationsRead(event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            fetch(`/notifications/mark_all_read`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        window.location.reload();
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Manual Sync Trigger
+        function triggerManualSync() {
+            const btn = document.getElementById('manualSyncBtn');
+            const icon = btn.querySelector('i');
+            
+            // Animation
+            icon.classList.remove('bi-cloud-arrow-up');
+            icon.classList.add('bi-arrow-repeat', 'spin');
+            btn.disabled = true;
+
+            fetch('/api/sync/trigger', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        Swal.fire({
+                            toast: true,
+                            position: 'top-end',
+                            icon: 'success',
+                            title: 'Sync Triggered',
+                            text: 'Background synchronization started.',
+                            showConfirmButton: false,
+                            timer: 3000
+                        });
+                        // Optional: Refresh dashboard if we are on it
+                        if (window.location.pathname === '/dashboard') {
+                            setTimeout(() => window.location.reload(), 2000);
+                        }
+                    } else {
+                        throw new Error(data.message);
+                    }
+                })
+                .catch(e => {
+                    Swal.fire({ icon: 'error', title: 'Sync Failed', text: e.message });
+                })
+                .finally(() => {
+                    setTimeout(() => {
+                        icon.classList.remove('bi-arrow-repeat', 'spin');
+                        icon.classList.add('bi-cloud-arrow-up');
+                        btn.disabled = false;
+                    }, 2000);
+                });
+        }
+    </script>
+    <script>
+        // Real-time Theme Sync
+        setInterval(() => {
+            fetch('/api/get_theme')
+                .then(r => r.json())
+                .then(data => {
+                    const currentTheme = document.body.getAttribute('data-theme');
+                    if (data.theme && data.theme !== currentTheme) {
+                        document.body.setAttribute('data-theme', data.theme);
+                        console.log('Theme updated to:', data.theme);
+                    }
+                })
+                .catch(e => console.error('Theme sync error:', e));
+        }, 20000); // Check every 20 seconds
+
+        // Automated Sync & New Booking Polling (Enhanced for 5s Real-time)
+        setInterval(() => {
+            fetch('/api/sync/check_alerts')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.new_booking) {
+                        // Rate control: Don't show the same alert more than once every 30s
+                        const now = Date.now();
+                        const lastAlert = sessionStorage.getItem('last_booking_alert_time');
+                        if (!lastAlert || (now - lastAlert > 30000)) {
+                            sessionStorage.setItem('last_booking_alert_time', now);
+                            playNotificationSound();
+                            Swal.fire({
+                                toast: true,
+                                position: 'top-end',
+                                icon: 'info',
+                                title: 'New Online Booking Received!',
+                                text: 'A new client has booked via the portal.',
+                                showConfirmButton: false,
+                                timer: 10000,
+                                timerProgressBar: true
+                            });
+                        }
+                        
+                        // Silent Refresh of the intake list if on dashboard
+                        if (typeof refreshIntakeList === 'function') {
+                            refreshIntakeList();
+                        }
+                    }
+                })
+                .catch(e => console.error('Alert sync error:', e));
+        }, 12000); // Check every 12 seconds for background alerts
+
+        // --- PWA Registration & Install Support ---
+        let deferredPrompt;
+        const installContainer = document.getElementById('installContainer');
+        const installBtn = document.getElementById('installBtn');
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/service-worker.js')
+                    .then(reg => console.log('SW Registered!', reg))
+                    .catch(err => console.log('SW Fail:', err));
+            });
+        }
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installContainer.style.display = 'block';
+        });
+
+        installBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    installContainer.style.display = 'none';
+                }
+                deferredPrompt = null;
+            }
+        });
+    </script>
+    <audio id="notificationSound" src="/assets/ringtone-you-would-be-glad-to-know.mp3" preload="auto"></audio>
+    {% block scripts %}{% endblock %}
+
+</body>
+
+</html>
