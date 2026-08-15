@@ -47,7 +47,7 @@ async function clearSynced() {
 function updateStatusBadge() {
   const b = document.getElementById('connection-badge');
   if (!b) return;
-  if (navigator.online) {
+  if (navigator.onLine) {
     b.textContent = 'Online';
     b.style.background = '#28a745';
     b.style.color = '#fff';
@@ -61,7 +61,7 @@ function updateStatusBadge() {
 window.addEventListener('online', async () => {
   updateStatusBadge();
   const p = await getPending();
-  if (p.length &gt; 0 && typeof supabaseClient !== 'undefined') {
+  if (p.length > 0 && typeof supabaseClient !== 'undefined') {
     const { error } = await supabaseClient.from('sessions').upsert(p);
     if (!error) { await clearSynced(); alert('Synced ' + p.length + ' records'); }
   }
