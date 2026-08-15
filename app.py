@@ -2074,19 +2074,28 @@ def admin_update_settings():
     try:
         conn = get_db_connection()
 
-        # List of settings to update
-        setting_keys = ['system_name', 'logo_url', 'theme_color']
+        # Handle Logo File Upload from native device file picker
+        logo_url_val = request.form.get('logo_url')
+        if 'logo_file' in request.files:
+            logo_file = request.files['logo_file']
+            if logo_file and logo_file.filename != '':
+                import base64
+                file_bytes = logo_file.read()
+                if len(file_bytes) > 0:
+                    mime_type = logo_file.content_type or 'image/png'
+                    encoded = base64.b64encode(file_bytes).decode('utf-8')
+                    logo_url_val = f"data:{mime_type};base64,{encoded}"
 
-        for key in setting_keys:
-            val = request.form.get(key)
-            if val is not None:
-                # Upsert logic (SQLite specific or simple delete/insert)
-                # Since we don't know if key exists, we can do REPLACE INTO or checking first.
-                # Simplest for SQLite: INSERT OR REPLACE if primary key is set, but we don't have PK on name maybe?
-                # Let's check schema. Assuming key-value pair uniqueness is enforced or not,
-                # let's try to update, if 0 rows, insert.
+        # Dictionary of settings to update
+        setting_updates = {
+            'system_name': request.form.get('system_name'),
+            'logo_url': logo_url_val,
+            'theme_color': request.form.get('theme_color')
+        }
 
-                cursor = conn.cursor()
+        cursor = conn.cursor()
+        for key, val in setting_updates.items():
+            if val is not None and str(val).strip() != '':
                 cursor.execute(
                     "UPDATE app_settings SET setting_value = ? WHERE setting_name = ?", (val, key))
                 if cursor.rowcount == 0:
@@ -2094,9 +2103,12 @@ def admin_update_settings():
                         "INSERT INTO app_settings (setting_name, setting_value) VALUES (?, ?)", (key, val))
 
         conn.commit()
-        trigger_sync_immediate()
+        try:
+            trigger_sync_immediate()
+        except Exception as sync_err:
+            print(f"[SETTINGS] Sync trigger warning: {sync_err}")
         conn.close()
-        flash("System configuration updated successfully.", "success")
+        flash("System configuration and branding updated successfully.", "success")
     except Exception as e:
         flash(f"Error saving settings: {e}", "error")
 

@@ -18,7 +18,7 @@
                 <h5 class="fw-bold mb-0">General Settings</h5>
             </div>
             <div class="card-body p-4">
-                <form method="POST" action="{{ url_for('admin_update_settings') }}">
+                <form method="POST" action="{{ url_for('admin_update_settings') }}" enctype="multipart/form-data">
 
                     <!-- Branding Section -->
                     <h6 class="text-uppercase text-muted small fw-bold mb-3 border-bottom pb-2">Branding</h6>
@@ -31,13 +31,31 @@
                     </div>
 
                     <div class="mb-4">
-                        <label for="logo_url" class="form-label fw-bold small text-secondary">Logo URL / Path</label>
-                        <div class="input-group">
-                            <span class="input-group-text border-0 bg-light"><i class="bi bi-image"></i></span>
-                            <input type="text" class="form-control bg-light border-0" id="logo_url" name="logo_url"
-                                value="{{ settings.logo_url or 'static/aamusted system_logo.png' }}">
+                        <label class="form-label fw-bold small text-secondary">System Logo</label>
+                        <div class="card bg-light border-0 p-3 mb-2">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="border rounded-3 p-2 bg-white d-flex align-items-center justify-content-center shadow-sm" style="width: 70px; height: 70px;">
+                                    <img id="logo_preview" src="{{ settings.logo_url or '/static/aamusted system_logo.png' }}" 
+                                         alt="Logo Preview" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                                </div>
+                                <div class="flex-grow-1">
+                                    <label for="logo_file" class="form-label fw-bold mb-1 small">Choose Logo File from Device</label>
+                                    <input type="file" class="form-control border-0 bg-white shadow-sm" id="logo_file" name="logo_file" accept="image/*" onchange="previewLogoImage(this)">
+                                    <div class="form-text mt-1">Upload PNG, JPG, WEBP, or SVG image from phone/PC (Max 2MB). Automatically saved & synced to all devices.</div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="form-text">Path to the logo image (relative to static folder or absolute URL).</div>
+                        
+                        <details class="mt-2">
+                            <summary class="text-muted small cursor-pointer">Advanced: Edit Direct Logo URL or Path</summary>
+                            <div class="mt-2">
+                                <div class="input-group">
+                                    <span class="input-group-text border-0 bg-light"><i class="bi bi-link-45deg"></i></span>
+                                    <input type="text" class="form-control bg-light border-0" id="logo_url" name="logo_url"
+                                        value="{{ settings.logo_url or 'static/aamusted system_logo.png' }}" placeholder="https://... or static/logo.png">
+                                </div>
+                            </div>
+                        </details>
                     </div>
 
                     <!-- Theme Section -->
@@ -388,10 +406,10 @@
             <div class="card-body text-center p-4">
                 <h6 class="fw-bold mb-3">Logo Preview</h6>
                 <div class="p-3 bg-light rounded-3 mb-3 d-inline-block">
-                    <img src="{{ url_for('static', filename='aamusted system_logo.png') }}" alt="Logo"
-                        style="max-height: 80px;" class="img-fluid">
+                    <img id="sidebar_logo_preview" src="{{ settings.logo_url or url_for('static', filename='aamusted system_logo.png') }}" alt="Logo"
+                        style="max-height: 80px; max-width: 100%; object-fit: contain;" class="img-fluid">
                 </div>
-                <p class="small text-muted">This logo is displayed on the login screen and dashboard header.</p>
+                <p class="small text-muted">This logo is displayed on the login screen, navigation header, and reports.</p>
             </div>
         </div>
 
@@ -399,8 +417,7 @@
             <i class="bi bi-info-circle-fill me-3 fs-4"></i>
             <div>
                 <strong>Note to Admin:</strong>
-                <p class="small mb-0 mt-1">Changing the system name will update all page titles and report headers
-                    immediatey.</p>
+                <p class="small mb-0 mt-1">Changing the system name or uploading a logo updates all screens and syncs across all devices automatically.</p>
             </div>
         </div>
 
@@ -421,4 +438,25 @@
         </div>
     </div>
 </div>
+
+<script>
+function previewLogoImage(input) {
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        if (file.size > 2 * 1024 * 1024) {
+            alert('File is too large! Please select an image under 2MB.');
+            input.value = '';
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const previewEl = document.getElementById('logo_preview');
+            const sidebarEl = document.getElementById('sidebar_logo_preview');
+            if (previewEl) previewEl.src = e.target.result;
+            if (sidebarEl) sidebarEl.src = e.target.result;
+        }
+        reader.readAsDataURL(file);
+    }
+}
+</script>
 {% endblock %}
