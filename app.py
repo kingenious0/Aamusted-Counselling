@@ -540,18 +540,18 @@ def get_db_connection():
     # Ensure database is initialized first (only once)
     ensure_database_initialized()
 
-    # Get database path
+    # Get database path (Vercel-safe)
     try:
-        if getattr(sys, 'frozen', False):
-            # Running as compiled EXE
-            base_path = os.path.dirname(sys.executable)
+        import db_setup as _db_setup_mod
+        db_path = _db_setup_mod.get_db_path()
+    except Exception:
+        import tempfile
+        if os.environ.get('VERCEL') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME'):
+            db_path = os.path.join(tempfile.gettempdir(), 'counseling.db')
+        elif getattr(sys, 'frozen', False):
+            db_path = os.path.join(os.path.dirname(sys.executable), 'counseling.db')
         else:
-            # Running as script
-            base_path = os.path.dirname(os.path.abspath(__file__))
-    except:
-        base_path = os.path.dirname(os.path.abspath(__file__))
-
-    db_path = os.path.join(base_path, 'counseling.db')
+            db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'counseling.db')
 
     # Connect with timeout to prevent locking issues
     conn = sqlite3.connect(db_path, timeout=10.0)
@@ -6160,16 +6160,18 @@ if __name__ == '__main__':
     # Initialize database FIRST before anything else
     print("Initializing database...")
     try:
-        # Force database initialization at startup
+        # Force database initialization at startup with serverless path awareness
         try:
-            if getattr(sys, 'frozen', False):
-                base_path = os.path.dirname(sys.executable)
+            import db_setup as _db_setup_mod
+            db_path = _db_setup_mod.get_db_path()
+        except Exception:
+            import tempfile
+            if os.environ.get('VERCEL') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME'):
+                db_path = os.path.join(tempfile.gettempdir(), 'counseling.db')
+            elif getattr(sys, 'frozen', False):
+                db_path = os.path.join(os.path.dirname(sys.executable), 'counseling.db')
             else:
-                base_path = os.path.dirname(os.path.abspath(__file__))
-        except:
-            base_path = os.path.dirname(os.path.abspath(__file__))
-
-        db_path = os.path.join(base_path, 'counseling.db')
+                db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'counseling.db')
 
         # Check and initialize
         if not os.path.exists(db_path):
