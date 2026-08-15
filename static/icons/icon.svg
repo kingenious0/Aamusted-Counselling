@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="maroonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8A002A"/><stop offset="100%" stop-color="#63001C"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFD043"/><stop offset="100%" stop-color="#E59E00"/>
+    </linearGradient>
+    <linearGradient id="flameGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#D32F2F"/><stop offset="50%" stop-color="#F57C00"/><stop offset="100%" stop-color="#FFEB3B"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#maroonGrad)" d="M256,40 L272,40 L276,66 A190,190 0 0,1 325,86 L345,69 L368,82 L361,107 A190,190 0 0,1 405,133 L429,122 L447,143 L433,165 A190,190 0 0,1 462,199 L488,198 L496,227 L474,242 A190,190 0 0,1 474,270 L496,285 L488,314 L462,313 A190,190 0 0,1 433,347 L447,369 L429,390 L405,379 A190,190 0 0,1 361,405 L368,430 L345,443 L325,426 A190,190 0 0,1 276,446 L272,472 L240,472 L236,446 A190,190 0 0,1 187,426 L167,443 L144,430 L151,405 A190,190 0 0,1 107,379 L83,390 L65,369 L79,347 A190,190 0 0,1 50,313 L24,314 L16,285 L38,270 A190,190 0 0,1 38,242 L16,227 L24,198 L50,199 A190,190 0 0,1 79,165 L65,143 L83,122 L107,133 A190,190 0 0,1 151,107 L144,82 L167,69 L187,86 A190,190 0 0,1 236,66 L240,40 Z"/>
+  <circle cx="256" cy="256" r="172" fill="none" stroke="#FFFFFF" stroke-width="8"/>
+  <circle cx="256" cy="256" r="160" fill="none" stroke="#006A4E" stroke-width="6"/>
+  <circle cx="256" cy="256" r="150" fill="url(#goldGrad)" stroke="#FFFFFF" stroke-width="4"/>
+  <circle cx="256" cy="256" r="144" fill="none" stroke="#006A4E" stroke-width="3.5"/>
+  <line x1="115" y1="256" x2="397" y2="256" stroke="#006A4E" stroke-width="5"/>
+  <g stroke="#006A4E" stroke-width="3.5" fill="none">
+    <path d="M148,256 A110,110 0 0,0 364,256"/>
+    <path d="M180,256 A78,78 0 0,0 332,256"/>
+    <path d="M212,256 A46,46 0 0,0 300,256"/>
+    <line x1="256" y1="256" x2="256" y2="398"/>
+    <line x1="256" y1="256" x2="180" y2="365"/>
+    <line x1="256" y1="256" x2="332" y2="365"/>
+  </g>
+  <path d="M254,250 C220,242 165,244 140,252 L155,224 C180,216 225,214 254,222 Z" fill="#FFFFFF" stroke="#006A4E" stroke-width="3"/>
+  <path d="M258,250 C292,242 347,244 372,252 L357,224 C332,216 287,214 258,222 Z" fill="#FFFFFF" stroke="#006A4E" stroke-width="3"/>
+  <line x1="256" y1="220" x2="256" y2="252" stroke="#006A4E" stroke-width="4"/>
+  <path d="M238,206 L274,206 L268,220 L244,220 Z" fill="#006A4E"/>
+  <path d="M256,150 C242,172 238,188 244,198 C248,204 256,206 256,206 C256,206 264,204 268,198 C274,188 270,172 256,150 Z" fill="url(#flameGrad)"/>
+  <path d="M256,172 C248,184 248,194 252,199 C256,202 260,199 264,194 C264,184 256,172 256,172 Z" fill="#FFF9C4"/>
+  <path d="M90,425 C150,455 362,455 422,425 C430,448 415,472 97,472 C82,448 90,425 90,425 Z" fill="url(#maroonGrad)" stroke="#FFFFFF" stroke-width="3"/>
+  <text x="256" y="460" font-family="Arial" font-size="28" font-weight="bold" fill="#FFFFFF" text-anchor="middle">USTED GCC</text>
+  <text x="256" y="482" font-family="Arial" font-size="11" fill="#FFD043" text-anchor="middle">GUIDANCE &amp; COUNSELLING</text>
+</svg>
