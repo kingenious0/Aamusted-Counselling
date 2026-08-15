@@ -156,16 +156,19 @@ def ensure_database_initialized():
     _db_initialization_lock = True
 
     try:
-        # Determine database path
+        # Determine database path (Vercel-safe: /tmp on serverless, local otherwise)
         try:
-            if getattr(sys, 'frozen', False):
-                base_path = os.path.dirname(sys.executable)
+            import db_setup as _db_setup_mod
+            db_path = _db_setup_mod.get_db_path()
+        except Exception:
+            # Fallback: same env-aware logic
+            import tempfile
+            if os.environ.get('VERCEL') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME'):
+                db_path = os.path.join(tempfile.gettempdir(), 'counseling.db')
+            elif getattr(sys, 'frozen', False):
+                db_path = os.path.join(os.path.dirname(sys.executable), 'counseling.db')
             else:
-                base_path = os.path.dirname(os.path.abspath(__file__))
-        except:
-            base_path = os.path.dirname(os.path.abspath(__file__))
-
-        db_path = os.path.join(base_path, 'counseling.db')
+                db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'counseling.db')
 
         # Required tables for the application
         required_tables = [
@@ -259,10 +262,8 @@ ensure_database_initialized()
 
 # ── One-time migration: add accepted_at to BookingRequest if not present ──
 try:
-    _migration_conn = sqlite3.connect(
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'counseling.db'),
-        timeout=5.0
-    )
+    import db_setup as _ds
+    _migration_conn = sqlite3.connect(_ds.get_db_path(), timeout=5.0)
     _migration_conn.execute("ALTER TABLE BookingRequest ADD COLUMN accepted_at TEXT")
     _migration_conn.commit()
     _migration_conn.close()

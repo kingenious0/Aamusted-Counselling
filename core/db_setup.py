@@ -1,28 +1,45 @@
 import os
 import sys
 import sqlite3
+import tempfile
 from werkzeug.security import generate_password_hash
 
 
-def init_db():
-    """Initialize database - works in both dev and EXE mode"""
-    # Determine correct database path (same logic as app.py)
-    try:
-        if getattr(sys, 'frozen', False):
-            # Running as compiled EXE - database in EXE folder
-            base_path = os.path.dirname(sys.executable)
-        else:
-            # Running as script
-            full_path = os.path.abspath(__file__)
-            base_path = os.path.dirname(full_path)
-            # If in 'core' folder, move up one level
-            if os.path.basename(base_path).lower() == 'core':
-                base_path = os.path.dirname(base_path)
-    except:
-        base_path = os.getcwd()
+def get_db_path():
+    """Return the correct SQLite database path for the current environment.
+    
+    On Vercel / AWS Lambda the task directory is read-only; only /tmp is writable.
+    In all other environments (local dev, packaged EXE) we use the project root.
+    """
+    # Serverless / cloud: use writable /tmp
+    if os.environ.get('VERCEL') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME'):
+        return os.path.join(tempfile.gettempdir(), 'counseling.db')  # /tmp/counseling.db
 
-    db_path = os.path.join(base_path, 'counseling.db')
+    # Packaged EXE (PyInstaller)
+    if getattr(sys, 'frozen', False):
+        return os.path.join(os.path.dirname(sys.executable), 'counseling.db')
+
+    # Normal script / dev server
+    try:
+        base = os.path.dirname(os.path.abspath(__file__))
+        # If this file lives inside a 'core' sub-folder, move up one level
+        if os.path.basename(base).lower() == 'core':
+            base = os.path.dirname(base)
+    except Exception:
+        base = os.getcwd()
+
+    return os.path.join(base, 'counseling.db')
+
+
+def init_db():
+    """Initialize database - works in dev, EXE, and serverless (Vercel) mode"""
+    db_path = get_db_path()
     print(f"[DB_SETUP] Initializing database at: {db_path}")
+
+    # On serverless /tmp may not have subdirectories - ensure parent exists
+    db_dir = os.path.dirname(db_path)
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
 
     # Connect to SQLite database (creates it if it doesn't exist)
     # Use timeout to prevent locking issues
