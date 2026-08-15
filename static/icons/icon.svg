@@ -7,7 +7,8 @@
       <stop offset="0%" stop-color="#FFD043"/><stop offset="100%" stop-color="#E59E00"/>
     </linearGradient>
     <linearGradient id="flameGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-      <stop offset="0%" stop-color="#D32F2F"/><stop offset="50%" stop-color="#F57C00"/><stop offset="100%" stop-color="#FFEB3B"/>
+      <stop offset="0%" stop-color="#D32F2F"/><stop offset="50%" stop-color="#F57C00"/>
+      <stop offset="100%" stop-color="#FFEB3B"/>
     </linearGradient>
   </defs>
   <path fill="url(#maroonGrad)" d="M256,40 L272,40 L276,66 A190,190 0 0,1 325,86 L345,69 L368,82 L361,107 A190,190 0 0,1 405,133 L429,122 L447,143 L433,165 A190,190 0 0,1 462,199 L488,198 L496,227 L474,242 A190,190 0 0,1 474,270 L496,285 L488,314 L462,313 A190,190 0 0,1 433,347 L447,369 L429,390 L405,379 A190,190 0 0,1 361,405 L368,430 L345,443 L325,426 A190,190 0 0,1 276,446 L272,472 L240,472 L236,446 A190,190 0 0,1 187,426 L167,443 L144,430 L151,405 A190,190 0 0,1 107,379 L83,390 L65,369 L79,347 A190,190 0 0,1 50,313 L24,314 L16,285 L38,270 A190,190 0 0,1 38,242 L16,227 L24,198 L50,199 A190,190 0 0,1 79,165 L65,143 L83,122 L107,133 A190,190 0 0,1 151,107 L144,82 L167,69 L187,86 A190,190 0 0,1 236,66 L240,40 Z"/>
