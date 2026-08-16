@@ -535,14 +535,24 @@ def serve_assets(filename):
 # CRITICAL FOR PWA SCOPE: Serve sw.js from root domain
 @app.route('/sw.js')
 def serve_service_worker():
-    response = send_from_directory(
-        os.path.join(app.root_path, 'static'), 
-        'service-worker.js', 
-        mimetype='application/javascript'
-    )
-    response.headers['Service-Worker-Allowed'] = '/'
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    return response
+    try:
+        static_dir = os.path.join(app.root_path, 'static')
+        sw_file = os.path.join(static_dir, 'service-worker.js')
+        if os.path.exists(sw_file):
+            from flask import send_file
+            response = send_file(sw_file, mimetype='application/javascript')
+        else:
+            from flask import Response
+            response = Response("self.addEventListener('fetch', function(e){});", mimetype='application/javascript')
+        response.headers['Service-Worker-Allowed'] = '/'
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return response
+    except Exception as err:
+        print(f"[PWA] Error serving service worker: {err}")
+        from flask import Response
+        response = Response("self.addEventListener('fetch', function(e){});", mimetype='application/javascript')
+        response.headers['Service-Worker-Allowed'] = '/'
+        return response
 
 # ---------- Helper Functions ----------
 
