@@ -726,17 +726,25 @@ def set_theme():
     try:
         theme = request.form.get('theme', 'default')
         conn = get_db_connection()
-        # Upsert theme setting with sync support
         sys_id = str(uuid.uuid4())
-        conn.execute("""
-            INSERT INTO app_settings (setting_name, setting_value, global_id, updated_at) 
-            VALUES (?, ?, ?, CURRENT_TIMESTAMP) 
-            ON CONFLICT(setting_name) DO UPDATE SET 
-                setting_value=excluded.setting_value, 
-                updated_at=CURRENT_TIMESTAMP
-        """, ('active_theme', theme, sys_id))
+        for setting in ['active_theme', 'theme_color']:
+            conn.execute("""
+                INSERT INTO app_settings (setting_name, setting_value, global_id, updated_at) 
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP) 
+                ON CONFLICT(setting_name) DO UPDATE SET 
+                    setting_value=excluded.setting_value, 
+                    updated_at=CURRENT_TIMESTAMP
+            """, (setting, theme, sys_id))
         conn.commit()
         conn.close()
+
+        # Trigger immediate automated sync to push theme change to cloud bridge
+        try:
+            from sync_engine import sync_manager
+            sync_manager.run_automated_sync()
+        except Exception as sync_err:
+            print(f"[THEME] Sync warning: {sync_err}")
+
         return jsonify({'status': 'success', 'theme': theme})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -746,13 +754,22 @@ def set_theme():
 def get_theme():
     try:
         conn = get_db_connection()
-        row = conn.execute(
-            "SELECT setting_value FROM app_settings WHERE setting_name = 'active_theme'").fetchone()
+        settings_rows = conn.execute(
+            "SELECT setting_name, setting_value FROM app_settings").fetchall()
         conn.close()
-        theme = row['setting_value'] if row else 'default'
-        return jsonify({'theme': theme})
+        settings = {row['setting_name']: row['setting_value'] for row in settings_rows}
+        theme = settings.get('active_theme') or settings.get('theme_color') or 'default'
+        return jsonify({
+            'theme': theme,
+            'system_name': settings.get('system_name', 'AAMUSTED Guidance & Counselling'),
+            'logo_url': settings.get('logo_url', '/static/aamusted system_logo.png')
+        })
     except:
-        return jsonify({'theme': 'default'})
+        return jsonify({
+            'theme': 'default',
+            'system_name': 'AAMUSTED Guidance & Counselling',
+            'logo_url': '/static/aamusted system_logo.png'
+        })
 
 
 
@@ -2090,24 +2107,34 @@ def admin_update_settings():
         setting_updates = {
             'system_name': request.form.get('system_name'),
             'logo_url': logo_url_val,
-            'theme_color': request.form.get('theme_color')
         }
 
-        cursor = conn.cursor()
+        selected_theme = request.form.get('theme_color') or request.form.get('active_theme')
+        if selected_theme and str(selected_theme).strip() != '':
+            setting_updates['active_theme'] = selected_theme
+            setting_updates['theme_color'] = selected_theme
+
+        sys_id = str(uuid.uuid4())
         for key, val in setting_updates.items():
             if val is not None and str(val).strip() != '':
-                cursor.execute(
-                    "UPDATE app_settings SET setting_value = ? WHERE setting_name = ?", (val, key))
-                if cursor.rowcount == 0:
-                    cursor.execute(
-                        "INSERT INTO app_settings (setting_name, setting_value) VALUES (?, ?)", (key, val))
+                conn.execute("""
+                    INSERT INTO app_settings (setting_name, setting_value, global_id, updated_at) 
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP) 
+                    ON CONFLICT(setting_name) DO UPDATE SET 
+                        setting_value=excluded.setting_value, 
+                        updated_at=CURRENT_TIMESTAMP
+                """, (key, val, sys_id))
 
         conn.commit()
+        conn.close()
+
+        # Immediate sync push to cloud
         try:
-            trigger_sync_immediate()
+            from sync_engine import sync_manager
+            sync_manager.run_automated_sync()
         except Exception as sync_err:
             print(f"[SETTINGS] Sync trigger warning: {sync_err}")
-        conn.close()
+
         flash("System configuration and branding updated successfully.", "success")
     except Exception as e:
         flash(f"Error saving settings: {e}", "error")

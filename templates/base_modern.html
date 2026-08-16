@@ -685,19 +685,32 @@
         }
     </script>
     <script>
-        // Real-time Theme Sync
+        // Real-time Theme & Branding Settings Sync Across Devices
         setInterval(() => {
             fetch('/api/get_theme')
                 .then(r => r.json())
                 .then(data => {
+                    if (!data) return;
+                    // 1. Theme sync
                     const currentTheme = document.body.getAttribute('data-theme');
                     if (data.theme && data.theme !== currentTheme) {
                         document.body.setAttribute('data-theme', data.theme);
-                        console.log('Theme updated to:', data.theme);
+                    }
+                    // 2. System Name sync
+                    if (data.system_name) {
+                        document.querySelectorAll('.sidebar-header-text').forEach(el => {
+                            if (el.textContent !== data.system_name) el.textContent = data.system_name;
+                        });
+                    }
+                    // 3. Logo sync
+                    if (data.logo_url) {
+                        document.querySelectorAll('.logo-container img').forEach(img => {
+                            if (img.getAttribute('src') !== data.logo_url) img.setAttribute('src', data.logo_url);
+                        });
                     }
                 })
-                .catch(e => console.error('Theme sync error:', e));
-        }, 20000); // Check every 20 seconds
+                .catch(e => console.error('Settings sync error:', e));
+        }, 8000); // Poll every 8 seconds for live network updates
 
         // Automated Sync & New Booking Polling (Enhanced for 5s Real-time)
         setInterval(() => {
