@@ -99,7 +99,7 @@
     </style>
 </head>
 
-<body data-theme="{{ settings.get('active_theme', 'default') }}">
+<body data-theme="{{ settings.active_theme or settings.theme_color or 'default' }}">
 
 <!-- Desktop UI Connectivity Status Indicator -->
 <div id="connection-badge" style="position: fixed; bottom: 15px; right: 15px; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold; z-index: 9999; background: #28a745; color: #fff;">
@@ -119,7 +119,7 @@
                     <i class="bi bi-heart-pulse-fill fs-4"></i>
                 </div>
                 {% endif %}
-                <span class="fs-4 fw-bold sidebar-header-text" style="letter-spacing: -0.02em; color: var(--brand-primary);">{{ settings.get('system_name', 'USTED SYSTEM') }}</span>
+                <span class="fs-4 fw-bold sidebar-header-text" style="letter-spacing: -0.02em; color: var(--brand-primary);">{{ settings.system_name or settings.get('system_name', 'USTED SYSTEM') }}</span>
             </a>
         </div>
 
@@ -778,6 +778,60 @@
             });
         }
     </script>
+
+    <!-- LIVE SETTINGS SYNC: Polls /api/get_theme to dynamically update theme, logo, system name -->
+    <script>
+    (function() {
+        let _lastTheme = '';
+        let _lastLogo = '';
+        let _lastName = '';
+
+        function syncSettings() {
+            fetch('/api/get_theme', {credentials: 'same-origin'})
+                .then(r => r.json())
+                .then(data => {
+                    // 1. Update theme (data-theme attribute on body)
+                    if (data.theme && data.theme !== _lastTheme) {
+                        document.body.setAttribute('data-theme', data.theme);
+                        _lastTheme = data.theme;
+                    }
+                    // 2. Update sidebar logo
+                    if (data.logo_url && data.logo_url !== _lastLogo) {
+                        document.querySelectorAll('.logo-container').forEach(logoContainer => {
+                            let img = logoContainer.querySelector('img');
+                            if (!img) {
+                                const iconDiv = logoContainer.querySelector('.bg-gradient');
+                                if (iconDiv) iconDiv.remove();
+                                img = document.createElement('img');
+                                img.className = 'me-2';
+                                img.style.cssText = 'max-height:40px;max-width:40px;object-fit:contain;';
+                                logoContainer.prepend(img);
+                            }
+                            img.src = data.logo_url;
+                        });
+                        _lastLogo = data.logo_url;
+                    }
+                    // 3. Update system name
+                    if (data.system_name && data.system_name !== _lastName) {
+                        document.querySelectorAll('.sidebar-header-text').forEach(el => {
+                            el.textContent = data.system_name;
+                        });
+                        _lastName = data.system_name;
+                    }
+                })
+                .catch(() => {}); // Silent fail
+        }
+
+        // Run immediately on page load, then poll every 5 seconds
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', syncSettings);
+        } else {
+            syncSettings();
+        }
+        setInterval(syncSettings, 5000);
+    })();
+    </script>
+
     <audio id="notificationSound" src="/assets/ringtone-you-would-be-glad-to-know.mp3" preload="auto"></audio>
     {% block scripts %}{% endblock %}
 

@@ -401,19 +401,43 @@ if _is_reloader_child or _is_production:
 def inject_now():
     """Inject common variables into all templates."""
     ctx = {'now': datetime.utcnow()}
-    # Inject live booking count (for sidebar badge) — only when logged in
     try:
         from flask import session as _s
+        _conn = get_db_connection()
+
+        # --- GLOBAL SETTINGS (logo, system_name, theme) for EVERY template ---
+        try:
+            _settings_rows = _conn.execute(
+                "SELECT setting_name, setting_value FROM app_settings"
+            ).fetchall()
+            _settings = {row['setting_name']: row['setting_value'] for row in _settings_rows}
+            # Make settings accessible as both dict keys AND dot-notation attributes
+            class SettingsDict(dict):
+                """Dict subclass that supports dot-notation access for Jinja2 templates."""
+                def __getattr__(self, key):
+                    return self.get(key)
+                def __setattr__(self, key, value):
+                    self[key] = value
+            ctx['settings'] = SettingsDict(_settings)
+        except Exception:
+            ctx['settings'] = {'system_name': 'USTED Counselling System', 'logo_url': '', 'active_theme': 'default'}
+
+        # --- Inject live booking count (for sidebar badge) — only when logged in ---
         if _s.get('logged_in'):
-            _conn = get_db_connection()
-            count = _conn.execute(
-                """SELECT COUNT(*) FROM BookingRequest
-                   WHERE status = 'Pending'"""
-            ).fetchone()[0]
-            _conn.close()
-            ctx['latest_booking_count'] = count
+            try:
+                count = _conn.execute(
+                    """SELECT COUNT(*) FROM BookingRequest
+                       WHERE status = 'Pending'
+                       AND reference NOT IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)"""
+                ).fetchone()[0]
+                ctx['latest_booking_count'] = count
+            except Exception:
+                ctx['latest_booking_count'] = 0
+
+        _conn.close()
     except Exception:
         ctx['latest_booking_count'] = 0
+        ctx['settings'] = {'system_name': 'USTED Counselling System', 'logo_url': '', 'active_theme': 'default'}
     return ctx
 
 
@@ -761,8 +785,8 @@ def get_theme():
         theme = settings.get('active_theme') or settings.get('theme_color') or 'default'
         return jsonify({
             'theme': theme,
-            'system_name': settings.get('system_name', 'AAMUSTED Guidance & Counselling'),
-            'logo_url': settings.get('logo_url', '/static/aamusted system_logo.png')
+            'system_name': settings.get('system_name') or 'AAMUSTED Guidance & Counselling',
+            'logo_url': settings.get('logo_url') or '/static/aamusted system_logo.png'
         })
     except:
         return jsonify({
@@ -5757,7 +5781,7 @@ def register_portal_booking(booking_id):
         )
         
         # 5. Update booking status
-        conn.execute("UPDATE BookingRequest SET status = 'Accepted' WHERE id = ?", (booking_id,))
+        conn.execute("UPDATE BookingRequest SET status = 'Accepted', accepted_at = CURRENT_TIMESTAMP WHERE id = ?", (booking_id,))
         
         conn.commit()
         from sync_engine import trigger_sync_immediate
@@ -6040,16 +6064,14 @@ def admin_bookings():
         per_page = 15
         offset = (page - 1) * per_page
         
-        conn = get_db_connection()
-        
         # Base queries - Separating by status (Pending = Recent, everything else = History)
         if tab == 'recent':
             # Only Pending bookings (new requests)
-            where_clause = "WHERE status = 'Pending' AND reference NOT IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)"
+            where_clause = "WHERE LOWER(status) = 'pending' AND reference NOT IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)"
             order_clause = "ORDER BY created_at DESC"
         elif tab == 'history':
             # Already Accepted, Declined or older processed ones
-            where_clause = "WHERE status != 'Pending' OR reference IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)"
+            where_clause = "WHERE LOWER(status) != 'pending' OR reference IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)"
             order_clause = "ORDER BY COALESCE(accepted_at, created_at) DESC"
         else: # 'all'
             where_clause = ""
@@ -6064,23 +6086,22 @@ def admin_bookings():
         bookings = []
         for b in bookings_raw:
             b_dict = dict(b)
+            original_full_name = b_dict.get('full_name')
             # GTEC REQUIRED: Identification while preserving namevisibility
-            clinical_id = get_clinical_id(b_dict.get('full_name'), b_dict.get('id'), b_dict.get('created_at'))
-            b_dict['masked_name'] = name_to_initials(b_dict.get('full_name'))
+            clinical_id = get_clinical_id(original_full_name, b_dict.get('id'), b_dict.get('created_at'))
+            b_dict['masked_name'] = name_to_initials(original_full_name)
             b_dict['clinical_id'] = clinical_id
             
-            # GTEC Compliance: Hide original full name
+            # GTEC Compliance: Hide original full name for view
             b_dict['full_name'] = b_dict['masked_name']
             
-            # Check by index, name, or email for safety
+            # Check by index, original name, or email for safety
             exists = conn.execute(
-                "SELECT 1 FROM Student WHERE index_number = ? OR name = ? OR (email = ? AND email IS NOT NULL AND email != '')",
-                (b_dict['index_number'], b_dict['masked_name'], b_dict.get('email', ''))
+                "SELECT 1 FROM Student WHERE (index_number IS NOT NULL AND index_number != '' AND index_number = ?) OR name = ? OR (email IS NOT NULL AND email != '' AND email = ?)",
+                (b_dict.get('index_number'), original_full_name, b_dict.get('email', ''))
             ).fetchone()
             b_dict['is_registered'] = True if exists else False
             bookings.append(b_dict)
-        
-        total = conn.execute(f"SELECT COUNT(*) FROM BookingRequest {where_clause}").fetchone()[0]
         total_pages = (total + per_page - 1) // per_page
         
         pending_count = conn.execute(
@@ -6111,7 +6132,7 @@ def admin_bookings():
 @login_required
 def accept_booking(booking_id):
     """Accept a booking: create an Appointment record and mark as Accepted."""
-    if session.get('role') not in ['Secretary', 'Admin', 'Counsellor']:
+    if session.get('role') not in ['Secretary', 'Admin', 'Counsellor', 'Counselor']:
         flash('Permission denied.', 'error')
         return redirect(url_for('admin_bookings'))
     try:
@@ -6125,6 +6146,13 @@ def accept_booking(booking_id):
             conn.close()
             return redirect(url_for('admin_bookings'))
 
+        # Check if already accepted
+        if booking['status'] == 'Accepted':
+            flash('This booking has already been accepted.', 'info')
+            conn.close()
+            return redirect(url_for('admin_bookings'))
+
+        # Check if student exists by index_number first, then by original name
         student = conn.execute(
             "SELECT id FROM Student WHERE index_number = ?",
             (booking['index_number'],)
@@ -6132,11 +6160,12 @@ def accept_booking(booking_id):
 
         if not student:
             case_num = generate_case_number(conn, booking['full_name'])
+            s_gid = str(uuid.uuid4())
             conn.execute(
-                '''INSERT INTO Student (name, case_number, index_number, department, programme, contact, email, hall_of_residence)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-                (booking['full_name'], case_num, booking['index_number'],
-                 booking['department'], booking['programme'], booking['phone'], booking['email'], booking['hall_of_residence'])
+                '''INSERT INTO Student (name, case_number, global_id, index_number, department, programme, contact, email, hall_of_residence)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                (booking['full_name'], case_num, s_gid, booking['index_number'],
+                 booking['department'], booking['programme'], booking['phone'], booking['email'], booking.get('hall_of_residence'))
             )
             conn.commit()
             student = conn.execute(
@@ -6148,22 +6177,30 @@ def accept_booking(booking_id):
             "SELECT id FROM Counsellor LIMIT 1").fetchone()
         counsellor_id = counsellor['id'] if counsellor else None
 
+        appt_gid = str(uuid.uuid4())
         conn.execute(
-            '''INSERT INTO Appointment (student_id, Counsellor_id, date, time, purpose, status, booking_ref)
-               VALUES (?, ?, ?, ?, ?, 'Scheduled', ?)''',
+            '''INSERT INTO Appointment (student_id, Counsellor_id, date, time, purpose, status, booking_ref, global_id)
+               VALUES (?, ?, ?, ?, ?, 'Scheduled', ?, ?)''',
             (student['id'], counsellor_id,
-             booking['preferred_date'] or datetime.now().strftime(
-                 '%Y-%m-%d'),
+             booking['preferred_date'] or datetime.now().strftime('%Y-%m-%d'),
              booking['preferred_time'] or '09:00',
              f"[Booked via Portal] {booking['reason'] or 'Counselling session'}",
-             booking['reference'])
+             booking['reference'], appt_gid)
         )
         conn.execute(
-            "UPDATE BookingRequest SET status = 'Accepted' WHERE id = ?",
+            "UPDATE BookingRequest SET status = 'Accepted', accepted_at = CURRENT_TIMESTAMP WHERE id = ?",
             (booking_id,)
         )
         conn.commit()
         conn.close()
+
+        # Trigger sync to push changes to cloud
+        try:
+            from sync_engine import trigger_sync_immediate
+            trigger_sync_immediate()
+        except Exception:
+            pass
+
         flash(
             f'Booking {booking["reference"]} accepted and appointment created.', 'success')
     except Exception as e:
