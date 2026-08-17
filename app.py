@@ -6073,6 +6073,8 @@ def admin_bookings():
         tab = request.args.get('tab', 'recent')
         per_page = 15
         offset = (page - 1) * per_page
+
+        conn = get_db_connection()
         
         # Base queries - Separating by status (Pending = Recent, everything else = History)
         if tab == 'recent':
@@ -6086,6 +6088,10 @@ def admin_bookings():
         else: # 'all'
             where_clause = ""
             order_clause = "ORDER BY created_at DESC"
+
+        total = conn.execute(
+            f"SELECT COUNT(*) FROM BookingRequest {where_clause}"
+        ).fetchone()[0]
             
         bookings_raw = conn.execute(
             f"SELECT * FROM BookingRequest {where_clause} {order_clause} LIMIT ? OFFSET ?",
