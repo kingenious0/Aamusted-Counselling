@@ -1372,7 +1372,7 @@ def mark_notification_read(notification_id):
         conn = get_db_connection()
         user_id = session.get('user_id')
         # Only allow user to mark their own notifications
-        conn.execute("UPDATE Notification SET is_read = 1 WHERE id = ? AND user_id = ?",
+        conn.execute("UPDATE Notification SET is_read = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?",
                      (notification_id, user_id))
         conn.commit()
         conn.close()
@@ -1389,7 +1389,7 @@ def mark_all_notifications_read():
         conn = get_db_connection()
         user_id = session.get('user_id')
         conn.execute(
-            "UPDATE Notification SET is_read = 1 WHERE user_id = ?", (user_id,))
+            "UPDATE Notification SET is_read = 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?", (user_id,))
         conn.commit()
         conn.close()
         return jsonify({'status': 'success'})
@@ -1916,7 +1916,7 @@ def update_appt_status(appt_id, new_status):
         if clean_status == 'Completed':
             timestamp_col = 'completed_at'
 
-        sql = "UPDATE Appointment SET status = ?"
+        sql = "UPDATE Appointment SET status = ?, updated_at = CURRENT_TIMESTAMP"
         params = [clean_status]
 
         if timestamp_col:
@@ -2688,7 +2688,7 @@ def create_session():
 
                         # Update appointment status
                         if appointment_status.lower() in ['scheduled', 'sent to counsellor']:
-                            conn.execute('UPDATE Appointment SET status = ? WHERE id = ?',
+                            conn.execute('UPDATE Appointment SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
                                          ('Completed', appointment_id))
 
                         conn.commit()
@@ -5897,7 +5897,7 @@ def register_portal_booking(booking_id):
         )
         
         # 5. Update booking status
-        conn.execute("UPDATE BookingRequest SET status = 'Accepted', accepted_at = CURRENT_TIMESTAMP WHERE id = ?", (booking_id,))
+        conn.execute("UPDATE BookingRequest SET status = 'Accepted', accepted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (booking_id,))
         
         conn.commit()
         from sync_engine import trigger_sync_immediate
@@ -6314,7 +6314,7 @@ def accept_booking(booking_id):
              booking['reference'], appt_gid)
         )
         conn.execute(
-            "UPDATE BookingRequest SET status = 'Accepted', accepted_at = CURRENT_TIMESTAMP WHERE id = ?",
+            "UPDATE BookingRequest SET status = 'Accepted', accepted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (booking_id,)
         )
         conn.commit()
@@ -6346,7 +6346,7 @@ def decline_booking(booking_id):
         reason = request.form.get('decline_reason', '').strip()
         conn = get_db_connection()
         conn.execute(
-            "UPDATE BookingRequest SET status = 'Declined', decline_reason = ? WHERE id = ?",
+            "UPDATE BookingRequest SET status = 'Declined', decline_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (reason, booking_id)
         )
         conn.commit()
