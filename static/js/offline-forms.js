@@ -76,13 +76,15 @@
       Swal.fire({
         icon: 'info',
         title: 'Saved Offline',
-        html: `<strong>${label}</strong> has been saved locally.<br>It will sync automatically when you're back online.`,
-        confirmButtonText: 'OK',
-        timer: 4000,
+        html: `<strong>${label}</strong> saved locally.<br><small>It will sync automatically when you're back online.</small>`,
+        confirmButtonText: 'Got it',
+        timer: 5000,
         timerProgressBar: true,
         background: '#1e293b',
         color: '#e2e8f0',
-        iconColor: '#ffc107'
+        iconColor: '#ffc107',
+        position: 'top-end',
+        toast: true
       });
     } else {
       alert(`[Offline] ${label} saved locally. Will sync when online.`);
@@ -143,14 +145,9 @@
 
       notifyOffline(route.label);
 
-      // After a short delay, redirect back to the list page
-      setTimeout(() => {
-        // Try to find a list page to redirect to
-        const listPage = getListPage(pathname);
-        if (listPage) {
-          window.location.href = listPage;
-        }
-      }, 1500);
+      // Stay on current page - no redirect (avoids offline fallback page)
+      // The form resets itself and user sees the success toast
+      form.reset();
 
     } catch (err) {
       console.error('[OfflineForms] Error saving:', err);
