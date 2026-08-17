@@ -42,8 +42,10 @@
     <!-- SweetAlert2 (Local) -->
     <script src="{{ url_for('static', filename='js/sweetalert2.all.min.js') }}"></script>
 
-    <!-- Offline Storage & Supabase Sync Engine -->
+    <!-- Offline Storage & Background Sync -->
     <script src="{{ url_for('static', filename='js/db.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/offline-sync.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/offline-forms.js') }}"></script>
 
     <!-- Custom Modern Theme -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modern_theme.css') }}?v=2.2">
@@ -85,9 +87,10 @@
 
 <body data-theme="{{ settings.active_theme or settings.theme_color or 'default' }}">
 
-<!-- Desktop UI Connectivity Status Indicator -->
-<div id="connection-badge" style="position: fixed; bottom: 15px; right: 15px; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold; z-index: 9999; background: #28a745; color: #fff;">
-  🟢 Online (Synced)
+<!-- Offline Status Indicators -->
+<div style="position: fixed; bottom: 15px; right: 15px; z-index: 9999; display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+  <div id="sync-status-badge" style="padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; background: #28a745; color: #fff; display: none;"></div>
+  <div id="connection-badge" style="padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold; background: #28a745; color: #fff;">Online</div>
 </div>
 
     <!-- SIDEBAR -->

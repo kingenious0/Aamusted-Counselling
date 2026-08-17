@@ -621,6 +621,111 @@ def login_required(f):
     return decorated_function
 
 
+# ==========================================
+# BROWSER OFFLINE SYNC ENDPOINTS
+# Push from IndexedDB to SQLite, then auto-sync to cloud
+# ==========================================
+
+@app.route('/api/offline/sync', methods=['POST'])
+@login_required
+def offline_sync_push():
+    """Accept bulk offline changes from the browser IndexedDB and apply to SQLite."""
+    data = request.get_json() or {}
+    changes = data.get('changes', {})
+    if not changes:
+        return jsonify({'status': 'error', 'message': 'No changes provided'}), 400
+
+    applied = 0
+    errors = []
+    conn = get_db_connection()
+    try:
+        for table, records in changes.items():
+            for rec in records:
+                try:
+                    _upsert_record(conn, table, rec)
+                    applied += 1
+                except Exception as e:
+                    errors.append(f'{table}:{rec.get("id","?")}:{str(e)[:80]}')
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        conn.close()
+
+    return jsonify({'status': 'success', 'applied': applied, 'errors': errors[:10]})
+
+
+@app.route('/api/offline/pull', methods=['POST'])
+@login_required
+def offline_sync_pull():
+    """Return all data from SQLite for the browser to seed IndexedDB."""
+    data = request.get_json() or {}
+    since = data.get('last_sync_timestamp', '1970-01-01 00:00:00')
+
+    tables = [
+        'Student', 'Appointment', 'BookingRequest', 'session',
+        'Referral', 'CaseManagement', 'OutcomeQuestionnaire', 'DASS21',
+        'SessionIssue', 'Feedback', 'Notification', 'app_settings',
+        'Counsellor', 'users'
+    ]
+
+    changes = {}
+    total = 0
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    try:
+        for table in tables:
+            try:
+                if since and since != '1970-01-01 00:00:00':
+                    rows = conn.execute(
+                        f'SELECT * FROM "{table}" WHERE updated_at > ? OR created_at > ?',
+                        (since, since)
+                    ).fetchall()
+                else:
+                    rows = conn.execute(f'SELECT * FROM "{table}"').fetchall()
+                if rows:
+                    changes[table] = [dict(r) for r in rows]
+                    total += len(rows)
+            except Exception:
+                pass  # Table may not exist yet
+    finally:
+        conn.close()
+
+    from datetime import datetime as _dt
+    return jsonify({
+        'status': 'success',
+        'changes': changes,
+        'count': total,
+        'server_time': _dt.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    })
+
+
+def _upsert_record(conn, table, rec):
+    """Insert or update a single record in the given table (LWW merge)."""
+    cursor = conn.cursor()
+    rec = {k: v for k, v in rec.items() if not k.startswith('_')}
+    if not rec or not rec.get('id'):
+        return
+
+    if table == 'app_settings':
+        conflict_key = 'setting_name'
+    elif table == 'BookingRequest':
+        conflict_key = 'reference'
+    else:
+        conflict_key = 'global_id' if 'global_id' in rec else 'id'
+
+    cols = list(rec.keys())
+    vals = [rec[c] for c in cols]
+    placeholders = ', '.join(['?'] * len(cols))
+    update_clause = ', '.join([f'"{c}" = excluded."{c}"' for c in cols if c != conflict_key])
+
+    sql = f'''INSERT INTO "{table}" ({', '.join([f'"{c}"' for c in cols])})
+              VALUES ({placeholders})
+              ON CONFLICT ("{conflict_key}") DO UPDATE SET {update_clause}'''
+    cursor.execute(sql, vals)
+
+
 def name_to_initials(name_input):
     """Converts a full name to clinical initials for GTEC compliance."""
     if not name_input: return "???"
