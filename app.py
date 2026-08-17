@@ -428,7 +428,8 @@ def inject_now():
                 count = _conn.execute(
                     """SELECT COUNT(*) FROM BookingRequest
                        WHERE status = 'Pending'
-                       AND reference NOT IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)"""
+                       AND reference NOT IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)
+                       AND (index_number IS NULL OR index_number = '' OR index_number NOT IN (SELECT COALESCE(index_number, '') FROM Student WHERE index_number IS NOT NULL AND index_number != ''))"""
                 ).fetchone()[0]
                 ctx['latest_booking_count'] = count
             except Exception:
@@ -1575,6 +1576,7 @@ def dashboard():
                 SELECT * FROM BookingRequest
                 WHERE LOWER(status) = 'pending'
                 AND reference NOT IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)
+                AND (index_number IS NULL OR index_number = '' OR index_number NOT IN (SELECT COALESCE(index_number, '') FROM Student WHERE index_number IS NOT NULL AND index_number != ''))
                 ORDER BY created_at DESC
                 LIMIT 10
             ''').fetchall()
@@ -6075,12 +6077,16 @@ def admin_bookings():
         
         # Base queries - Separating by status (Pending = Recent, everything else = History)
         if tab == 'recent':
-            # Only Pending bookings (new requests)
-            where_clause = "WHERE LOWER(status) = 'pending' AND reference NOT IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)"
+            # Only Pending bookings that haven't been accepted AND whose student isn't already registered
+            where_clause = """WHERE LOWER(status) = 'pending' 
+                AND reference NOT IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)
+                AND (index_number IS NULL OR index_number = '' OR index_number NOT IN (SELECT COALESCE(index_number, '') FROM Student WHERE index_number IS NOT NULL AND index_number != ''))"""
             order_clause = "ORDER BY created_at DESC"
         elif tab == 'history':
-            # Already Accepted, Declined or older processed ones
-            where_clause = "WHERE LOWER(status) != 'pending' OR reference IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)"
+            # Already Accepted, Declined, registered students, or older processed ones
+            where_clause = """WHERE LOWER(status) != 'pending' 
+                OR reference IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)
+                OR (index_number IS NOT NULL AND index_number != '' AND index_number IN (SELECT COALESCE(index_number, '') FROM Student WHERE index_number IS NOT NULL AND index_number != ''))"""
             order_clause = "ORDER BY COALESCE(accepted_at, created_at) DESC"
         else: # 'all'
             where_clause = ""
@@ -6123,7 +6129,9 @@ def admin_bookings():
         
         # Also need count for the tabs
         recent_count = conn.execute(
-            "SELECT COUNT(*) FROM BookingRequest WHERE status = 'Pending' AND reference NOT IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)"
+            """SELECT COUNT(*) FROM BookingRequest WHERE status = 'Pending' 
+               AND reference NOT IN (SELECT COALESCE(booking_ref, '') FROM Appointment WHERE booking_ref IS NOT NULL)
+               AND (index_number IS NULL OR index_number = '' OR index_number NOT IN (SELECT COALESCE(index_number, '') FROM Student WHERE index_number IS NOT NULL AND index_number != ''))"""
         ).fetchone()[0]
         
         conn.close()
