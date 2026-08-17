@@ -420,17 +420,26 @@ def merge_record(cursor, table, remote_record):
         return
 
     # Check local version
-    query = f"SELECT updated_at FROM {table} WHERE {key_field} = ?"
+    query = f"SELECT updated_at, last_synced_at FROM {table} WHERE {key_field} = ?"
     local = cursor.execute(query, (key_value,)).fetchone()
     
     should_apply = False
     if local is None:
         should_apply = True
     else:
-        # Remote is newer than local (using string comparison for ISO timestamps)
+        local_updated = local[0] or '1970-01-01 00:00:00'
+        local_synced = local[1] or '1970-01-01 00:00:00'
         remote_ts = remote_record.get('updated_at', '1970-01-01 00:00:00')
-        local_ts = local[0] or '1970-01-01 00:00:00'
-        if remote_ts > local_ts:
+        
+        # Only apply if remote is strictly newer than local updated_at
+        if remote_ts > local_updated:
+            # EXTRA SAFETY: If local was modified AFTER our last push, the local
+            # version is authoritative (we pushed it, then someone edited locally).
+            # Only skip if local was modified after last_synced_at (meaning it's
+            # a local change that hasn't been pushed yet).
+            if local_updated > local_synced:
+                logger.debug(f"Skipping {table}:{key_value} — local modified after last push")
+                return
             should_apply = True
 
     if should_apply:

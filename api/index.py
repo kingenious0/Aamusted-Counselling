@@ -198,7 +198,18 @@ def push_changes():
                         conflict_target = "reference"
                     else:
                         conflict_target = "global_id"
-                        
+                    
+                    # LWW: Only overwrite if incoming record is newer
+                    incoming_ts = clean_record.get('updated_at', '1970-01-01 00:00:00')
+                    cur.execute(
+                        f'SELECT updated_at FROM "{table}" WHERE "{conflict_target}" = %s',
+                        (clean_record.get(conflict_target),)
+                    )
+                    existing = cur.fetchone()
+                    if existing and existing[0] and incoming_ts and incoming_ts <= str(existing[0]):
+                        stats[table] += 1  # Count as handled but skipped
+                        continue  # Local is newer or same — skip
+                    
                     placeholders = ", ".join(["%s"] * len(cols))
                     update_stmt = ", ".join([f'"{c}" = EXCLUDED."{c}"' for c in cols if c != conflict_target])
                     
