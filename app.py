@@ -448,8 +448,6 @@ def inject_now():
 def nl2br(value):
     if value:
         return value.replace('\n', '<br>')
-    if value:
-        return value.replace('\n', '<br>')
     return ''
 
 @app.template_filter('format_datetime')
@@ -1030,6 +1028,7 @@ def wipe_clinical_data():
         return jsonify({'error': 'Unauthorized'}), 403
         
     try:
+        import requests as _requests
         config = node_config.load_config()
         cloud_url = config.get('cloud_api_url')
         api_key = config.get('cloud_api_key')
@@ -1044,7 +1043,7 @@ def wipe_clinical_data():
             'Feedback', 'SessionIssue', 'Notification', 'BookingRequest'
         ]
         
-        resp = requests.post(
+        resp = _requests.post(
             f"{cloud_url}/wipe", 
             json={"tables": clinical_tables, "api_key": api_key},
             headers={"X-API-KEY": api_key},
@@ -1252,10 +1251,6 @@ def audit_logs():
             ORDER BY al.created_at DESC LIMIT 100
         ''').fetchall()
         conn.close()
-        return render_template('audit_logs.html', logs=logs)
-    except Exception as e:
-        flash(f"Error loading logs: {e}", "error")
-        return redirect(url_for('dashboard'))
         return render_template('audit_logs.html', logs=logs)
     except Exception as e:
         flash(f"Error loading logs: {e}", "error")
@@ -2498,7 +2493,9 @@ def sessions_list():
             sess_dict = dict(sess)
             
             # GTEC REQUIREMENT: Always mask name for display
-            sess_dict['student_name'] = name_to_initials(sess_dict.get('student_name'))
+            original_name = sess_dict.get('student_name')
+            clinical_id = get_clinical_id(original_name, sess_dict.get('student_record_id'), sess_dict.get('student_created_at'))
+            sess_dict['student_name'] = name_to_initials(original_name)
             sess_dict['student_clinical_id'] = clinical_id
             sess_dict['professional_id'] = sess_dict.get('case_number') or clinical_id
             # Clean display dates/times
@@ -5079,6 +5076,8 @@ def print_referral(id):
         WHERE r.id = ?
     ''', (id,)).fetchone()
 
+            referral_dict = dict(referral) if referral else None
+
             # Parse reasons from comma-separated string
             reasons_str = referral['reasons'] or ''
             referral_reasons_list = [r.strip()
@@ -5819,9 +5818,7 @@ def run_auto_sync_loop():
             if peer_ip:
                 # Trigger sync silently
                 # We use a slight delay or check to avoid spamming if offline
-                result = trigger_sync()
-                if result.get('status') == 'success' and result.get('count', 0) > 0:
-                    print(f"[AUTO-SYNC] Synced {result['count']} records.")
+                trigger_sync_immediate()
 
         except Exception as e:
             print(f"[AUTO-SYNC] Error: {e}")
