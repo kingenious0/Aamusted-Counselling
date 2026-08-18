@@ -2936,25 +2936,6 @@ def update_appointment_status(appointment_id):
     new_status = request.form.get('status', '')
     return redirect(url_for('update_appt_status', appt_id=appointment_id, new_status=new_status))
 
-@app.route("/student_profile/<int:id>")
-@login_required
-def student_profile(id):
-    student = None
-    try:
-        conn = get_db()
-        cur = dict_cursor(conn)
-        cur.execute('SELECT * FROM "Student" WHERE id = %s', (id,))
-        student = cur.fetchone()
-        if student:
-            for k, v in student.items():
-                if isinstance(v, (datetime, date)):
-                    student[k] = v.isoformat()
-        cur.close()
-        conn.close()
-    except Exception:
-        pass
-    return render_template('students.html', students=[student] if student else [])
-
 @app.route("/delete_student/<int:student_id>", methods=["POST"])
 @login_required
 def delete_student(student_id):
