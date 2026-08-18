@@ -1178,26 +1178,35 @@ def admin_users():
     return render_template('admin_users.html', users=users)
 
 
-@app.route("/admin/users/add", methods=["POST"])
+@app.route("/admin/users/add", methods=["GET", "POST"])
 @login_required
 def admin_user_add():
     if session.get('role') != 'Admin':
-        return jsonify({"error": "Unauthorized"}), 403
+        flash("Unauthorized", "error")
+        return redirect(url_for('dashboard'))
+    if request.method == "GET":
+        return render_template('admin_users.html', users=[], show_add_form=True)
     try:
         from werkzeug.security import generate_password_hash
         conn = get_db()
         cur = conn.cursor()
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        full_name = request.form.get('full_name', '').strip()
+        role = request.form.get('role', 'Counsellor')
+        if not username or not password:
+            flash("Username and password are required", "error")
+            return redirect(url_for('admin_users'))
         cur.execute(
             "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
-            (request.form.get('username', ''), generate_password_hash(request.form.get('password', '')),
-             request.form.get('full_name', ''), request.form.get('role', 'Counsellor')),
+            (username, generate_password_hash(password), full_name, role),
         )
         conn.commit()
         cur.close()
         conn.close()
-        flash("User created", "success")
+        flash("User created successfully", "success")
     except Exception as e:
-        flash(f"Error: {e}", "error")
+        flash(f"Error creating user: {e}", "error")
     return redirect(url_for('admin_users'))
 
 
@@ -1630,14 +1639,51 @@ def export_master():
 def import_template(import_type):
     return redirect(url_for('import_csv'))
 
-@app.route("/admin/users/reset_password", methods=["POST"])
-@login_required
-def reset_password():
-    flash("Password reset feature available in Vercel dashboard", "success")
-    return redirect(url_for('admin_users'))
-
 @app.route("/admin/users/edit", methods=["POST"])
 @login_required
 def edit_user():
-    flash("User edited", "success")
+    if session.get('role') != 'Admin':
+        flash("Unauthorized", "error")
+        return redirect(url_for('dashboard'))
+    try:
+        user_id = request.form.get('user_id')
+        full_name = request.form.get('full_name', '').strip()
+        if not user_id:
+            flash("Missing user ID", "error")
+            return redirect(url_for('admin_users'))
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("UPDATE users SET full_name = %s, updated_at = NOW() WHERE id = %s", (full_name, user_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("User updated successfully", "success")
+    except Exception as e:
+        flash(f"Error updating user: {e}", "error")
+    return redirect(url_for('admin_users'))
+
+
+@app.route("/admin/users/reset_password", methods=["POST"])
+@login_required
+def reset_password():
+    if session.get('role') != 'Admin':
+        flash("Unauthorized", "error")
+        return redirect(url_for('dashboard'))
+    try:
+        from werkzeug.security import generate_password_hash
+        user_id = request.form.get('user_id')
+        new_password = request.form.get('new_password', '')
+        if not user_id or not new_password:
+            flash("Missing user ID or password", "error")
+            return redirect(url_for('admin_users'))
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("UPDATE users SET password_hash = %s, updated_at = NOW() WHERE id = %s",
+                    (generate_password_hash(new_password), user_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("Password reset successfully", "success")
+    except Exception as e:
+        flash(f"Error resetting password: {e}", "error")
     return redirect(url_for('admin_users'))

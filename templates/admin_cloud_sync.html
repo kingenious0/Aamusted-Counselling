@@ -1,54 +1,18 @@
 {% set active_page = 'admin_cloud_sync' %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cloud Sync - AAMUSTED Counselling</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body { background: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; }
-        .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: #1e293b; border-right: 1px solid #334155; padding: 20px 0; overflow-y: auto; z-index: 100; }
-        .sidebar-brand { padding: 0 20px 20px; border-bottom: 1px solid #334155; }
-        .sidebar-brand h4 { color: #f8fafc; font-size: 16px; margin: 0; font-weight: 700; }
-        .sidebar-brand small { color: #64748b; font-size: 12px; }
-        .sidebar-nav { padding: 12px 0; }
-        .sidebar-nav a { display: flex; align-items: center; padding: 10px 20px; color: #94a3b8; text-decoration: none; font-size: 14px; transition: all 0.2s; }
-        .sidebar-nav a:hover, .sidebar-nav a.active { background: rgba(37,99,235,0.15); color: #60a5fa; }
-        .sidebar-nav a i { width: 20px; margin-right: 10px; text-align: center; }
-        .sidebar-nav .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #475569; padding: 16px 20px 6px; font-weight: 600; }
-        .main-content { margin-left: 260px; padding: 24px 32px; min-height: 100vh; }
-        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
-        .topbar h2 { font-size: 22px; font-weight: 700; margin: 0; }
-        .user-badge { display: flex; align-items: center; gap: 8px; color: #94a3b8; font-size: 14px; }
-        .card-dark { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; margin-bottom: 20px; }
-        .card-dark h3 { font-size: 18px; font-weight: 600; margin: 0 0 16px; }
-        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #334155; }
+{% extends 'base.html' %}
+{% block title %}Cloud Sync - AAMUSTED Counselling{% endblock %}
+{% block heading %}<i class="fas fa-cloud me-2" style="color:#60a5fa"></i>Cloud Sync{% endblock %}
+{% block extra_css %}
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e2d9c8; }
         .stat-row:last-child { border-bottom: none; }
-        .stat-label { color: #94a3b8; font-size: 13px; }
-        .stat-value { font-weight: 600; font-size: 14px; }
-        .badge-online { background: rgba(34,197,94,0.15); color: #4ade80; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-        .badge-offline { background: rgba(239,68,68,0.15); color: #f87171; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .stat-label { color: #6b7280; font-size: 13px; }
+        .stat-value { font-weight: 600; font-size: 14px; color: #1a202c; }
+        .badge-online { background: rgba(34,197,94,0.15); color: #16a34a; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .badge-offline { background: rgba(239,68,68,0.15); color: #dc2626; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
         .btn-sync { background: #2563eb; border: none; border-radius: 10px; padding: 10px 24px; font-weight: 600; color: #fff; }
         .btn-sync:hover { background: #1d4ed8; color: #fff; }
-        .logout-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px; }
-        .logout-btn:hover { color: #f87171; }
-    </style>
-</head>
-<body>
-    {% include '_sidebar.html' %}
-
-    <div class="main-content">
-        <div class="topbar">
-            <h2><i class="fas fa-cloud me-2" style="color:#60a5fa"></i>Cloud Sync</h2>
-            <div class="user-badge">
-                <i class="fas fa-user-circle"></i>
-                {{ session.get('full_name', session.get('username', '')) }}
-                <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i></a>
-            </div>
-        </div>
-
+{% endblock %}
+{% block content %}
         <div class="row">
             <div class="col-lg-6">
                 <div class="card-dark">
@@ -76,7 +40,7 @@
                     <p class="text-muted" style="font-size:13px;">In Vercel mode, Supabase is the primary database. There is no separate local SQLite database.</p>
                     <div class="stat-row">
                         <span class="stat-label">Mode</span>
-                        <span class="stat-value" style="color:#60a5fa;">Cloud (Vercel)</span>
+                        <span class="stat-value" style="color:#2563eb;">Cloud (Vercel)</span>
                     </div>
                     <div class="stat-row">
                         <span class="stat-label">Backend</span>
@@ -101,9 +65,9 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <script>
+{% endblock %}
+{% block scripts %}
+<script>
     async function refreshStats() {
         try {
             const resp = await fetch('/api/admin/cloud_proxy/stats');
@@ -130,6 +94,5 @@
         } catch (e) {}
     }
     refreshStats();
-    </script>
-</body>
-</html>
+</script>
+{% endblock %}

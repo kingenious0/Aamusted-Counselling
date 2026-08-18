@@ -19,7 +19,7 @@
 
     {# ── Clients section (Admin, Secretary, Counsellor) ── #}
     <nav class="sidebar-nav">
-        <div class="px-3 py-1" style="font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:1px;">Clients</div>
+        <div class="px-3 py-1" style="font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Clients</div>
         <a href="/students" class="{{ 'active' if active_page == 'students' }}">
             <i class="fas fa-users"></i>Client Registry
         </a>
@@ -30,7 +30,7 @@
 
     {# ── Appointments section (Admin, Secretary, Counsellor) ── #}
     <nav class="sidebar-nav">
-        <div class="px-3 py-1" style="font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:1px;">Appointments</div>
+        <div class="px-3 py-1" style="font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Appointments</div>
         <a href="/appointment" class="{{ 'active' if active_page == 'appointment' }}">
             <i class="fas fa-calendar-plus"></i>Schedule Appointment
         </a>
@@ -48,7 +48,7 @@
     {# ── Clinical section (Admin, Counsellor ONLY) ── #}
     {% if is_admin or is_counsellor %}
     <nav class="sidebar-nav">
-        <div class="px-3 py-1" style="font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:1px;">Clinical</div>
+        <div class="px-3 py-1" style="font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Clinical</div>
         <a href="/sessions" class="{{ 'active' if active_page == 'sessions' }}">
             <i class="fas fa-notes-medical"></i>Session Log
         </a>
@@ -85,7 +85,7 @@
     {# ── Configuration (Secretary, Counsellor) ── #}
     {% if is_secretary or is_counsellor %}
     <nav class="sidebar-nav">
-        <div class="px-3 py-1" style="font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:1px;">Configuration</div>
+        <div class="px-3 py-1" style="font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Configuration</div>
         <a href="/import_csv" class="{{ 'active' if active_page == 'import' }}">
             <i class="fas fa-file-import"></i>Import Data
         </a>
@@ -98,7 +98,7 @@
     {# ── Governance (Admin ONLY) ── #}
     {% if is_admin %}
     <nav class="sidebar-nav">
-        <div class="px-3 py-1" style="font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:1px;">Governance</div>
+        <div class="px-3 py-1" style="font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Governance</div>
         <a href="/admin/users" class="{{ 'active' if active_page == 'users' }}">
             <i class="fas fa-users-cog"></i>Access Control
         </a>
@@ -118,7 +118,7 @@
     {% endif %}
 
     {# ── Footer ── #}
-    <nav class="sidebar-nav" style="border-top: 1px solid #334155; margin-top: 12px; padding-top: 12px;">
+    <nav class="sidebar-nav" style="border-top: 1px solid #2d4a6f; margin-top: 12px; padding-top: 12px;">
         <a href="/profile" class="{{ 'active' if active_page == 'profile' }}">
             <i class="fas fa-user-circle"></i>My Profile
         </a>

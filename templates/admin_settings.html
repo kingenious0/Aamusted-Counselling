@@ -1,55 +1,14 @@
 {% set active_page = 'admin_settings' %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Settings - AAMUSTED Counselling</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body { background: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; }
-        .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: #1e293b; border-right: 1px solid #334155; padding: 20px 0; overflow-y: auto; z-index: 100; }
-        .sidebar-brand { padding: 0 20px 20px; border-bottom: 1px solid #334155; }
-        .sidebar-brand h4 { color: #f8fafc; font-size: 16px; margin: 0; font-weight: 700; }
-        .sidebar-brand small { color: #64748b; font-size: 12px; }
-        .sidebar-nav { padding: 12px 0; }
-        .sidebar-nav a { display: flex; align-items: center; padding: 10px 20px; color: #94a3b8; text-decoration: none; font-size: 14px; transition: all 0.2s; }
-        .sidebar-nav a:hover, .sidebar-nav a.active { background: rgba(37,99,235,0.15); color: #60a5fa; }
-        .sidebar-nav a i { width: 20px; margin-right: 10px; text-align: center; }
-        .sidebar-nav .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #475569; padding: 16px 20px 6px; font-weight: 600; }
-        .main-content { margin-left: 260px; padding: 24px 32px; min-height: 100vh; }
-        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
-        .topbar h2 { font-size: 22px; font-weight: 700; margin: 0; }
-        .user-badge { display: flex; align-items: center; gap: 8px; color: #94a3b8; font-size: 14px; }
-        .card-dark { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; margin-bottom: 20px; }
-        .card-dark h3 { font-size: 18px; font-weight: 600; margin: 0 0 16px; }
-        .form-label { color: #94a3b8; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
-        .form-control, .form-select { background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 10px; padding: 10px 14px; }
-        .form-control:focus, .form-select:focus { background: #0f172a; border-color: #2563eb; color: #f8fafc; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
-        .btn-primary { background: #2563eb; border: none; border-radius: 10px; padding: 10px 24px; font-weight: 600; }
-        .btn-primary:hover { background: #1d4ed8; }
+{% extends 'base.html' %}
+{% block title %}Settings - AAMUSTED Counselling{% endblock %}
+{% block heading %}<i class="fas fa-cog me-2" style="color:#60a5fa"></i>System Settings{% endblock %}
+{% block extra_css %}
         .theme-option { display: inline-block; width: 36px; height: 36px; border-radius: 50%; margin: 4px; cursor: pointer; border: 3px solid transparent; transition: all 0.2s; }
-        .theme-option:hover, .theme-option.active { border-color: #f8fafc; transform: scale(1.15); }
-        .logo-preview { width: 80px; height: 80px; border-radius: 14px; object-fit: contain; background: #0f172a; border: 1px solid #334155; }
-        .alert-box { background: rgba(37,99,235,0.1); border: 1px solid rgba(37,99,235,0.3); border-radius: 10px; padding: 14px 18px; font-size: 13px; color: #60a5fa; margin-bottom: 20px; }
-        .logout-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px; }
-        .logout-btn:hover { color: #f87171; }
-    </style>
-</head>
-<body>
-    {% include '_sidebar.html' %}
-
-    <div class="main-content">
-        <div class="topbar">
-            <h2><i class="fas fa-cog me-2" style="color:#60a5fa"></i>System Settings</h2>
-            <div class="user-badge">
-                <i class="fas fa-user-circle"></i>
-                {{ session.get('full_name', session.get('username', '')) }}
-                <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i></a>
-            </div>
-        </div>
-
+        .theme-option:hover, .theme-option.active { border-color: #1a202c; transform: scale(1.15); }
+        .logo-preview { width: 80px; height: 80px; border-radius: 14px; object-fit: contain; background: #f5f0e8; border: 1px solid #e2d9c8; }
+        .alert-box { background: rgba(37,99,235,0.08); border: 1px solid rgba(37,99,235,0.2); border-radius: 10px; padding: 14px 18px; font-size: 13px; color: #2563eb; margin-bottom: 20px; }
+{% endblock %}
+{% block content %}
         <div class="alert-box">
             <i class="fas fa-info-circle me-1"></i>
             Settings are synced across all devices via Supabase.
@@ -74,12 +33,11 @@
                                 <img src="{{ settings.get('logo_url') }}" class="logo-preview" alt="Logo">
                                 {% else %}
                                 <div class="logo-preview d-flex align-items-center justify-content-center">
-                                    <i class="fas fa-image" style="color:#475569; font-size:24px;"></i>
+                                    <i class="fas fa-image" style="color:#9ca3af; font-size:24px;"></i>
                                 </div>
                                 {% endif %}
                                 <div>
-                                    <input type="file" class="form-control" name="logo_file" accept="image/*"
-                                           style="background:#0f172a; border-color:#334155; color:#f8fafc;">
+                                    <input type="file" class="form-control" name="logo_file" accept="image/*">
                                     <small class="text-muted">PNG, JPG, WEBP, SVG (Max 2MB)</small>
                                 </div>
                             </div>
@@ -107,24 +65,24 @@
 
                     <div class="card-dark">
                         <h3><i class="fas fa-users me-2" style="color:#4ade80"></i>User Accounts</h3>
-                        <p class="text-muted mb-3" style="font-size:13px;">Manage user accounts in the Supabase Dashboard → Authentication → Users</p>
+                        <p class="text-muted mb-3" style="font-size:13px;">Manage user accounts in the Supabase Dashboard -> Authentication -> Users</p>
                         <div class="row g-3">
                             <div class="col-md-4">
-                                <div style="background:#0f172a; border-radius:10px; padding:14px; border:1px solid #334155;">
-                                    <div style="font-size:13px; color:#94a3b8;">Admin</div>
-                                    <div style="font-weight:600;">admin</div>
+                                <div style="background:#f5f0e8; border-radius:10px; padding:14px; border:1px solid #e2d9c8;">
+                                    <div style="font-size:13px; color:#6b7280;">Admin</div>
+                                    <div style="font-weight:600; color:#1a202c;">admin</div>
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <div style="background:#0f172a; border-radius:10px; padding:14px; border:1px solid #334155;">
-                                    <div style="font-size:13px; color:#94a3b8;">Secretary</div>
-                                    <div style="font-weight:600;">secretary</div>
+                                <div style="background:#f5f0e8; border-radius:10px; padding:14px; border:1px solid #e2d9c8;">
+                                    <div style="font-size:13px; color:#6b7280;">Secretary</div>
+                                    <div style="font-weight:600; color:#1a202c;">secretary</div>
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <div style="background:#0f172a; border-radius:10px; padding:14px; border:1px solid #334155;">
-                                    <div style="font-size:13px; color:#94a3b8;">Counsellor</div>
-                                    <div style="font-weight:600;">counsellor</div>
+                                <div style="background:#f5f0e8; border-radius:10px; padding:14px; border:1px solid #e2d9c8;">
+                                    <div style="font-size:13px; color:#6b7280;">Counsellor</div>
+                                    <div style="font-weight:600; color:#1a202c;">counsellor</div>
                                 </div>
                             </div>
                         </div>
@@ -134,11 +92,11 @@
                 <div class="col-lg-4">
                     <div class="card-dark">
                         <h3><i class="fas fa-info-circle me-2" style="color:#fbbf24"></i>System Info</h3>
-                        <div class="mb-2"><span style="color:#94a3b8;">Version:</span> 3.0 (Vercel)</div>
-                        <div class="mb-2"><span style="color:#94a3b8;">Database:</span> Supabase PostgreSQL</div>
-                        <div class="mb-2"><span style="color:#94a3b8;">Status:</span> <span style="color:#4ade80;">Online</span></div>
-                        <hr style="border-color:#334155;">
-                        <a href="/admin/cloud_sync" style="color:#60a5fa; font-size:13px; text-decoration:none;">
+                        <div class="mb-2"><span style="color:#6b7280;">Version:</span> 3.0 (Vercel)</div>
+                        <div class="mb-2"><span style="color:#6b7280;">Database:</span> Supabase PostgreSQL</div>
+                        <div class="mb-2"><span style="color:#6b7280;">Status:</span> <span style="color:#16a34a;">Online</span></div>
+                        <hr style="border-color:#e2d9c8;">
+                        <a href="/admin/cloud_sync" style="color:#2563eb; font-size:13px; text-decoration:none;">
                             <i class="fas fa-sync me-1"></i>Cloud Sync Status
                         </a>
                     </div>
@@ -151,6 +109,4 @@
                 </button>
             </div>
         </form>
-    </div>
-</body>
-</html>
+{% endblock %}

@@ -1,51 +1,10 @@
 {% set active_page = 'dashboard' %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - AAMUSTED Counselling</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body { background: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; }
-        .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: #1e293b; border-right: 1px solid #334155; padding: 20px 0; overflow-y: auto; z-index: 100; }
-        .sidebar-brand { padding: 0 20px 20px; border-bottom: 1px solid #334155; }
-        .sidebar-brand h4 { color: #f8fafc; font-size: 16px; margin: 0; font-weight: 700; }
-        .sidebar-brand small { color: #64748b; font-size: 12px; }
-        .sidebar-nav { padding: 12px 0; }
-        .sidebar-nav a { display: flex; align-items: center; padding: 10px 20px; color: #94a3b8; text-decoration: none; font-size: 14px; transition: all 0.2s; }
-        .sidebar-nav a:hover, .sidebar-nav a.active { background: rgba(37,99,235,0.15); color: #60a5fa; }
-        .sidebar-nav a i { width: 20px; margin-right: 10px; text-align: center; }
-        .sidebar-nav .badge { margin-left: auto; font-size: 11px; }
-        .main-content { margin-left: 260px; padding: 24px 32px; min-height: 100vh; }
-        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
-        .topbar h2 { font-size: 22px; font-weight: 700; margin: 0; }
-        .user-badge { display: flex; align-items: center; gap: 8px; color: #94a3b8; font-size: 14px; }
-        .stat-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; transition: transform 0.2s; }
-        .stat-card:hover { transform: translateY(-2px); }
-        .stat-card h3 { font-size: 32px; font-weight: 700; margin: 0; }
-        .stat-card p { color: #94a3b8; margin: 4px 0 0; font-size: 13px; }
-        .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 12px; }
-        .bg-blue { background: rgba(37,99,235,0.15); color: #60a5fa; }
-        .bg-green { background: rgba(34,197,94,0.15); color: #4ade80; }
-        .bg-amber { background: rgba(245,158,11,0.15); color: #fbbf24; }
-        .bg-purple { background: rgba(139,92,246,0.15); color: #a78bfa; }
-    </style>
-</head>
-<body>
-    {% include '_sidebar.html' %}
-
-    <div class="main-content">
-        <div class="topbar">
-            <h2>Dashboard {% if session.get('role') == 'Secretary' %}<small class="text-muted fs-6">- Desk Administrator</small>{% elif session.get('role') in ['Counsellor', 'Counselor'] %}<small class="text-muted fs-6">- Counsellor</small>{% endif %}</h2>
-            <div class="user-badge">
-                <i class="fas fa-user-circle"></i>
-                {{ session.get('full_name', session.get('username', '')) }}
-                <span class="badge bg-secondary">{{ session.get('role', '') }}</span>
-            </div>
-        </div>
-
+{% extends 'base.html' %}
+{% block title %}Dashboard - AAMUSTED Counselling{% endblock %}
+{% block heading %}
+Dashboard {% if session.get('role') == 'Secretary' %}<small class="text-muted fs-6">- Desk Administrator</small>{% elif session.get('role') in ['Counsellor', 'Counselor'] %}<small class="text-muted fs-6">- Counsellor</small>{% endif %}
+{% endblock %}
+{% block content %}
         {% set role = session.get('role', '') %}
         {% set is_admin = (role == 'Admin') %}
         {% set is_secretary = (role == 'Secretary') %}
@@ -54,14 +13,14 @@
         <div class="row g-4 mb-4">
             <div class="col-md-3">
                 <div class="stat-card">
-                    <div class="stat-icon bg-blue"><i class="fas fa-users"></i></div>
+                    <div class="stat-icon" style="background:rgba(37,99,235,0.15); color:#60a5fa;"><i class="fas fa-users"></i></div>
                     <h3>{{ stats.get('total_students', 0) }}</h3>
                     <p>Total Students</p>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="stat-card">
-                    <div class="stat-icon bg-green"><i class="fas fa-calendar"></i></div>
+                    <div class="stat-icon" style="background:rgba(34,197,94,0.15); color:#4ade80;"><i class="fas fa-calendar"></i></div>
                     <h3>{{ stats.get('total_appointments', 0) }}</h3>
                     <p>Appointments</p>
                 </div>
@@ -69,7 +28,7 @@
             {% if is_admin or is_counsellor %}
             <div class="col-md-3">
                 <div class="stat-card">
-                    <div class="stat-icon bg-purple"><i class="fas fa-comments"></i></div>
+                    <div class="stat-icon" style="background:rgba(139,92,246,0.15); color:#a78bfa;"><i class="fas fa-comments"></i></div>
                     <h3>{{ stats.get('total_sessions', 0) }}</h3>
                     <p>Sessions</p>
                 </div>
@@ -77,7 +36,7 @@
             {% endif %}
             <div class="col-md-3">
                 <div class="stat-card">
-                    <div class="stat-icon bg-amber"><i class="fas fa-clock"></i></div>
+                    <div class="stat-icon" style="background:rgba(245,158,11,0.15); color:#fbbf24;"><i class="fas fa-clock"></i></div>
                     <h3>{{ stats.get('pending_bookings', 0) }}</h3>
                     <p>Pending Bookings</p>
                 </div>
@@ -127,7 +86,7 @@
                     {% if notifications %}
                     <div class="list-group list-group-flush">
                         {% for n in notifications[:5] %}
-                        <div class="list-group-item" style="background: transparent; border-color: #334155; padding: 8px 0;">
+                        <div class="list-group-item" style="background: transparent; border-color: #e2d9c8; padding: 8px 0;">
                             <small class="text-muted">{{ n.created_at }}</small>
                             <p class="mb-0" style="font-size: 13px;">{{ n.message }}</p>
                         </div>
@@ -139,7 +98,7 @@
                 </div>
             </div>
         </div>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}

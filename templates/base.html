@@ -8,36 +8,36 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         * { box-sizing: border-box; }
-        body { background: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; }
-        .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: #1e293b; border-right: 1px solid #334155; padding: 20px 0; overflow-y: auto; z-index: 100; }
-        .sidebar-brand { padding: 0 20px 20px; border-bottom: 1px solid #334155; }
-        .sidebar-brand h4 { color: #f8fafc; font-size: 16px; margin: 0; font-weight: 700; }
-        .sidebar-brand small { color: #64748b; font-size: 12px; display: block; }
+        body { background: #f5f0e8; color: #1a202c; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; }
+        .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: #1e3a5f; border-right: 1px solid #2d4a6f; padding: 20px 0; overflow-y: auto; z-index: 100; }
+        .sidebar-brand { padding: 0 20px 20px; border-bottom: 1px solid #2d4a6f; }
+        .sidebar-brand h4 { color: #ffffff; font-size: 16px; margin: 0; font-weight: 700; }
+        .sidebar-brand small { color: #94a3b8; font-size: 12px; display: block; }
         .sidebar-nav { padding: 12px 0; }
-        .sidebar-nav a { display: flex; align-items: center; padding: 10px 20px; color: #94a3b8; text-decoration: none; font-size: 14px; transition: all 0.2s; }
-        .sidebar-nav a:hover, .sidebar-nav a.active { background: rgba(37,99,235,0.15); color: #60a5fa; }
+        .sidebar-nav a { display: flex; align-items: center; padding: 10px 20px; color: #e2e8f0; text-decoration: none; font-size: 14px; transition: all 0.2s; }
+        .sidebar-nav a:hover, .sidebar-nav a.active { background: rgba(96,165,250,0.15); color: #60a5fa; }
         .sidebar-nav a i { width: 20px; margin-right: 10px; text-align: center; }
-        .sidebar-nav .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #475569; padding: 16px 20px 6px; font-weight: 600; }
+        .sidebar-nav .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; padding: 16px 20px 6px; font-weight: 600; }
         .sidebar-nav .badge { margin-left: auto; font-size: 11px; }
         .main-content { margin-left: 260px; padding: 24px 32px; min-height: 100vh; }
         .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
-        .topbar h2 { font-size: 22px; font-weight: 700; margin: 0; }
-        .user-badge { display: flex; align-items: center; gap: 8px; color: #94a3b8; font-size: 14px; }
-        .card-dark { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; margin-bottom: 20px; }
-        .card-dark h3 { font-size: 18px; font-weight: 600; margin: 0 0 16px; }
-        .form-control, .form-select { background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 10px; padding: 10px 14px; }
-        .form-control:focus, .form-select:focus { background: #0f172a; border-color: #2563eb; color: #f8fafc; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
-        .form-control::placeholder { color: #64748b; }
-        .form-label { color: #94a3b8; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+        .topbar h2 { font-size: 22px; font-weight: 700; margin: 0; color: #1a202c; }
+        .user-badge { display: flex; align-items: center; gap: 8px; color: #6b7280; font-size: 14px; }
+        .card-dark { background: #ffffff; border: 1px solid #e2d9c8; border-radius: 14px; padding: 24px; margin-bottom: 20px; }
+        .card-dark h3 { font-size: 18px; font-weight: 600; margin: 0 0 16px; color: #1a202c; }
+        .form-control, .form-select { background: #f5f0e8; border: 1px solid #d4c5a9; color: #1a202c; border-radius: 10px; padding: 10px 14px; }
+        .form-control:focus, .form-select:focus { background: #fff; border-color: #2563eb; color: #1a202c; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+        .form-control::placeholder { color: #9ca3af; }
+        .form-label { color: #4b5563; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
         .btn-primary { background: #2563eb; border: none; border-radius: 10px; padding: 10px 24px; font-weight: 600; }
         .btn-primary:hover { background: #1d4ed8; }
         .btn-danger { background: #dc2626; border: none; border-radius: 10px; }
         .btn-success { background: #16a34a; border: none; border-radius: 10px; }
-        .table { color: #f8fafc; }
-        .table th { color: #94a3b8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; border-color: #334155; font-weight: 600; }
-        .table td { border-color: #1e293b; vertical-align: middle; font-size: 14px; }
+        .table { color: #1a202c; }
+        .table th { color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; border-color: #e2d9c8; font-weight: 600; }
+        .table td { border-color: #e2d9c8; vertical-align: middle; font-size: 14px; color: #1a202c; }
         .table tbody tr:hover { background: rgba(37,99,235,0.05); }
-        .empty-state { text-align: center; padding: 60px 20px; color: #64748b; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #9ca3af; }
         .empty-state i { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
         .empty-state p { font-size: 15px; margin: 0; }
         .badge-blue { background: rgba(37,99,235,0.15); color: #60a5fa; }
@@ -45,13 +45,13 @@
         .badge-amber { background: rgba(245,158,11,0.15); color: #fbbf24; }
         .badge-red { background: rgba(239,68,68,0.15); color: #f87171; }
         .badge-purple { background: rgba(139,92,246,0.15); color: #a78bfa; }
-        .stat-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; transition: transform 0.2s; }
+        .stat-card { background: #ffffff; border: 1px solid #e2d9c8; border-radius: 14px; padding: 24px; transition: transform 0.2s; }
         .stat-card:hover { transform: translateY(-2px); }
-        .stat-card h3 { font-size: 32px; font-weight: 700; margin: 0; }
-        .stat-card p { color: #94a3b8; margin: 4px 0 0; font-size: 13px; }
+        .stat-card h3 { font-size: 32px; font-weight: 700; margin: 0; color: #1a202c; }
+        .stat-card p { color: #6b7280; margin: 4px 0 0; font-size: 13px; }
         .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 12px; }
-        .logout-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px; text-decoration: none; }
-        .logout-btn:hover { color: #f87171; }
+        .logout-btn { background: none; border: none; color: #dc2626; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px; text-decoration: none; }
+        .logout-btn:hover { color: #ef4444; }
         {% block extra_css %}{% endblock %}
     </style>
 </head>
@@ -70,7 +70,7 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         {% for cat, msg in messages %}
-        <div class="alert alert-{{ 'danger' if cat == 'error' else cat }} d-flex align-items-center mb-3" role="alert" style="background:{{ 'rgba(239,68,68,0.1)' if cat == 'error' else 'rgba(37,99,235,0.1)' }}; border:1px solid {{ 'rgba(239,68,68,0.3)' if cat == 'error' else 'rgba(37,99,235,0.3)' }}; color:{{ '#f87171' if cat == 'error' else '#60a5fa' }};">
+        <div class="alert alert-{{ 'danger' if cat == 'error' else cat }} d-flex align-items-center mb-3" role="alert" style="background:{{ 'rgba(239,68,68,0.08)' if cat == 'error' else 'rgba(37,99,235,0.08)' }}; border:1px solid {{ 'rgba(239,68,68,0.2)' if cat == 'error' else 'rgba(37,99,235,0.2)' }}; color:{{ '#dc2626' if cat == 'error' else '#2563eb' }};">
             <i class="fas {{ 'fa-exclamation-circle' if cat == 'error' else 'fa-check-circle' }} me-2"></i>
             {{ msg }}
         </div>
