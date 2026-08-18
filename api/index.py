@@ -8,9 +8,6 @@ from functools import wraps
 
 from flask import Flask, request, jsonify, session, redirect, url_for, render_template, flash
 from flask_cors import CORS
-import psycopg2
-from psycopg2.extras import RealDictCursor
-from werkzeug.security import check_password_hash, generate_password_hash
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,19 +25,22 @@ CORS(app)
 
 BRIDGE_API_KEY = os.environ.get("BRIDGE_API_KEY", "sb_bridge_AnEpYo_2026")
 DATABASE_URL = os.environ.get("DATABASE_URL")
-
 _db_initialized = False
 
-# ── Database ────────────────────────────────────────────────────────
 
 def get_db():
+    import psycopg2
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL is missing in Vercel environment variables")
     if 'sslmode=' in DATABASE_URL:
         return psycopg2.connect(DATABASE_URL)
     return psycopg2.connect(DATABASE_URL, sslmode='require')
 
-# ── Auth decorators ─────────────────────────────────────────────────
+
+def dict_cursor(conn):
+    import psycopg2.extras
+    return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
 
 def login_required(f):
     @wraps(f)
@@ -52,6 +52,7 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated
 
+
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -61,8 +62,8 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+
 def roles_required(*allowed_roles):
-    """Decorator: allow only users whose role is in allowed_roles."""
     def decorator(f):
         @wraps(f)
         def decorated(*args, **kwargs):
@@ -73,66 +74,59 @@ def roles_required(*allowed_roles):
         return decorated
     return decorator
 
-# ── DB init (runs once per cold start) ──────────────────────────────
 
 def init_db():
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                full_name TEXT,
-                role TEXT NOT NULL DEFAULT 'Admin',
-                phone TEXT,
-                email TEXT,
-                profile_pic TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        cur.execute("SELECT id FROM users WHERE username = 'admin'")
-        if not cur.fetchone():
-            cur.execute(
-                "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
-                ('admin', generate_password_hash('admin123'), 'System Admin', 'Admin')
-            )
-        cur.execute("SELECT id FROM users WHERE username = 'secretary'")
-        if not cur.fetchone():
-            cur.execute(
-                "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
-                ('secretary', generate_password_hash('secretary123'), 'Desk Secretary', 'Secretary')
-            )
-        cur.execute("SELECT id FROM users WHERE username = 'counsellor'")
-        if not cur.fetchone():
-            cur.execute(
-                "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
-                ('counsellor', generate_password_hash('counsellor123'), 'Default Counsellor', 'Counsellor')
-            )
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS "Counsellor" (
-                id SERIAL PRIMARY KEY,
-                name TEXT NOT NULL,
-                contact TEXT,
-                specialization TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        cur.execute('SELECT id FROM "Counsellor" WHERE name = %s', ('Default Counsellor',))
-        if not cur.fetchone():
-            cur.execute(
-                'INSERT INTO "Counsellor" (name, contact) VALUES (%s, %s)',
-                ('Default Counsellor', '')
-            )
-        conn.commit()
-        cur.close()
-        conn.close()
-    except Exception as e:
-        logger.error(f"init_db error: {e}")
+    from werkzeug.security import generate_password_hash
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            full_name TEXT,
+            role TEXT NOT NULL DEFAULT 'Admin',
+            phone TEXT,
+            email TEXT,
+            profile_pic TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cur.execute("SELECT id FROM users WHERE username = 'admin'")
+    if not cur.fetchone():
+        cur.execute(
+            "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
+            ('admin', generate_password_hash('admin123'), 'System Admin', 'Admin')
+        )
+    cur.execute("SELECT id FROM users WHERE username = 'secretary'")
+    if not cur.fetchone():
+        cur.execute(
+            "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
+            ('secretary', generate_password_hash('secretary123'), 'Desk Secretary', 'Secretary')
+        )
+    cur.execute("SELECT id FROM users WHERE username = 'counsellor'")
+    if not cur.fetchone():
+        cur.execute(
+            "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
+            ('counsellor', generate_password_hash('counsellor123'), 'Default Counsellor', 'Counsellor')
+        )
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS "Counsellor" (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            contact TEXT,
+            specialization TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cur.execute('SELECT id FROM "Counsellor" WHERE name = %s', ('Default Counsellor',))
+    if not cur.fetchone():
+        cur.execute('INSERT INTO "Counsellor" (name, contact) VALUES (%s, %s)', ('Default Counsellor', ''))
+    conn.commit()
+    cur.close()
+    conn.close()
 
-# ── Lazy DB init (runs once on first request, not at import time) ───
 
 @app.before_request
 def _ensure_db():
@@ -145,7 +139,6 @@ def _ensure_db():
     except Exception as e:
         logger.error(f"Lazy init_db error: {e}")
 
-# ── Context processor ───────────────────────────────────────────────
 
 @app.context_processor
 def inject_globals():
@@ -183,16 +176,16 @@ def inject_globals():
         'notifications': notifications,
     }
 
-# ── Auth routes ─────────────────────────────────────────────────────
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
+        from werkzeug.security import check_password_hash
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
         try:
             conn = get_db()
-            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur = dict_cursor(conn)
             cur.execute("SELECT * FROM users WHERE username = %s", (username,))
             user = cur.fetchone()
             cur.close()
@@ -209,18 +202,19 @@ def login():
             flash(f'Login error: {e}', 'error')
     return render_template('login.html')
 
+
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
 
-# ── Dashboard ───────────────────────────────────────────────────────
 
 @app.route('/')
 def index():
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
+
 
 @app.route('/dashboard')
 @login_required
@@ -243,7 +237,6 @@ def dashboard():
         logger.error(f"dashboard: {e}")
     return render_template('dashboard.html', stats=stats)
 
-# ── Admin Bookings ──────────────────────────────────────────────────
 
 @app.route('/admin/bookings')
 @login_required
@@ -254,7 +247,7 @@ def admin_bookings():
     recent_count = history_count = all_count = 0
     try:
         conn = get_db()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = dict_cursor(conn)
 
         cur.execute("SELECT COUNT(*) FROM \"BookingRequest\" WHERE status IN ('Pending','Accepted')")
         recent_count = cur.fetchone()['count']
@@ -265,12 +258,12 @@ def admin_bookings():
 
         if tab == 'recent':
             cur.execute(
-                'SELECT * FROM "BookingRequest" WHERE status IN (\'Pending\',\'Accepted\') ORDER BY created_at DESC'
+                "SELECT * FROM \"BookingRequest\" WHERE status IN ('Pending','Accepted') ORDER BY created_at DESC"
             )
         elif tab == 'history':
-            cur.execute('SELECT * FROM "BookingRequest" WHERE status = \'Declined\' ORDER BY created_at DESC')
+            cur.execute("SELECT * FROM \"BookingRequest\" WHERE status = 'Declined' ORDER BY created_at DESC")
         else:
-            cur.execute('SELECT * FROM "BookingRequest" ORDER BY created_at DESC')
+            cur.execute("SELECT * FROM \"BookingRequest\" ORDER BY created_at DESC")
 
         bookings = cur.fetchall()
         for b in bookings:
@@ -300,13 +293,14 @@ def admin_bookings():
         current_tab=tab,
     )
 
+
 @app.route('/admin/bookings/<ref>/register')
 @login_required
 @roles_required('Admin', 'Secretary', 'Counsellor', 'Counselor')
 def register_booking(ref):
     try:
         conn = get_db()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = dict_cursor(conn)
 
         cur.execute('SELECT * FROM "BookingRequest" WHERE reference = %s', (ref,))
         booking = cur.fetchone()
@@ -382,6 +376,7 @@ def register_booking(ref):
         logger.error(f"register_booking: {e}")
         return jsonify({'error': str(e)}), 500
 
+
 @app.route('/admin/bookings/<ref>/decline', methods=['POST'])
 @login_required
 @roles_required('Admin', 'Secretary', 'Counsellor')
@@ -404,7 +399,6 @@ def decline_booking(ref):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# ── Client Registry ─────────────────────────────────────────────────
 
 @app.route('/students')
 @login_required
@@ -413,7 +407,7 @@ def students():
     students_list = []
     try:
         conn = get_db()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = dict_cursor(conn)
         if search:
             cur.execute(
                 """SELECT * FROM "Student"
@@ -421,7 +415,7 @@ def students():
                        name ILIKE %s OR case_number ILIKE %s OR
                        index_number ILIKE %s OR department ILIKE %s
                    ) ORDER BY created_at DESC""",
-                (f'%{search}%', f'%{search}%', f'{search}%', f'%{search}%'),
+                (f'%{search}%', f'%{search}%', f'%{search}%', f'%{search}%'),
             )
         else:
             cur.execute('SELECT * FROM "Student" WHERE is_deleted = FALSE ORDER BY created_at DESC')
@@ -436,10 +430,10 @@ def students():
         logger.error(f"students: {e}")
     return render_template('students.html', students=students_list, search=search)
 
-# ── Sync endpoints (unchanged) ──────────────────────────────────────
 
 def verify_api_key():
     return request.headers.get("X-API-KEY") == BRIDGE_API_KEY
+
 
 @app.route("/sync/stats", methods=["GET"])
 def sync_stats():
@@ -466,6 +460,7 @@ def sync_stats():
         return jsonify({"status": "success", "counts": counts})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/sync/push", methods=["POST"])
 def push_changes():
@@ -527,6 +522,7 @@ def push_changes():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/sync/pull", methods=["POST"])
 def pull_data():
     if not verify_api_key():
@@ -535,7 +531,7 @@ def pull_data():
     since = data.get("last_sync_timestamp")
     try:
         conn = get_db()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = dict_cursor(conn)
         tables = [
             'Student','Appointment','session','Referral','CaseManagement',
             'OutcomeQuestionnaire','DASS21','Feedback','SessionIssue',
@@ -570,7 +566,6 @@ def pull_data():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ── Public booking portal ───────────────────────────────────────────
 
 @app.route("/api/submit_booking", methods=["POST"])
 def portal_booking():
@@ -608,7 +603,6 @@ def portal_booking():
         logger.error(f"portal_booking: {e}")
         return jsonify({"error": str(e)}), 500
 
-# ── Health check ────────────────────────────────────────────────────
 
 @app.route("/health", methods=["GET"])
 def health_check():
