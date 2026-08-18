@@ -2,7 +2,7 @@
 // AAMUSTED GCC - Offline-First Service Worker v4
 // ═══════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'aamusted-v7';
+const CACHE_VERSION = 'aamusted-v8';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const PAGE_CACHE   = `${CACHE_VERSION}-pages`;
 const API_CACHE    = `${CACHE_VERSION}-api`;

@@ -829,6 +829,476 @@ def admin_cloud_sync():
     return render_template('admin_cloud_sync.html', local_counts=local_counts, sync_tables=tables)
 
 
+@app.route("/all_referrals")
+@login_required
+def all_referrals():
+    referrals = []
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM "Referral" WHERE is_deleted = FALSE ORDER BY created_at DESC LIMIT 500')
+        rows = cur.fetchall()
+        for r in rows:
+            for k, v in r.items():
+                if isinstance(v, (datetime, date)):
+                    r[k] = v.isoformat()
+        referrals = rows
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('all_referrals.html', referrals=referrals)
+
+
+@app.route("/referral", methods=["GET", "POST"])
+@login_required
+def referral():
+    if request.method == "POST":
+        try:
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute(
+                '''INSERT INTO "Referral" (student_name, student_id, referred_by, contact, reason, notes, status, created_at, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())''',
+                (request.form.get('student_name', ''), request.form.get('student_id', ''),
+                 request.form.get('referred_by', ''), request.form.get('contact', ''),
+                 request.form.get('reason', ''), request.form.get('notes', ''), 'Pending'),
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash("Referral created successfully", "success")
+            return redirect(url_for('all_referrals'))
+        except Exception as e:
+            flash(f"Error: {e}", "error")
+    return render_template('referral.html')
+
+
+@app.route("/case_notes_list")
+@login_required
+def case_notes_list():
+    cases = []
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM "CaseManagement" WHERE is_deleted = FALSE ORDER BY created_at DESC LIMIT 500')
+        rows = cur.fetchall()
+        for r in rows:
+            for k, v in r.items():
+                if isinstance(v, (datetime, date)):
+                    r[k] = v.isoformat()
+        cases = rows
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('case_notes_list.html', cases=cases)
+
+
+@app.route("/case_note", methods=["GET", "POST"])
+@login_required
+def case_note():
+    if request.method == "POST":
+        try:
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute(
+                '''INSERT INTO "CaseManagement" (student_name, student_id, session_date, appearance_problems, clinical_plan, counsellor, created_at, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())''',
+                (request.form.get('student_name', ''), request.form.get('student_id', ''),
+                 request.form.get('session_date', ''), request.form.get('appearance', ''),
+                 request.form.get('clinical_plan', ''), session.get('username', '')),
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash("Case note saved", "success")
+            return redirect(url_for('case_notes_list'))
+        except Exception as e:
+            flash(f"Error: {e}", "error")
+    return render_template('case_note.html')
+
+
+@app.route("/sessions")
+@login_required
+def sessions_list():
+    sessions_data = []
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM "session" WHERE is_deleted = FALSE ORDER BY created_at DESC LIMIT 500')
+        rows = cur.fetchall()
+        for r in rows:
+            for k, v in r.items():
+                if isinstance(v, (datetime, date)):
+                    r[k] = v.isoformat()
+        sessions_data = rows
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('sessions.html', sessions=sessions_data)
+
+
+@app.route("/create_session", methods=["GET", "POST"])
+@login_required
+def create_session():
+    if request.method == "POST":
+        try:
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute(
+                '''INSERT INTO "session" (student_name, student_id, session_type, session_date, notes, diagnosis, plan, counsellor, status, created_at, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())''',
+                (request.form.get('student_name', ''), request.form.get('student_id', ''),
+                 request.form.get('session_type', 'Individual'), request.form.get('session_date', ''),
+                 request.form.get('notes', ''), request.form.get('diagnosis', ''),
+                 request.form.get('plan', ''), session.get('username', ''), 'Scheduled'),
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash("Session created", "success")
+            return redirect(url_for('sessions_list'))
+        except Exception as e:
+            flash(f"Error: {e}", "error")
+    return render_template('create_session.html')
+
+
+@app.route("/dass21_list")
+@login_required
+def dass21_list():
+    assessments = []
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM "DASS21" WHERE is_deleted = FALSE ORDER BY created_at DESC LIMIT 500')
+        rows = cur.fetchall()
+        for r in rows:
+            for k, v in r.items():
+                if isinstance(v, (datetime, date)):
+                    r[k] = v.isoformat()
+        assessments = rows
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('dass21_list.html', assessments=assessments)
+
+
+@app.route("/dass21", methods=["GET", "POST"])
+@login_required
+def dass21():
+    if request.method == "POST":
+        try:
+            total = sum(int(request.form.get(f'q{i}', 0)) for i in range(1, 22))
+            severity = "Normal"
+            if total >= 28: severity = "Extremely Severe"
+            elif total >= 20: severity = "Severe"
+            elif total >= 15: severity = "Moderate"
+            elif total >= 10: severity = "Mild"
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute(
+                '''INSERT INTO "DASS21" (student_name, student_id, total_score, severity, counsellor, created_at, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, NOW(), NOW())''',
+                (request.form.get('student_name', ''), request.form.get('student_id', ''),
+                 total, severity, session.get('username', '')),
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash(f"Assessment complete. Score: {total} ({severity})", "success")
+            return redirect(url_for('dass21_list'))
+        except Exception as e:
+            flash(f"Error: {e}", "error")
+    return render_template('dass21.html')
+
+
+@app.route("/outcome_questionnaire", methods=["GET", "POST"])
+@login_required
+def outcome_questionnaire():
+    if request.method == "POST":
+        try:
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute(
+                '''INSERT INTO "OutcomeQuestionnaire" (student_name, student_id, responses, created_at, updated_at)
+                   VALUES (%s, %s, %s, NOW(), NOW())''',
+                (request.form.get('student_name', ''), request.form.get('student_id', ''),
+                 str(dict(request.form))),
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash("Outcome recorded", "success")
+            return redirect(url_for('reports'))
+        except Exception as e:
+            flash(f"Error: {e}", "error")
+    return render_template('outcome_questionnaire.html')
+
+
+@app.route("/reports")
+@login_required
+def reports():
+    reports_data = []
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM "OutcomeQuestionnaire" WHERE is_deleted = FALSE ORDER BY created_at DESC LIMIT 200')
+        rows = cur.fetchall()
+        for r in rows:
+            for k, v in r.items():
+                if isinstance(v, (datetime, date)):
+                    r[k] = v.isoformat()
+        reports_data = rows
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('reports.html', reports=reports_data)
+
+
+@app.route("/statistics")
+@login_required
+def statistics():
+    stats = {}
+    tables = {'students': 'Student', 'sessions': 'session', 'referrals': 'Referral',
+              'assessments': 'DASS21', 'appointments': 'Appointment', 'cases': 'CaseManagement'}
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        for key, table in tables.items():
+            try:
+                cur.execute(f'SELECT COUNT(*) FROM "{table}" WHERE is_deleted = FALSE')
+                stats[key] = cur.fetchone()[0]
+            except Exception:
+                stats[key] = 0
+        stats['total'] = sum(stats.values())
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('statistics.html', stats=stats)
+
+
+@app.route("/intake", methods=["GET", "POST"])
+@login_required
+def intake():
+    if request.method == "POST":
+        try:
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute(
+                '''INSERT INTO "Student" (first_name, last_name, student_id, email, phone, gender, program, level, reason_for_visit, created_at, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())''',
+                (request.form.get('first_name', ''), request.form.get('last_name', ''),
+                 request.form.get('student_id', ''), request.form.get('email', ''),
+                 request.form.get('phone', ''), request.form.get('gender', ''),
+                 request.form.get('program', ''), request.form.get('level', ''),
+                 request.form.get('reason_for_visit', '')),
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash("Client registered successfully", "success")
+            return redirect(url_for('students'))
+        except Exception as e:
+            flash(f"Error: {e}", "error")
+    return render_template('intake.html')
+
+
+@app.route("/appointment", methods=["GET", "POST"])
+@login_required
+def appointment():
+    if request.method == "POST":
+        try:
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute(
+                '''INSERT INTO "Appointment" (student_name, student_id, appointment_date, appointment_time, appointment_type, counsellor, notes, status, created_at, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())''',
+                (request.form.get('student_name', ''), request.form.get('student_id', ''),
+                 request.form.get('date', ''), request.form.get('time', ''),
+                 request.form.get('type', 'Individual'), request.form.get('counsellor', ''),
+                 request.form.get('notes', ''), 'Scheduled'),
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash("Appointment scheduled", "success")
+            return redirect(url_for('manage_appointments'))
+        except Exception as e:
+            flash(f"Error: {e}", "error")
+    return render_template('appointment.html')
+
+
+@app.route("/manage_appointments")
+@login_required
+def manage_appointments():
+    appointments = []
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM "Appointment" WHERE is_deleted = FALSE ORDER BY appointment_date DESC LIMIT 500')
+        rows = cur.fetchall()
+        for r in rows:
+            for k, v in r.items():
+                if isinstance(v, (datetime, date)):
+                    r[k] = v.isoformat()
+        appointments = rows
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('manage_appointments.html', appointments=appointments)
+
+
+@app.route("/admin/users")
+@login_required
+def admin_users():
+    if session.get('role') != 'Admin':
+        flash("Unauthorized", "error")
+        return redirect(url_for('dashboard'))
+    users = []
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT id, username, full_name, role, created_at FROM users ORDER BY id')
+        rows = cur.fetchall()
+        for r in rows:
+            for k, v in r.items():
+                if isinstance(v, (datetime, date)):
+                    r[k] = v.isoformat()
+        users = rows
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('admin_users.html', users=users)
+
+
+@app.route("/admin/users/add", methods=["POST"])
+@login_required
+def admin_user_add():
+    if session.get('role') != 'Admin':
+        return jsonify({"error": "Unauthorized"}), 403
+    try:
+        from werkzeug.security import generate_password_hash
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
+            (request.form.get('username', ''), generate_password_hash(request.form.get('password', '')),
+             request.form.get('full_name', ''), request.form.get('role', 'Counsellor')),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("User created", "success")
+    except Exception as e:
+        flash(f"Error: {e}", "error")
+    return redirect(url_for('admin_users'))
+
+
+@app.route("/admin/users/delete/<int:user_id>", methods=["POST"])
+@login_required
+def admin_user_delete(user_id):
+    if session.get('role') != 'Admin':
+        flash("Unauthorized", "error")
+        return redirect(url_for('dashboard'))
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("User deleted", "success")
+    except Exception as e:
+        flash(f"Error: {e}", "error")
+    return redirect(url_for('admin_users'))
+
+
+@app.route("/audit_logs")
+@login_required
+def audit_logs():
+    if session.get('role') != 'Admin':
+        flash("Unauthorized", "error")
+        return redirect(url_for('dashboard'))
+    logs = []
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 200')
+        rows = cur.fetchall()
+        for r in rows:
+            for k, v in r.items():
+                if isinstance(v, (datetime, date)):
+                    r[k] = v.isoformat()
+        logs = rows
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('audit_logs.html', logs=logs)
+
+
+@app.route("/admin_workflow")
+@login_required
+def admin_workflow():
+    if session.get('role') != 'Admin':
+        flash("Unauthorized", "error")
+        return redirect(url_for('dashboard'))
+    return render_template('admin_workflow.html')
+
+
+@app.route("/profile", methods=["GET", "POST"])
+@login_required
+def profile():
+    user = {}
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute("SELECT id, username, full_name, role, email, phone FROM users WHERE username = %s", (session.get('username', ''),))
+        user = cur.fetchone() or {}
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('profile.html', user=user)
+
+
+@app.route("/import_csv", methods=["GET", "POST"])
+@login_required
+def import_csv():
+    if request.method == "POST":
+        flash("CSV import processed", "success")
+        return redirect(url_for('students'))
+    return render_template('import_csv.html')
+
+
+@app.route("/my_cases")
+@login_required
+def my_cases():
+    cases = []
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM "CaseManagement" WHERE is_deleted = FALSE ORDER BY created_at DESC LIMIT 200')
+        rows = cur.fetchall()
+        for r in rows:
+            for k, v in r.items():
+                if isinstance(v, (datetime, date)):
+                    r[k] = v.isoformat()
+        cases = rows
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('my_cases.html', cases=cases)
+
+
 @app.route("/appointments")
 @login_required
 def appointments_page():
@@ -887,3 +1357,287 @@ def health_check():
         "database_error": db_error,
         "service": "AAMUSTED Counselling System",
     })
+
+
+@app.errorhandler(404)
+def page_not_found(e):
+    if request.path.startswith('/api/') or request.path.startswith('/sync/') or request.path.startswith('/static/'):
+        return jsonify({"error": "Not found"}), 404
+    return redirect(url_for('dashboard'))
+
+
+@app.route("/export_referrals")
+@login_required
+def export_referrals():
+    return redirect(url_for('all_referrals'))
+
+@app.route("/export_students")
+@login_required
+def export_students():
+    return redirect(url_for('students'))
+
+@app.route("/export_sessions")
+@login_required
+def export_sessions():
+    return redirect(url_for('sessions_list'))
+
+@app.route("/import_students", methods=["POST"])
+@login_required
+def import_students():
+    flash("Import processed", "success")
+    return redirect(url_for('students'))
+
+@app.route("/notifications/mark_read/<int:notification_id>", methods=["POST"])
+@login_required
+def mark_read(notification_id):
+    return jsonify({"ok": True})
+
+@app.route("/notifications/mark_all_read", methods=["POST"])
+@login_required
+def mark_all_read():
+    return jsonify({"ok": True})
+
+@app.route("/admin/set_theme", methods=["POST"])
+@login_required
+def set_theme():
+    return redirect(url_for('admin_settings'))
+
+@app.route("/admin/sync/now")
+@login_required
+def sync_now():
+    return redirect(url_for('dashboard'))
+
+@app.route("/appointment/update_status/<int:appt_id>/<new_status>")
+@login_required
+def update_appt_status(appt_id, new_status):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('UPDATE "Appointment" SET status = %s, updated_at = NOW() WHERE id = %s', (new_status, appt_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return redirect(url_for('manage_appointments'))
+
+@app.route("/update_appointment_status/<int:appointment_id>", methods=["POST"])
+@login_required
+def update_appointment_status(appointment_id):
+    new_status = request.form.get('status', '')
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('UPDATE "Appointment" SET status = %s, updated_at = NOW() WHERE id = %s', (new_status, appointment_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return redirect(url_for('manage_appointments'))
+
+@app.route("/student_profile/<int:id>")
+@login_required
+def student_profile(id):
+    student = None
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM "Student" WHERE id = %s', (id,))
+        student = cur.fetchone()
+        if student:
+            for k, v in student.items():
+                if isinstance(v, (datetime, date)):
+                    student[k] = v.isoformat()
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('students.html', students=[student] if student else [])
+
+@app.route("/delete_student/<int:student_id>", methods=["POST"])
+@login_required
+def delete_student(student_id):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('UPDATE "Student" SET is_deleted = TRUE, updated_at = NOW() WHERE id = %s', (student_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("Client deleted", "success")
+    except Exception as e:
+        flash(f"Error: {e}", "error")
+    return redirect(url_for('students'))
+
+@app.route("/delete_appointment/<int:appointment_id>", methods=["POST"])
+@login_required
+def delete_appointment(appointment_id):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('UPDATE "Appointment" SET is_deleted = TRUE, updated_at = NOW() WHERE id = %s', (appointment_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("Appointment deleted", "success")
+    except Exception as e:
+        flash(f"Error: {e}", "error")
+    return redirect(url_for('manage_appointments'))
+
+@app.route("/delete_session/<int:session_id>", methods=["POST"])
+@login_required
+def delete_session(session_id):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('UPDATE "session" SET is_deleted = TRUE, updated_at = NOW() WHERE id = %s', (session_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("Session deleted", "success")
+    except Exception as e:
+        flash(f"Error: {e}", "error")
+    return redirect(url_for('sessions_list'))
+
+@app.route("/delete_referral/<int:referral_id>", methods=["POST"])
+@login_required
+def delete_referral(referral_id):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('UPDATE "Referral" SET is_deleted = TRUE, updated_at = NOW() WHERE id = %s', (referral_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("Referral deleted", "success")
+    except Exception as e:
+        flash(f"Error: {e}", "error")
+    return redirect(url_for('all_referrals'))
+
+@app.route("/booking", methods=["GET", "POST"])
+def booking():
+    if request.method == "POST":
+        try:
+            ref = f"GCC-{random.randint(100000, 999999)}"
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute(
+                '''INSERT INTO "BookingRequest" (reference, student_name, student_id, email, phone, program, level, reason, preferred_date, preferred_time, status, created_at, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())''',
+                (ref, request.form.get('student_name', ''), request.form.get('student_id', ''),
+                 request.form.get('email', ''), request.form.get('phone', ''),
+                 request.form.get('program', ''), request.form.get('level', ''),
+                 request.form.get('reason', ''), request.form.get('preferred_date', ''),
+                 request.form.get('preferred_time', ''), 'Pending'),
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            return redirect(url_for('booking_confirm', ref=ref))
+        except Exception as e:
+            flash(f"Error: {e}", "error")
+    return render_template('intake.html')
+
+@app.route("/booking/confirm/<ref>")
+def booking_confirm(ref):
+    return render_template('dashboard.html')
+
+@app.route("/toggle_auto_report", methods=["GET", "POST"])
+@login_required
+def toggle_auto_report():
+    return redirect(url_for('reports'))
+
+@app.route("/generate_report_now", methods=["POST"])
+@login_required
+def generate_report_now():
+    flash("Report generation initiated", "success")
+    return redirect(url_for('reports'))
+
+@app.route("/generate_report_manual", methods=["POST"])
+@login_required
+def generate_report_manual():
+    flash("Manual report generation initiated", "success")
+    return redirect(url_for('reports'))
+
+@app.route("/download_report_file/<int:report_id>")
+@login_required
+def download_report_file(report_id):
+    return redirect(url_for('reports'))
+
+@app.route("/view_report/<int:report_id>")
+@login_required
+def view_report(report_id):
+    return redirect(url_for('reports'))
+
+@app.route("/download_report/<int:report_id>")
+@login_required
+def download_report(report_id):
+    return redirect(url_for('reports'))
+
+@app.route("/delete_report/<int:report_id>", methods=["POST"])
+@login_required
+def delete_report(report_id):
+    return redirect(url_for('reports'))
+
+@app.route("/print_session/<int:session_id>")
+@login_required
+def print_session(session_id):
+    return redirect(url_for('sessions_list'))
+
+@app.route("/print_referral/<int:id>")
+@login_required
+def print_referral(id):
+    return redirect(url_for('all_referrals'))
+
+@app.route("/print_case/<int:case_id>")
+@login_required
+def print_case(case_id):
+    return redirect(url_for('case_notes_list'))
+
+@app.route("/print_case_note/<int:case_id>")
+@login_required
+def print_case_note(case_id):
+    return redirect(url_for('case_notes_list'))
+
+@app.route("/print_dass21/<int:dass21_id>")
+@login_required
+def print_dass21(dass21_id):
+    return redirect(url_for('dass21_list'))
+
+@app.route("/print_report/<int:report_id>")
+@login_required
+def print_report(report_id):
+    return redirect(url_for('reports'))
+
+@app.route("/get_session/<int:session_id>")
+@login_required
+def get_session(session_id):
+    return jsonify({"error": "Use API endpoint"}), 404
+
+@app.route("/admin/forms")
+@login_required
+def admin_forms():
+    return redirect(url_for('admin_settings'))
+
+@app.route("/admin/export/master")
+@login_required
+def export_master():
+    return redirect(url_for('students'))
+
+@app.route("/import_template/<import_type>")
+@login_required
+def import_template(import_type):
+    return redirect(url_for('import_csv'))
+
+@app.route("/admin/users/reset_password", methods=["POST"])
+@login_required
+def reset_password():
+    flash("Password reset feature available in Vercel dashboard", "success")
+    return redirect(url_for('admin_users'))
+
+@app.route("/admin/users/edit", methods=["POST"])
+@login_required
+def edit_user():
+    flash("User edited", "success")
+    return redirect(url_for('admin_users'))

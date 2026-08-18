@@ -1,0 +1,79 @@
+{% set active_page = 'manage_appointments' %}
+{% extends 'base.html' %}
+{% block title %}Manage Appointments - AAMUSTED Counselling{% endblock %}
+{% block heading %}<i class="fas fa-calendar-alt me-2" style="color:#a78bfa"></i>Manage Appointments{% endblock %}
+{% block content %}
+<div class="card-dark p-4 mb-4">
+    <div class="row g-3 align-items-center">
+        <div class="col-md-9">
+            <div class="position-relative">
+                <i class="fas fa-search position-absolute" style="left:14px; top:50%; transform:translateY(-50%); color:#64748b;"></i>
+                <input type="text" id="searchInput" class="form-control" style="padding-left:38px;" placeholder="Search by student, counsellor, or type...">
+            </div>
+        </div>
+        <div class="col-md-3 text-end">
+            <a href="/appointment" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Schedule New</a>
+        </div>
+    </div>
+</div>
+<div class="card-dark p-0">
+    <div class="p-4 pb-0">
+        <span style="color:#94a3b8; font-size:13px;">{{ appointments|length }} appointment{{ 's' if appointments|length != 1 }} found</span>
+    </div>
+    <div class="p-4">
+        {% if appointments %}
+        <div class="table-responsive">
+            <table class="table" id="dataTable">
+                <thead>
+                    <tr>
+                        <th>DATE</th>
+                        <th>TIME</th>
+                        <th>STUDENT</th>
+                        <th>TYPE</th>
+                        <th>COUNSELLOR</th>
+                        <th>STATUS</th>
+                        <th>ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in appointments %}
+                    <tr>
+                        <td>{{ a.date }}</td>
+                        <td>{{ a.time }}</td>
+                        <td>{{ a.student_name }}</td>
+                        <td><span class="badge badge-blue">{{ a.type }}</span></td>
+                        <td>{{ a.counsellor }}</td>
+                        <td>
+                            <span class="badge {% if a.status == 'Completed' %}badge-green{% elif a.status == 'Scheduled' %}badge-amber{% else %}badge-red{% endif %}">
+                                {{ a.status }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="/appointment/update_status/{{ a.id }}/Completed" class="btn btn-sm btn-outline-success" title="Complete"><i class="fas fa-check"></i></a>
+                            <a href="/appointment/update_status/{{ a.id }}/Cancelled" class="btn btn-sm btn-outline-danger" title="Cancel" onclick="return confirm('Cancel this appointment?')"><i class="fas fa-times"></i></a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-calendar-alt d-block"></i>
+            <p>No appointments scheduled</p>
+            <a href="/appointment" class="btn btn-primary btn-sm mt-2"><i class="fas fa-plus me-1"></i>Schedule Appointment</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('searchInput').addEventListener('keyup', function() {
+    const term = this.value.toLowerCase();
+    document.querySelectorAll('#dataTable tbody tr').forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
+    });
+});
+</script>
+{% endblock %}

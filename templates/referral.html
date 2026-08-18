@@ -1,288 +1,49 @@
-{% extends "base_modern.html" %}
-
-{% block title %}New Referral - Clinical Services{% endblock %}
-
+{% set active_page = 'referral' %}
+{% extends 'base.html' %}
+{% block title %}New Referral - AAMUSTED Counselling{% endblock %}
+{% block heading %}<i class="fas fa-share-square me-2" style="color:#f87171"></i>New Referral{% endblock %}
 {% block content %}
-<style>
-    /* Premium Checkbox Styling */
-    .custom-check {
-        padding-top: 0.25rem;
-        padding-bottom: 0.25rem;
-        transition: all 0.2s;
-        border-radius: 8px;
-    }
-    .custom-check:hover {
-        background: rgba(0,0,0,0.03);
-    }
-    .custom-check .form-check-input {
-        width: 1.25em;
-        height: 1.25em;
-        margin-top: 0.15em;
-        cursor: pointer;
-    }
-    .custom-check .form-check-label {
-        cursor: pointer;
-        padding-left: 0.5rem;
-    }
-
-    /* Animation for warning */
-    @keyframes pulseRed {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.02); }
-        100% { transform: scale(1); }
-    }
-    .pulse-red {
-        animation: pulseRed 2s infinite;
-    }
-</style>
-
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="d-flex align-items-center">
-            <a href="javascript:history.back()" class="btn btn-light border rounded-circle shadow-sm me-3"
-                style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
-                <i class="bi bi-arrow-left"></i>
-            </a>
-            <div>
-                <h2 class="fw-bold mb-0 text-dark">New Client Referral</h2>
-                <p class="text-muted mb-0">Refer a student to external services or specialized support.</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row g-4">
-    <!-- CENTERED COLUMN: Referral Form -->
-    <div class="col-lg-10 offset-lg-1">
-        <div class="card card-glass border-0 shadow-sm">
-            <div class="card-body p-4">
-                <form method="POST" action="{{ url_for('referral') }}" class="needs-validation" novalidate
-                    id="referralForm">
-
-                    <!-- Session Selection -->
-                    <div class="mb-5">
-                        <label for="session_id" class="form-label text-uppercase small text-secondary fw-bold">Select
-                            Active Session <span class="text-danger">*</span></label>
-                        <select class="form-select form-select-lg bg-light border-0" id="session_id" name="session_id"
-                            required>
-                            <option value="">choose a session record...</option>
-                            {% for session in sessions %}
-                            <option value="{{ session.id }}">
-                                {{ session.case_number or 'Unassigned' }} - {{ session.student_name }}
-                                ({{ (session.created_at or '').split('.')[0] }})
-                            </option>
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card-dark">
+            <form method="POST" action="/referral">
+                <h3 style="margin-bottom:20px;"><i class="fas fa-user-tag me-2" style="color:#f87171"></i>Referral Information</h3>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-12">
+                        <label class="form-label">Student *</label>
+                        <select name="student" class="form-select" required>
+                            <option value="">Select Student...</option>
+                            {% for s in students %}
+                            <option value="{{ s.id }}">{{ s.name }} ({{ s.case_number }})</option>
                             {% endfor %}
                         </select>
-                        <div class="invalid-feedback">Please link this referral to a session.</div>
                     </div>
-
-                    <!-- Referral Metadata -->
-                    <div class="p-4 rounded-4 bg-primary bg-opacity-10 border border-primary border-opacity-10 mb-5">
-                        <div class="row align-items-center">
-                            <div class="col-auto">
-                                <div class="bg-primary text-white p-3 rounded-circle shadow-sm">
-                                    <i class="bi bi-person-badge-fill fs-4"></i>
-                                </div>
-                            </div>
-                            <div class="col">
-                                <h5 class="fw-bold text-dark mb-1">Referral Origin</h5>
-                                <p class="text-muted small mb-0">Who is initiating this specialized support request?</p>
-                            </div>
-                        </div>
-                        <div class="row g-3 mt-2">
-                            <div class="col-md-6">
-                                <label for="referred_by" class="form-label small fw-bold text-secondary text-uppercase">Referred By *</label>
-                                <input type="text" class="form-control form-control-lg border-0 shadow-sm" id="referred_by"
-                                    name="referred_by" required placeholder="Full Name or Department">
-                            </div>
-                            <div class="col-md-6">
-                                <label for="contact" class="form-label small fw-bold text-secondary text-uppercase">Direct Contact *</label>
-                                <input type="text" class="form-control form-control-lg border-0 shadow-sm" id="contact"
-                                    name="contact" required placeholder="Phone Number or Email">
-                            </div>
-                        </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Referred By *</label>
+                        <input type="text" name="referred_by" class="form-control" required placeholder="Name or department">
                     </div>
-
-                    <h5 class="fw-bold text-dark mb-4 d-flex align-items-center">
-                        <span class="bg-primary bg-opacity-10 text-primary p-2 rounded-3 me-3">
-                            <i class="bi bi-clipboard-check"></i>
-                        </span>
-                        Clinical Reason(s) for Referral
-                    </h5>
-                    
-                    <div class="row g-3 mb-5">
-                        <!-- Group 1: Personal (Blue) -->
-                        <div class="col-md-4">
-                            <div class="h-100 p-3 rounded-4 border border-primary border-opacity-25" style="background: rgba(59, 130, 246, 0.03);">
-                                <h6 class="fw-bold small text-uppercase mb-3 d-flex align-items-center" style="color: #2563eb;">
-                                    <i class="bi bi-people-fill me-2"></i>Personal & Social
-                                </h6>
-                                <div class="form-check custom-check mb-2">
-                                    <input class="form-check-input" type="checkbox" name="referral_reasons" value="Motivation" id="r_motivation">
-                                    <label class="form-check-label small" for="r_motivation">Motivation</label>
-                                </div>
-                                <div class="form-check custom-check mb-2">
-                                    <input class="form-check-input" type="checkbox" name="referral_reasons" value="Bullying" id="r_bullying">
-                                    <label class="form-check-label small" for="r_bullying">Bullying</label>
-                                </div>
-                                <div class="form-check custom-check mb-2">
-                                    <input class="form-check-input" type="checkbox" name="referral_reasons" value="Divorce" id="r_divorce">
-                                    <label class="form-check-label small" for="r_divorce">Divorce</label>
-                                </div>
-                                <div class="form-check custom-check mb-2">
-                                    <input class="form-check-input" type="checkbox" name="referral_reasons" value="Friendship" id="r_friendship">
-                                    <label class="form-check-label small" for="r_friendship">Friendship</label>
-                                </div>
-                                <div class="form-check custom-check">
-                                    <input class="form-check-input" type="checkbox" name="referral_reasons" value="Social Skills" id="r_social">
-                                    <label class="form-check-label small" for="r_social">Social Skills</label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Group 2: Emotional (Deep Gold/Amber) -->
-                        <div class="col-md-4">
-                            <div class="h-100 p-3 rounded-4 border border-warning border-opacity-25" style="background: rgba(245, 158, 11, 0.03);">
-                                <h6 class="fw-bold small text-uppercase mb-3 d-flex align-items-center" style="color: #b45309;">
-                                    <i class="bi bi-heart-pulse-fill me-2"></i>Emotional Health
-                                </h6>
-                                <div class="form-check custom-check mb-2">
-                                    <input class="form-check-input" type="checkbox" name="referral_reasons" value="Worries" id="r_worries">
-                                    <label class="form-check-label small" for="r_worries">Worries/Anxiety</label>
-                                </div>
-                                <div class="form-check custom-check mb-2">
-                                    <input class="form-check-input" type="checkbox" name="referral_reasons" value="Stressed" id="r_stress">
-                                    <label class="form-check-label small" for="r_stress">Stress</label>
-                                </div>
-                                <div class="form-check custom-check mb-2">
-                                    <input class="form-check-input" type="checkbox" name="referral_reasons" value="Depression" id="r_depression">
-                                    <label class="form-check-label small" for="r_depression">Depression</label>
-                                </div>
-                                <div class="form-check custom-check mb-2">
-                                    <input class="form-check-input" type="checkbox" name="referral_reasons" value="Anger" id="r_anger">
-                                    <label class="form-check-label small" for="r_anger">Anger</label>
-                                </div>
-                                <div class="form-check custom-check">
-                                    <input class="form-check-input" type="checkbox" name="referral_reasons" value="Grief" id="r_grief">
-                                    <label class="form-check-label small" for="r_grief">Grief</label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Group 3: Critical (Red) -->
-                        <div class="col-md-4">
-                            <div class="h-100 p-3 rounded-4 border border-danger border-opacity-25" style="background: rgba(239, 68, 68, 0.03);">
-                                <h6 class="fw-bold small text-uppercase mb-3 d-flex align-items-center" style="color: #dc2626;">
-                                    <i class="bi bi-exclamation-octagon-fill me-2"></i>Critical Factors
-                                </h6>
-                                <div class="form-check custom-check mb-2 border-danger-subtle">
-                                    <input class="form-check-input" type="checkbox" name="referral_reasons" value="Abuse" id="r_abuse">
-                                    <label class="form-check-label small fw-medium" for="r_abuse">Abuse/Neglect</label>
-                                </div>
-                                <div class="form-check custom-check mb-2">
-                                    <input class="form-check-input" type="checkbox" name="referral_reasons" value="Self Cutting" id="r_selfharm">
-                                    <label class="form-check-label small fw-medium" for="r_selfharm">Self Harm</label>
-                                </div>
-                                <div class="form-check custom-check mb-2">
-                                    <input class="form-check-input" type="checkbox" name="referral_reasons" value="Drug/Alcohol Use" id="r_drugs">
-                                    <label class="form-check-label small fw-medium" for="r_drugs">Substance Use</label>
-                                </div>
-                                <div class="form-check custom-check mb-2">
-                                    <input class="form-check-input" type="checkbox" name="referral_reasons" value="Suicidal Ideation" id="r_suicide">
-                                    <label class="form-check-label small fw-medium" for="r_suicide">Suicidal Ideation</label>
-                                </div>
-                                <div class="form-check custom-check">
-                                    <input class="form-check-input" type="checkbox" name="referral_reasons" value="Something Else" id="reason_something_else" onchange="toggleOtherReason(this)">
-                                    <label class="form-check-label small fw-bold text-dark" for="reason_something_else">Specify Other</label>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Contact *</label>
+                        <input type="text" name="contact" class="form-control" required placeholder="Phone or email">
                     </div>
+                </div>
 
-                    <!-- Warning for Reasons (Initially Hidden) -->
-                    <div id="reasons_warning" class="alert alert-danger border-0 small py-2 d-none pulse-red">
-                        <i class="bi bi-exclamation-circle-fill me-2"></i>Please select at least one clinical reason for this referral.
-                    </div>
+                <h3 style="margin-bottom:20px;"><i class="fas fa-exclamation-triangle me-2" style="color:#fbbf24"></i>Reason &amp; Details</h3>
+                <div class="mb-3">
+                    <label class="form-label">Reason for Referral *</label>
+                    <textarea name="reason" class="form-control" rows="3" required placeholder="Describe the reason for this referral..."></textarea>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">Additional Notes</label>
+                    <textarea name="notes" class="form-control" rows="3" placeholder="Any additional information or clinical notes..."></textarea>
+                </div>
 
-                    <!-- Other reason text -->
-                    <div class="mb-5 animate__animated animate__fadeIn" id="other_reason_container" style="display: none;">
-                        <label for="other_reason_text" class="form-label small fw-bold text-primary">Provide Specification *</label>
-                        <input type="text" class="form-control form-control-lg border-primary border-opacity-25" id="other_reason_text" name="other_reason_text" placeholder="Detail the specific reason for referral here...">
-                    </div>
-
-                    <div class="row g-4 mb-4">
-                        <div class="col-md-12">
-                            <label for="action_taken" class="form-label small fw-bold text-secondary text-uppercase mb-2">Counselor's Action Taken</label>
-                            <textarea class="form-control bg-light border-0" id="action_taken" name="action_taken" rows="3" placeholder="What immediately steps were taken before this referral?"></textarea>
-                        </div>
-                        <div class="col-md-12">
-                            <label for="outcome" class="form-label small fw-bold text-secondary text-uppercase mb-2">Expected Clinical Outcome</label>
-                            <textarea class="form-control bg-light border-0" id="outcome" name="outcome" rows="3" placeholder="What are the goals of this external referral?"></textarea>
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-end align-items-center gap-3 pt-3 border-top">
-                        <a href="{{ url_for('dashboard') }}" class="text-secondary text-decoration-none fw-medium me-2">Cancel</a>
-                        <button type="submit" class="btn btn-primary px-5 py-2 fw-bold shadow-sm btn-hover-lift rounded-pill">
-                            <i class="bi bi-send-fill me-2"></i> Finalize Referral
-                        </button>
-                    </div>
-                </form>
-            </div>
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="/all_referrals" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane me-1"></i>Submit Referral</button>
+                </div>
+            </form>
         </div>
     </div>
-
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-    // Toggle "Something Else" text input
-    function toggleOtherReason(checkbox) {
-        const container = document.getElementById('other_reason_container');
-        const textInput = document.getElementById('other_reason_text');
-        if (checkbox.checked) {
-            container.style.display = 'block';
-            textInput.required = true;
-            textInput.focus();
-        } else {
-            container.style.display = 'none';
-            textInput.required = false;
-            textInput.value = '';
-        }
-    }
-
-    // Validate that at least one reason is selected
-    document.getElementById('referralForm').addEventListener('submit', function (e) {
-        const checkedReasons = document.querySelectorAll('input[name="referral_reasons"]:checked');
-        const warning = document.getElementById('reasons_warning');
-
-        if (checkedReasons.length === 0) {
-            e.preventDefault();
-            e.stopPropagation();
-            warning.style.display = 'block';
-            // Scroll to warning
-            warning.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return false;
-        } else {
-            warning.style.display = 'none';
-        }
-
-        // Validate "Other" text if checked
-        const otherChecked = document.getElementById('reason_something_else').checked;
-        const otherText = document.getElementById('other_reason_text').value.trim();
-        if (otherChecked && !otherText) {
-            e.preventDefault();
-            document.getElementById('other_reason_text').focus();
-            return false;
-        }
-
-        // Bootstrap validation styles
-        if (!this.checkValidity()) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        this.classList.add('was-validated');
-    });
-</script>
 {% endblock %}

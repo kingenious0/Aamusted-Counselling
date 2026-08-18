@@ -1,192 +1,67 @@
-{% extends "base_modern.html" %}
-
+{% set active_page = 'appointment' %}
+{% extends 'base.html' %}
+{% block title %}Schedule Appointment - AAMUSTED Counselling{% endblock %}
+{% block heading %}<i class="fas fa-calendar-plus me-2" style="color:#60a5fa"></i>Schedule Appointment{% endblock %}
 {% block content %}
-    <!-- Main Form Column - Widened to 12 for professional workspace -->
-    <div class="col-lg-12">
-        <div class="card card-glass border-0 shadow-lg">
-            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div class="d-flex align-items-center">
-                        <div class="bg-primary bg-opacity-10 p-3 rounded-circle text-primary me-3">
-                            <i class="bi bi-calendar-plus-fill fs-4"></i>
-                        </div>
-                        <div>
-                            <h4 class="fw-bold mb-1">Schedule Appointment</h4>
-                            <p class="text-muted small mb-0">Book a new counselling session or consultation.</p>
-                        </div>
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card-dark">
+            <form method="POST" action="/appointment">
+                <h3 style="margin-bottom:20px;"><i class="fas fa-calendar-day me-2" style="color:#60a5fa"></i>Appointment Details</h3>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Student Name *</label>
+                        <select name="student_name" class="form-select" required>
+                            <option value="">Select Student...</option>
+                            {% for student in students %}
+                            <option value="{{ student.name }}">{{ student.name }} ({{ student.case_number }})</option>
+                            {% endfor %}
+                        </select>
                     </div>
-                    <!-- Inline Emergency Badge for Quick Ref -->
-                    <div class="d-none d-md-flex align-items-center bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill small fw-bold">
-                        <!-- <i class="bi bi-exclamation-triangle-fill me-2"></i> EMERGENCY: Contact University Security -->
+                    <div class="col-md-6">
+                        <label class="form-label">Student ID</label>
+                        <input type="text" name="student_id" class="form-control" placeholder="Student ID">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Date *</label>
+                        <input type="date" name="date" class="form-control" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Time *</label>
+                        <input type="time" name="time" class="form-control" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Type *</label>
+                        <select name="type" class="form-select" required>
+                            <option value="">Select Type...</option>
+                            <option value="Initial">Initial</option>
+                            <option value="Follow-up">Follow-up</option>
+                            <option value="Crisis">Crisis</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Counsellor *</label>
+                        <select name="counsellor" class="form-select" required>
+                            <option value="">Select Counsellor...</option>
+                            {% for c in counsellors %}
+                            <option value="{{ c.name }}">{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                 </div>
-            </div>
 
-            <div class="card-body p-4">
-                <form method="POST" action="{{ url_for('appointment') }}" class="needs-validation" novalidate>
+                <h3 style="margin-bottom:20px;"><i class="fas fa-sticky-note me-2" style="color:#fbbf24"></i>Notes</h3>
+                <div class="mb-4">
+                    <label class="form-label">Additional Notes</label>
+                    <textarea name="notes" class="form-control" rows="3" placeholder="Any additional information..."></textarea>
+                </div>
 
-                    <div class="row g-4">
-                        <!-- Left Side: Core Fields - Widened to 9 -->
-                        <div class="col-xl-9">
-                            <!-- Section: Student & Professional -->
-                            <h6 class="text-uppercase text-muted fw-bold mb-3 small">
-                                <i class="bi bi-people me-2"></i>Participants
-                            </h6>
-                            <div class="row g-3 mb-4">
-                                <div class="col-md-6">
-                                    <label for="student_id" class="form-label small fw-bold text-secondary">Student Record</label>
-                                    <select class="form-select form-select-lg bg-light border-0" id="student_id"
-                                        name="student_id" required>
-                                        <option value="">Select Student...</option>
-                                        {% for student in students %}
-                                        <option value="{{ student.id }}" {% if selected_student_id and
-                                            selected_student_id|string==student.id|string %}selected{% endif %}>
-                                            {{ student|to_clinical_id }}
-                                            {% if student.programme %} — {{ student.programme }}{% endif %}
-                                        </option>
-                                        {% endfor %}
-                                    </select>
-                                    <div class="invalid-feedback">Please select a student.</div>
-                                </div>
-
-                                <div class="col-md-6">
-                                    <label for="counselor_id" class="form-label small fw-bold text-secondary">Assigned Counsellor</label>
-                                    <select class="form-select form-select-lg bg-light border-0" id="counselor_id"
-                                        name="counselor_id" required>
-                                        {% if Counsellors|length == 1 %}
-                                        <option value="{{ Counsellors[0].id }}" selected>{{ Counsellors[0].name }}</option>
-                                        {% else %}
-                                        <option value="">Select Counsellor...</option>
-                                        {% for counsellor in Counsellors %}
-                                        <option value="{{ counsellor.id }}">{{ counsellor.name }}</option>
-                                        {% endfor %}
-                                        {% endif %}
-                                    </select>
-                                    <div class="invalid-feedback">Please select a counsellor.</div>
-                                </div>
-                            </div>
-
-                            <!-- Section: Timing -->
-                            <h6 class="text-uppercase text-muted fw-bold mb-3 small">
-                                <i class="bi bi-clock me-2"></i>Timing &amp; Urgency
-                            </h6>
-                            <div class="row g-3 mb-4">
-                                <div class="col-md-6">
-                                    <label for="date" class="form-label small fw-bold text-secondary">Date</label>
-                                    <input type="date" class="form-control form-control-lg bg-light border-0" id="date"
-                                        name="date" required>
-                                    <div class="invalid-feedback">Required.</div>
-                                </div>
-
-                                <div class="col-md-6">
-                                    <label for="time" class="form-label small fw-bold text-secondary">Time</label>
-                                    <input type="time" class="form-control form-control-lg bg-light border-0" id="time"
-                                        name="time" required>
-                                    <div class="form-text small"><i class="bi bi-info-circle me-1"></i>8:00 AM – 5:00 PM (Lunch: 12–1)</div>
-                                    <div class="invalid-feedback">Required.</div>
-                                </div>
-
-                                <div class="col-md-6">
-                                    <label for="urgency" class="form-label small fw-bold text-secondary">Urgency Level</label>
-                                    <select class="form-select bg-light border-0" id="urgency" name="urgency" required>
-                                        <option value="Normal">🟢 Normal (Routine)</option>
-                                        <option value="Urgent">🟠 Urgent (Within 24h)</option>
-                                        <option value="Crisis">🔴 CRISIS (Immediate)</option>
-                                    </select>
-                                </div>
-
-                                <div class="col-md-6">
-                                    <label for="referral_source" class="form-label small fw-bold text-secondary">Referral Source</label>
-                                    <select class="form-select bg-light border-0" id="referral_source" name="referral_source">
-                                        <option value="None">No Referral (Walk-in)</option>
-                                        <option value="Self">Self-Referral</option>
-                                        <option value="Lecturer">Lecturer / Academic Staff</option>
-                                        <option value="Parent">Parent / Guardian</option>
-                                        <option value="Admin">Administration</option>
-                                        <option value="Medical">Medical Facility</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Right Side: Supplemental Info - Reduced to 3 -->
-                        <div class="col-xl-3">
-                            <div class="h-100 d-flex flex-column gap-3">
-                                <!-- Guidelines -->
-                                <div class="p-3 rounded-4 bg-light border border-opacity-10 shadow-sm flex-grow-1">
-                                    <h6 class="fw-bold mb-2 small text-uppercase text-secondary">
-                                        <i class="bi bi-shield-check me-2"></i>Session Info
-                                    </h6>
-                                    <ul class="list-unstyled mb-0 small text-muted">
-                                        <li class="mb-2">Standard: 60 min</li>
-                                        <li class="mb-2">Hours: 8 AM – 5 PM</li>
-                                        <li>Crisis: Prioritize Now</li>
-                                    </ul>
-                                </div>
-
-                                <!-- Emergency Badge -->
-                                <div class="p-3 rounded-4 bg-danger bg-opacity-10 text-danger border border-danger border-opacity-10">
-                                    <h6 class="fw-bold mb-1 small text-uppercase">Emergency</h6>
-                                    <p class="mb-0 x-small" style="font-size: 0.75rem;">Contact Security for life-safety escalations.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Section: Context (Full Width Bottom) -->
-                    <div class="mt-4 pt-4 border-top">
-                        <h6 class="text-uppercase text-muted fw-bold mb-3 small">
-                            <i class="bi bi-text-paragraph me-2"></i>Clinical Context & Purpose
-                        </h6>
-                        <div class="mb-4">
-                            <textarea class="form-control bg-light border-0 py-3" id="purpose" name="purpose" rows="4" required
-                                placeholder="Describe the reason for this appointment, specific concerns, or intake triggers..."></textarea>
-                            <div class="invalid-feedback">Please provide clinical context.</div>
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-end gap-2 pt-3">
-                        <a href="{{ url_for('dashboard') }}" class="btn btn-link link-secondary text-decoration-none px-4 fw-medium">Cancel</a>
-                        <button type="submit" class="btn btn-primary px-5 py-2 fw-bold shadow-sm btn-hover-lift">
-                            <i class="bi bi-journal-plus me-2"></i> Create Appointment
-                        </button>
-                    </div>
-                </form>
-            </div>
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="/dashboard" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-calendar-check me-1"></i>Schedule Appointment</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-    // Form validation
-    (function () {
-        'use strict'
-        var forms = document.querySelectorAll('.needs-validation')
-        Array.prototype.slice.call(forms).forEach(function (form) {
-            form.addEventListener('submit', function (event) {
-                if (!form.checkValidity()) {
-                    event.preventDefault()
-                    event.stopPropagation()
-                }
-                form.classList.add('was-validated')
-            }, false)
-        })
-    })()
-
-    // Set minimum date to today
-    document.getElementById('date').min = new Date().toISOString().split('T')[0]
-
-    // Validate appointment time (8 AM - 5 PM, excluding lunch hour)
-    document.getElementById('time').addEventListener('change', function (e) {
-        const time = e.target.value
-        const hour = parseInt(time.split(':')[0])
-        if (hour < 8 || hour >= 17 || (hour === 12)) {
-            alert('Please select a time between 8:00 AM and 5:00 PM (excluding 12:00 PM - 1:00 PM)')
-            e.target.value = ''
-        }
-    })
-</script>
 {% endblock %}
