@@ -1907,7 +1907,16 @@ def import_csv():
             flash("No file selected", "error")
             return redirect(url_for('import_csv'))
         try:
-            content = file.read().decode('utf-8-sig')
+            raw = file.read()
+            content = None
+            for enc in ('utf-8-sig', 'utf-8', 'cp1252', 'latin-1'):
+                try:
+                    content = raw.decode(enc)
+                    break
+                except (UnicodeDecodeError, LookupError):
+                    continue
+            if content is None:
+                content = raw.decode('latin-1')
             reader = csv.DictReader(io.StringIO(content))
             conn = get_db()
             cur = conn.cursor()
