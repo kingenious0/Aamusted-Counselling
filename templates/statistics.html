@@ -14,6 +14,7 @@
     <div class="col-md-3"><div class="stat-card"><div class="stat-icon" style="background:rgba(16,185,129,0.15); color:#34d399;"><i class="fas fa-briefcase"></i></div><h3>{{ stats.total_cases }}</h3><p>Case Records</p></div></div>
     <div class="col-md-3"><div class="stat-card"><div class="stat-icon" style="background:rgba(59,130,246,0.15); color:#3b82f6;"><i class="fas fa-male"></i></div><h3>{{ stats.male_count }}</h3><p>Male Students</p></div></div>
 </div>
+
 <div class="row g-4">
     <div class="col-md-6">
         <div class="card-dark">
@@ -42,6 +43,34 @@
         </div>
     </div>
 </div>
+<div class="row g-4 mt-2">
+    <div class="col-md-6">
+        <div class="card-dark">
+            <h3><i class="fas fa-calendar-alt me-2" style="color:#34d399"></i>Monthly Appointments (6mo)</h3>
+            <canvas id="apptTimelineChart" height="200"></canvas>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card-dark">
+            <h3><i class="fas fa-notes-medical me-2" style="color:#60a5fa"></i>Monthly Sessions (6mo)</h3>
+            <canvas id="sessTimelineChart" height="200"></canvas>
+        </div>
+    </div>
+</div>
+<div class="row g-4 mt-2">
+    <div class="col-md-6">
+        <div class="card-dark">
+            <h3><i class="fas fa-birthday-cake me-2" style="color:#ec4899"></i>Age Distribution</h3>
+            <canvas id="ageChart" height="200"></canvas>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card-dark">
+            <h3><i class="fas fa-building me-2" style="color:#f97316"></i>Department Breakdown</h3>
+            <canvas id="deptChart" height="200"></canvas>
+        </div>
+    </div>
+</div>
 {% endblock %}
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -50,6 +79,10 @@ const genderData = {{ stats.gender_data|tojson }};
 const programData = {{ stats.program_data|tojson }};
 const severityData = {{ stats.severity_data|tojson }};
 const statusData = {{ stats.status_data|tojson }};
+const apptTimeline = {{ stats.appointment_timeline|tojson }};
+const sessTimeline = {{ stats.session_timeline|tojson }};
+const ageData = {{ stats.age_data|tojson }};
+const deptData = {{ stats.department_data|tojson }};
 
 const colors = ['#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16'];
 
@@ -60,8 +93,13 @@ function makeChart(id, labels, data, type) {
             labels: labels,
             datasets: [{
                 data: data,
-                backgroundColor: colors.slice(0, labels.length),
-                borderWidth: 0
+                backgroundColor: type === 'line' ? 'rgba(59,130,246,0.2)' : colors.slice(0, labels.length),
+                borderColor: type === 'line' ? '#3b82f6' : colors.slice(0, labels.length),
+                borderWidth: type === 'line' ? 2 : 0,
+                fill: type === 'line',
+                tension: 0.3,
+                pointRadius: type === 'line' ? 4 : undefined,
+                pointBackgroundColor: type === 'line' ? '#3b82f6' : undefined
             }]
         },
         options: {
@@ -75,5 +113,9 @@ if (Object.keys(genderData).length) makeChart('genderChart', Object.keys(genderD
 if (Object.keys(programData).length) makeChart('programChart', Object.keys(programData), Object.values(programData), 'bar');
 if (Object.keys(severityData).length) makeChart('severityChart', Object.keys(severityData), Object.values(severityData), 'doughnut');
 if (Object.keys(statusData).length) makeChart('statusChart', Object.keys(statusData), Object.values(statusData), 'bar');
+if (Object.keys(apptTimeline).length) makeChart('apptTimelineChart', Object.keys(apptTimeline), Object.values(apptTimeline), 'line');
+if (Object.keys(sessTimeline).length) makeChart('sessTimelineChart', Object.keys(sessTimeline), Object.values(sessTimeline), 'line');
+if (Object.keys(ageData).length) makeChart('ageChart', Object.keys(ageData), Object.values(ageData), 'bar');
+if (Object.keys(deptData).length) makeChart('deptChart', Object.keys(deptData), Object.values(deptData), 'bar');
 </script>
 {% endblock %}

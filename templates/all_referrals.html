@@ -11,7 +11,14 @@
                 <input type="text" id="searchInput" class="form-control" style="padding-left:38px;" placeholder="Search by student name, referred by, or reason...">
             </div>
         </div>
-        <div class="col-md-3 text-end">
+        <div class="col-md-3 text-end d-flex gap-2 justify-content-end">
+            <div class="dropdown">
+                <button class="btn btn-outline-success dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="fas fa-download me-1"></i>Export</button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="/export_referrals?format=csv"><i class="fas fa-file-csv me-2"></i>CSV</a></li>
+                    <li><a class="dropdown-item" href="/export_referrals?format=xlsx"><i class="fas fa-file-excel me-2"></i>Excel</a></li>
+                </ul>
+            </div>
             <a href="/referral" class="btn btn-primary"><i class="fas fa-plus me-1"></i>New Referral</a>
         </div>
     </div>

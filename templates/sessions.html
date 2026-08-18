@@ -27,6 +27,15 @@
                 <option value="Cancelled">Cancelled</option>
             </select>
         </div>
+        <div class="col-md-2 d-flex gap-2">
+            <div class="dropdown">
+                <button class="btn btn-outline-success dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="fas fa-download me-1"></i>Export</button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="/export_sessions?format=csv"><i class="fas fa-file-csv me-2"></i>CSV</a></li>
+                    <li><a class="dropdown-item" href="/export_sessions?format=xlsx"><i class="fas fa-file-excel me-2"></i>Excel</a></li>
+                </ul>
+            </div>
+        </div>
     </div>
 </div>
 <div class="card-dark p-0">

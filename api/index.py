@@ -1,4 +1,6 @@
 import os
+import io
+import csv
 import logging
 import uuid
 import random
@@ -1879,9 +1881,15 @@ def reports():
         cur = dict_cursor(conn)
         try:
             cur.execute('SELECT * FROM reports WHERE is_deleted = FALSE ORDER BY created_at DESC LIMIT 200')
+            rows = cur.fetchall()
         except Exception:
-            cur.execute('SELECT * FROM "OutcomeQuestionnaire" WHERE is_deleted = FALSE ORDER BY created_at DESC LIMIT 200')
-        rows = cur.fetchall()
+            rows = []
+        if not rows:
+            try:
+                cur.execute('SELECT * FROM "OutcomeQuestionnaire" WHERE is_deleted = FALSE ORDER BY created_at DESC LIMIT 200')
+                rows = cur.fetchall()
+            except Exception:
+                rows = []
         for r in rows:
             for k, v in r.items():
                 if isinstance(v, (datetime, date)):
@@ -1904,6 +1912,8 @@ def statistics():
         'sessions_this_month': 0, 'referrals_this_month': 0,
         'gender_data': {}, 'program_data': {}, 'severity_data': {},
         'monthly_sessions': {}, 'status_data': {},
+        'appointment_timeline': {}, 'session_timeline': {},
+        'age_data': {}, 'department_data': {}, 'session_type_data': {},
     }
     try:
         conn = get_db()
@@ -1948,6 +1958,56 @@ def statistics():
             cur.execute('SELECT status, COUNT(*) FROM "Appointment" WHERE is_deleted = FALSE GROUP BY status')
             for row in cur.fetchall():
                 stats['status_data'][row[0]] = row[1]
+        except Exception:
+            pass
+        try:
+            cur.execute('SELECT session_type, COUNT(*) FROM "session" WHERE is_deleted = FALSE GROUP BY session_type ORDER BY COUNT(*) DESC')
+            for row in cur.fetchall():
+                stats['session_type_data'][row[0]] = row[1]
+        except Exception:
+            pass
+        try:
+            cur.execute("""
+                SELECT TO_CHAR(appointment_date::date, 'YYYY-MM') as month, COUNT(*) as count
+                FROM "Appointment" WHERE is_deleted = FALSE
+                AND appointment_date IS NOT NULL AND appointment_date != ''
+                AND appointment_date::date >= CURRENT_DATE - INTERVAL '6 months'
+                GROUP BY month ORDER BY month
+            """)
+            for row in cur.fetchall():
+                stats['appointment_timeline'][row[0]] = row[1]
+        except Exception:
+            pass
+        try:
+            cur.execute("""
+                SELECT TO_CHAR(created_at, 'YYYY-MM') as month, COUNT(*) as count
+                FROM "session" WHERE is_deleted = FALSE
+                AND created_at >= CURRENT_DATE - INTERVAL '6 months'
+                GROUP BY month ORDER BY month
+            """)
+            for row in cur.fetchall():
+                stats['session_timeline'][row[0]] = row[1]
+        except Exception:
+            pass
+        try:
+            cur.execute("""
+                SELECT CASE
+                    WHEN age < 18 THEN 'Under 18'
+                    WHEN age BETWEEN 18 AND 20 THEN '18-20'
+                    WHEN age BETWEEN 21 AND 25 THEN '21-25'
+                    WHEN age BETWEEN 26 AND 30 THEN '26-30'
+                    WHEN age > 30 THEN 'Over 30'
+                    ELSE 'Not Specified' END as age_group,
+                    COUNT(*) FROM "Student" WHERE is_deleted = FALSE GROUP BY age_group
+            """)
+            for row in cur.fetchall():
+                stats['age_data'][row[0]] = row[1]
+        except Exception:
+            pass
+        try:
+            cur.execute('SELECT COALESCE(department,\'Unknown\'), COUNT(*) FROM "Student" WHERE is_deleted = FALSE GROUP BY department ORDER BY COUNT(*) DESC LIMIT 10')
+            for row in cur.fetchall():
+                stats['department_data'][row[0]] = row[1]
         except Exception:
             pass
         cur.close()
@@ -2285,12 +2345,17 @@ def audit_logs():
     try:
         conn = get_db()
         cur = dict_cursor(conn)
-        cur.execute('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 200')
+        cur.execute('''SELECT a.*, u.username as user_display, u.full_name 
+                       FROM audit_logs a 
+                       LEFT JOIN users u ON a.user_id = u.id 
+                       ORDER BY a.created_at DESC LIMIT 200''')
         rows = cur.fetchall()
         for r in rows:
             for k, v in r.items():
                 if isinstance(v, (datetime, date)):
                     r[k] = v.isoformat()
+            if not r.get('user_display'):
+                r['user_display'] = r.get('username', 'System')
         logs = rows
         cur.close()
         conn.close()
@@ -2515,8 +2580,9 @@ def page_not_found(e):
 @app.route("/export_referrals")
 @login_required
 def export_referrals():
-    import csv
-    import io
+    import csv, io
+    from flask import Response
+    fmt = request.args.get('format', 'csv')
     try:
         conn = get_db()
         cur = dict_cursor(conn)
@@ -2524,15 +2590,37 @@ def export_referrals():
         rows = cur.fetchall()
         cur.close()
         conn.close()
+        if fmt == 'xlsx':
+            try:
+                import openpyxl
+                wb = openpyxl.Workbook()
+                ws = wb.active
+                ws.title = "Referrals"
+                ws.append(['Date', 'Student Name', 'Student ID', 'Referred By', 'Contact', 'Reason', 'Status', 'Urgency'])
+                for r in rows:
+                    ws.append([
+                        str(r.get('created_at', '')), r.get('student_name', ''), r.get('student_id', ''),
+                        r.get('referred_by', ''), r.get('contact', ''), r.get('reason', ''),
+                        r.get('status', ''), r.get('urgency', '')
+                    ])
+                output = io.BytesIO()
+                wb.save(output)
+                output.seek(0)
+                return Response(
+                    output.getvalue(),
+                    mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    headers={'Content-Disposition': 'attachment; filename=referrals_export.xlsx'}
+                )
+            except ImportError:
+                pass
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(['Date', 'Student Name', 'Student ID', 'Referred By', 'Contact', 'Reason', 'Status'])
+        writer.writerow(['Date', 'Student Name', 'Student ID', 'Referred By', 'Contact', 'Reason', 'Status', 'Urgency'])
         for r in rows:
             writer.writerow([
                 r.get('created_at', ''), r.get('student_name', ''), r.get('student_id', ''),
-                r.get('referred_by', ''), r.get('contact', ''), r.get('reason', ''), r.get('status', '')
+                r.get('referred_by', ''), r.get('contact', ''), r.get('reason', ''), r.get('status', ''), r.get('urgency', '')
             ])
-        from flask import Response
         return Response(
             output.getvalue(),
             mimetype='text/csv',
@@ -2545,26 +2633,53 @@ def export_referrals():
 @app.route("/export_students")
 @login_required
 def export_students():
-    import csv
-    import io
+    import csv, io
+    from flask import Response
+    fmt = request.args.get('format', 'csv')
     try:
         conn = get_db()
         cur = dict_cursor(conn)
-        cur.execute('SELECT * FROM "Student" WHERE is_deleted = FALSE ORDER BY created_at DESC')
+        cur.execute('''SELECT s.*, COUNT(sess.id) as session_count
+                       FROM "Student" s LEFT JOIN "session" sess ON s.student_id = sess.student_id
+                       WHERE s.is_deleted = FALSE
+                       GROUP BY s.id ORDER BY s.created_at DESC''')
         rows = cur.fetchall()
         cur.close()
         conn.close()
+        if fmt == 'xlsx':
+            try:
+                import openpyxl
+                wb = openpyxl.Workbook()
+                ws = wb.active
+                ws.title = "Students"
+                ws.append(['First Name', 'Last Name', 'Student ID', 'Email', 'Phone', 'Gender', 'Program', 'Department', 'Level', 'Sessions', 'Date Registered'])
+                for r in rows:
+                    ws.append([
+                        r.get('first_name', ''), r.get('last_name', ''), r.get('student_id', ''),
+                        r.get('email', ''), r.get('phone', ''), r.get('gender', ''),
+                        r.get('program', ''), r.get('department', ''), r.get('level', ''),
+                        r.get('session_count', 0), str(r.get('created_at', ''))
+                    ])
+                output = io.BytesIO()
+                wb.save(output)
+                output.seek(0)
+                return Response(
+                    output.getvalue(),
+                    mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    headers={'Content-Disposition': 'attachment; filename=students_export.xlsx'}
+                )
+            except ImportError:
+                pass
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(['First Name', 'Last Name', 'Student ID', 'Email', 'Phone', 'Gender', 'Program', 'Department', 'Level', 'Date Registered'])
+        writer.writerow(['First Name', 'Last Name', 'Student ID', 'Email', 'Phone', 'Gender', 'Program', 'Department', 'Level', 'Sessions', 'Date Registered'])
         for r in rows:
             writer.writerow([
                 r.get('first_name', ''), r.get('last_name', ''), r.get('student_id', ''),
                 r.get('email', ''), r.get('phone', ''), r.get('gender', ''),
                 r.get('program', ''), r.get('department', ''), r.get('level', ''),
-                r.get('created_at', '')
+                r.get('session_count', 0), r.get('created_at', '')
             ])
-        from flask import Response
         return Response(
             output.getvalue(),
             mimetype='text/csv',
@@ -2577,8 +2692,9 @@ def export_students():
 @app.route("/export_sessions")
 @login_required
 def export_sessions():
-    import csv
-    import io
+    import csv, io
+    from flask import Response
+    fmt = request.args.get('format', 'csv')
     try:
         conn = get_db()
         cur = dict_cursor(conn)
@@ -2586,6 +2702,28 @@ def export_sessions():
         rows = cur.fetchall()
         cur.close()
         conn.close()
+        if fmt == 'xlsx':
+            try:
+                import openpyxl
+                wb = openpyxl.Workbook()
+                ws = wb.active
+                ws.title = "Sessions"
+                ws.append(['Date', 'Student Name', 'Student ID', 'Session Type', 'Counsellor', 'Status', 'Notes'])
+                for r in rows:
+                    ws.append([
+                        str(r.get('session_date', r.get('created_at', ''))), r.get('student_name', ''), r.get('student_id', ''),
+                        r.get('session_type', ''), r.get('counsellor', ''), r.get('status', ''), r.get('notes', '')
+                    ])
+                output = io.BytesIO()
+                wb.save(output)
+                output.seek(0)
+                return Response(
+                    output.getvalue(),
+                    mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    headers={'Content-Disposition': 'attachment; filename=sessions_export.xlsx'}
+                )
+            except ImportError:
+                pass
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(['Date', 'Student Name', 'Student ID', 'Session Type', 'Counsellor', 'Status', 'Notes'])
@@ -2594,7 +2732,6 @@ def export_sessions():
                 r.get('session_date', r.get('created_at', '')), r.get('student_name', ''), r.get('student_id', ''),
                 r.get('session_type', ''), r.get('counsellor', ''), r.get('status', ''), r.get('notes', '')
             ])
-        from flask import Response
         return Response(
             output.getvalue(),
             mimetype='text/csv',
@@ -2950,13 +3087,72 @@ def toggle_auto_report():
 @app.route("/generate_report_now", methods=["POST"])
 @login_required
 def generate_report_now():
-    flash("Report generation initiated", "success")
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        now = datetime.utcnow()
+        cur.execute('''INSERT INTO reports (title, report_type, generated_by, summary, created_at, updated_at)
+                       VALUES (%s, %s, %s, %s, %s, %s)''',
+                    ('Quick Report - ' + now.strftime('%Y-%m-%d %H:%M'), 'Summary',
+                     session.get('full_name', session.get('username', '')),
+                     '{}', now, now))
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("Report generated successfully!", "success")
+    except Exception as e:
+        flash(f"Error generating report: {e}", "error")
     return redirect(url_for('reports'))
 
 @app.route("/generate_report_manual", methods=["POST"])
 @login_required
 def generate_report_manual():
-    flash("Manual report generation initiated", "success")
+    try:
+        date_from = request.form.get('date_from', '')
+        date_to = request.form.get('date_to', '')
+        report_type = request.form.get('report_type', 'Summary')
+        conn = get_db()
+        cur = conn.cursor()
+        summary = {}
+        date_filter = ""
+        params = []
+        if date_from and date_to:
+            date_filter = "AND created_at BETWEEN %s AND %s"
+            params = [date_from, date_to]
+        try:
+            if report_type in ('Summary', 'Sessions', 'All'):
+                cur.execute(f'SELECT COUNT(*) FROM "session" WHERE is_deleted = FALSE {date_filter}', params)
+                summary['total_sessions'] = cur.fetchone()[0]
+            if report_type in ('Summary', 'Referrals', 'All'):
+                cur.execute(f'SELECT COUNT(*) FROM "Referral" WHERE is_deleted = FALSE {date_filter}', params)
+                summary['total_referrals'] = cur.fetchone()[0]
+            if report_type in ('Summary', 'DASS-21', 'All'):
+                cur.execute(f'SELECT COUNT(*) FROM "DASS21" WHERE is_deleted = FALSE {date_filter}', params)
+                summary['total_assessments'] = cur.fetchone()[0]
+            if report_type in ('Summary', 'Appointments', 'All'):
+                cur.execute(f'SELECT COUNT(*) FROM "Appointment" WHERE is_deleted = FALSE {date_filter}', params)
+                summary['total_appointments'] = cur.fetchone()[0]
+            if report_type in ('Summary', 'All'):
+                cur.execute(f'SELECT COUNT(*) FROM "Student" WHERE is_deleted = FALSE {date_filter}', params)
+                summary['total_students'] = cur.fetchone()[0]
+        except Exception:
+            pass
+        now = datetime.utcnow()
+        title = f"{report_type} Report"
+        if date_from and date_to:
+            title += f" ({date_from} to {date_to})"
+        import json
+        cur.execute('''INSERT INTO reports (title, report_type, generated_by, summary, created_at, updated_at)
+                       VALUES (%s, %s, %s, %s, %s, %s)''',
+                    (title, report_type,
+                     session.get('full_name', session.get('username', '')),
+                     json.dumps(summary), now, now))
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash(f"{report_type} report generated successfully!", "success")
+    except Exception as e:
+        flash(f"Error generating report: {e}", "error")
     return redirect(url_for('reports'))
 
 @app.route("/download_report_file/<int:report_id>")
@@ -2967,16 +3163,78 @@ def download_report_file(report_id):
 @app.route("/view_report/<int:report_id>")
 @login_required
 def view_report(report_id):
-    return redirect(url_for('reports'))
+    report = None
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM reports WHERE id = %s AND is_deleted = FALSE', (report_id,))
+        report = cur.fetchone()
+        if report:
+            for k, v in report.items():
+                if isinstance(v, (datetime, date)):
+                    report[k] = v.isoformat()
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    if not report:
+        flash("Report not found", "error")
+        return redirect(url_for('reports'))
+    return render_template('view_report.html', report=report)
 
 @app.route("/download_report/<int:report_id>")
 @login_required
 def download_report(report_id):
-    return redirect(url_for('reports'))
+    import csv, io, json
+    from flask import Response
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM reports WHERE id = %s AND is_deleted = FALSE', (report_id,))
+        report = cur.fetchone()
+        cur.close()
+        conn.close()
+        if not report:
+            flash("Report not found", "error")
+            return redirect(url_for('reports'))
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Field', 'Value'])
+        writer.writerow(['Title', report.get('title', '')])
+        writer.writerow(['Type', report.get('report_type', '')])
+        writer.writerow(['Generated By', report.get('generated_by', '')])
+        writer.writerow(['Created At', str(report.get('created_at', ''))])
+        summary = report.get('summary', '{}')
+        if isinstance(summary, str):
+            try:
+                summary = json.loads(summary)
+            except Exception:
+                pass
+        if isinstance(summary, dict):
+            for k, v in summary.items():
+                writer.writerow([k, v])
+        return Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': f'attachment; filename=report_{report_id}.csv'}
+        )
+    except Exception as e:
+        flash(f"Download error: {e}", "error")
+        return redirect(url_for('reports'))
 
 @app.route("/delete_report/<int:report_id>", methods=["POST"])
 @login_required
 def delete_report(report_id):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('UPDATE reports SET is_deleted = TRUE WHERE id = %s', (report_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("Report deleted", "success")
+    except Exception as e:
+        flash(f"Delete error: {e}", "error")
     return redirect(url_for('reports'))
 
 @app.route("/print_session/<int:session_id>")
@@ -3341,7 +3599,22 @@ def export_master():
 @app.route("/import_template/<import_type>")
 @login_required
 def import_template(import_type):
-    return redirect(url_for('import_csv'))
+    import csv, io
+    from flask import Response
+    output = io.StringIO()
+    writer = csv.writer(output)
+    if import_type == 'students':
+        writer.writerow(['First Name', 'Last Name', 'Student ID', 'Email', 'Phone', 'Gender', 'Program', 'Department', 'Level'])
+    elif import_type == 'appointments':
+        writer.writerow(['Student Name', 'Student ID', 'Date', 'Time', 'Type', 'Counsellor', 'Notes'])
+    elif import_type == 'sessions':
+        writer.writerow(['Student Name', 'Student ID', 'Session Type', 'Date', 'Counsellor', 'Status', 'Notes'])
+    elif import_type == 'referrals':
+        writer.writerow(['Student Name', 'Student ID', 'Referred By', 'Contact', 'Reason', 'Urgency'])
+    else:
+        writer.writerow(['Column 1', 'Column 2', 'Column 3'])
+    return Response(output.getvalue(), mimetype='text/csv',
+                    headers={'Content-Disposition': f'attachment; filename={import_type}_template.csv'})
 
 @app.route("/admin/users/edit", methods=["POST"])
 @login_required

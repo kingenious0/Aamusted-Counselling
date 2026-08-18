@@ -15,6 +15,7 @@
                     <tr>
                         <th>TIMESTAMP</th>
                         <th>USER</th>
+                        <th>FULL NAME</th>
                         <th>ACTION</th>
                         <th>TABLE</th>
                         <th>DETAILS</th>
@@ -23,10 +24,11 @@
                 <tbody>
                     {% for log in logs %}
                     <tr>
-                        <td style="color:#6b7280; font-size:13px;">{{ log.timestamp }}</td>
-                        <td>{{ log.username }}</td>
+                        <td style="color:#6b7280; font-size:13px;">{{ log.timestamp or log.created_at or '' }}</td>
+                        <td>{{ log.user_display or log.username or 'System' }}</td>
+                        <td>{{ log.full_name or '' }}</td>
                         <td>
-                            <span class="badge {% if 'LOGIN' in log.action %}badge-blue{% elif 'DELETE' in log.action %}badge-red{% elif 'UPDATE' in log.action %}badge-amber{% else %}badge-green{% endif %}">
+                            <span class="badge {% if 'LOGIN' in (log.action or '') %}badge-blue{% elif 'DELETE' in (log.action or '') %}badge-red{% elif 'UPDATE' in (log.action or '') %}badge-amber{% else %}badge-green{% endif %}">
                                 {{ log.action }}
                             </span>
                         </td>
