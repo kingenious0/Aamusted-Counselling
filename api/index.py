@@ -1317,19 +1317,59 @@ def reports():
 @app.route("/statistics")
 @login_required
 def statistics():
-    stats = {}
-    tables = {'students': 'Student', 'sessions': 'session', 'referrals': 'Referral',
-              'assessments': 'DASS21', 'appointments': 'Appointment', 'cases': 'CaseManagement'}
+    stats = {
+        'total_students': 0, 'total_sessions': 0, 'total_referrals': 0,
+        'total_assessments': 0, 'total_appointments': 0, 'total_cases': 0,
+        'male_count': 0, 'female_count': 0,
+        'sessions_this_month': 0, 'referrals_this_month': 0,
+        'gender_data': {}, 'program_data': {}, 'severity_data': {},
+        'monthly_sessions': {}, 'status_data': {},
+    }
     try:
         conn = get_db()
         cur = conn.cursor()
-        for key, table in tables.items():
+        queries = [
+            ('total_students', 'SELECT COUNT(*) FROM "Student" WHERE is_deleted = FALSE'),
+            ('total_sessions', 'SELECT COUNT(*) FROM "session" WHERE is_deleted = FALSE'),
+            ('total_referrals', 'SELECT COUNT(*) FROM "Referral" WHERE is_deleted = FALSE'),
+            ('total_assessments', 'SELECT COUNT(*) FROM "DASS21" WHERE is_deleted = FALSE'),
+            ('total_appointments', 'SELECT COUNT(*) FROM "Appointment" WHERE is_deleted = FALSE'),
+            ('total_cases', 'SELECT COUNT(*) FROM "CaseManagement" WHERE is_deleted = FALSE'),
+        ]
+        for key, sql in queries:
             try:
-                cur.execute(f'SELECT COUNT(*) FROM "{table}" WHERE is_deleted = FALSE')
+                cur.execute(sql)
                 stats[key] = cur.fetchone()[0]
             except Exception:
-                stats[key] = 0
-        stats['total'] = sum(stats.values())
+                pass
+        try:
+            cur.execute('SELECT gender, COUNT(*) FROM "Student" WHERE is_deleted = FALSE AND gender IS NOT NULL AND gender != \'\' GROUP BY gender')
+            for row in cur.fetchall():
+                stats['gender_data'][row[0]] = row[1]
+                if row[0].lower() in ('male', 'm'):
+                    stats['male_count'] = row[1]
+                elif row[0].lower() in ('female', 'f'):
+                    stats['female_count'] = row[1]
+        except Exception:
+            pass
+        try:
+            cur.execute('SELECT program, COUNT(*) FROM "Student" WHERE is_deleted = FALSE AND program IS NOT NULL AND program != \'\' GROUP BY program ORDER BY COUNT(*) DESC LIMIT 10')
+            for row in cur.fetchall():
+                stats['program_data'][row[0]] = row[1]
+        except Exception:
+            pass
+        try:
+            cur.execute('SELECT severity, COUNT(*) FROM "DASS21" WHERE is_deleted = FALSE GROUP BY severity')
+            for row in cur.fetchall():
+                stats['severity_data'][row[0]] = row[1]
+        except Exception:
+            pass
+        try:
+            cur.execute('SELECT status, COUNT(*) FROM "Appointment" WHERE is_deleted = FALSE GROUP BY status')
+            for row in cur.fetchall():
+                stats['status_data'][row[0]] = row[1]
+        except Exception:
+            pass
         cur.close()
         conn.close()
     except Exception:
@@ -1563,8 +1603,63 @@ def profile():
 @login_required
 def import_csv():
     if request.method == "POST":
-        flash("CSV import processed", "success")
-        return redirect(url_for('students'))
+        import csv
+        import io
+        file = request.files.get('csv_file')
+        import_type = request.form.get('import_type', 'students')
+        if not file or file.filename == '':
+            flash("No file selected", "error")
+            return redirect(url_for('import_csv'))
+        try:
+            content = file.read().decode('utf-8-sig')
+            reader = csv.DictReader(io.StringIO(content))
+            conn = get_db()
+            cur = conn.cursor()
+            count = 0
+            if import_type == 'students':
+                for row in reader:
+                    first = row.get('first_name', row.get('First Name', ''))
+                    last = row.get('last_name', row.get('Last Name', ''))
+                    name = row.get('name', row.get('Name', ''))
+                    if not first and not last and name:
+                        parts = name.split(' ', 1)
+                        first = parts[0]
+                        last = parts[1] if len(parts) > 1 else ''
+                    sid = row.get('student_id', row.get('Student ID', row.get('index_number', row.get('Index Number', ''))))
+                    email = row.get('email', row.get('Email', ''))
+                    phone = row.get('phone', row.get('Phone', ''))
+                    gender = row.get('gender', row.get('Gender', ''))
+                    program = row.get('program', row.get('Program', row.get('programme', row.get('Programme', ''))))
+                    department = row.get('department', row.get('Department', ''))
+                    level = row.get('level', row.get('Level', ''))
+                    cur.execute(
+                        '''INSERT INTO "Student" (first_name, last_name, name, student_id, email, phone, gender, program, department, level, created_at, updated_at)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())''',
+                        (first, last, f"{first} {last}".strip(), sid, email, phone, gender, program, department, level)
+                    )
+                    count += 1
+            elif import_type == 'appointments':
+                for row in reader:
+                    cur.execute(
+                        '''INSERT INTO "Appointment" (student_name, student_id, appointment_date, appointment_time, appointment_type, counsellor, notes, status, created_at, updated_at)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())''',
+                        (row.get('student_name', row.get('Student Name', '')),
+                         row.get('student_id', row.get('Student ID', '')),
+                         row.get('date', row.get('Date', row.get('appointment_date', ''))),
+                         row.get('time', row.get('Time', row.get('appointment_time', ''))),
+                         row.get('type', row.get('Type', row.get('appointment_type', 'Individual'))),
+                         row.get('counsellor', row.get('Counsellor', '')),
+                         row.get('notes', row.get('Notes', '')),
+                         'Scheduled')
+                    )
+                    count += 1
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash(f"Successfully imported {count} {import_type}", "success")
+        except Exception as e:
+            flash(f"Import error: {e}", "error")
+        return redirect(url_for('students' if import_type == 'students' else 'manage_appointments'))
     return render_template('import_csv.html')
 
 
@@ -1659,17 +1754,94 @@ def page_not_found(e):
 @app.route("/export_referrals")
 @login_required
 def export_referrals():
-    return redirect(url_for('all_referrals'))
+    import csv
+    import io
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM "Referral" WHERE is_deleted = FALSE ORDER BY created_at DESC')
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Date', 'Student Name', 'Student ID', 'Referred By', 'Contact', 'Reason', 'Status'])
+        for r in rows:
+            writer.writerow([
+                r.get('created_at', ''), r.get('student_name', ''), r.get('student_id', ''),
+                r.get('referred_by', ''), r.get('contact', ''), r.get('reason', ''), r.get('status', '')
+            ])
+        from flask import Response
+        return Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=referrals_export.csv'}
+        )
+    except Exception as e:
+        flash(f"Export error: {e}", "error")
+        return redirect(url_for('all_referrals'))
 
 @app.route("/export_students")
 @login_required
 def export_students():
-    return redirect(url_for('students'))
+    import csv
+    import io
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM "Student" WHERE is_deleted = FALSE ORDER BY created_at DESC')
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['First Name', 'Last Name', 'Student ID', 'Email', 'Phone', 'Gender', 'Program', 'Department', 'Level', 'Date Registered'])
+        for r in rows:
+            writer.writerow([
+                r.get('first_name', ''), r.get('last_name', ''), r.get('student_id', ''),
+                r.get('email', ''), r.get('phone', ''), r.get('gender', ''),
+                r.get('program', ''), r.get('department', ''), r.get('level', ''),
+                r.get('created_at', '')
+            ])
+        from flask import Response
+        return Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=students_export.csv'}
+        )
+    except Exception as e:
+        flash(f"Export error: {e}", "error")
+        return redirect(url_for('students'))
 
 @app.route("/export_sessions")
 @login_required
 def export_sessions():
-    return redirect(url_for('sessions_list'))
+    import csv
+    import io
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM "session" WHERE is_deleted = FALSE ORDER BY created_at DESC')
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Date', 'Student Name', 'Student ID', 'Session Type', 'Counsellor', 'Status', 'Notes'])
+        for r in rows:
+            writer.writerow([
+                r.get('session_date', r.get('created_at', '')), r.get('student_name', ''), r.get('student_id', ''),
+                r.get('session_type', ''), r.get('counsellor', ''), r.get('status', ''), r.get('notes', '')
+            ])
+        from flask import Response
+        return Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=sessions_export.csv'}
+        )
+    except Exception as e:
+        flash(f"Export error: {e}", "error")
+        return redirect(url_for('sessions_list'))
 
 @app.route("/import_students", methods=["POST"])
 @login_required
@@ -1718,31 +1890,44 @@ def sync_now():
 @app.route("/appointment/update_status/<int:appt_id>/<new_status>")
 @login_required
 def update_appt_status(appt_id, new_status):
+    role = session.get('role', '')
+    allowed = {
+        'Secretary': ['Checked In', 'Sent to Counsellor', 'Cancelled'],
+        'Admin': ['Scheduled', 'Confirmed', 'Checked In', 'Sent to Counsellor', 'In Session', 'Completed', 'Cancelled', 'No Show'],
+        'Counsellor': ['In Session', 'Completed', 'Cancelled'],
+    }
+    if new_status not in allowed.get(role, []):
+        flash(f"Your role ({role}) cannot set status to '{new_status}'", "error")
+        return redirect(url_for('manage_appointments'))
     try:
         conn = get_db()
         cur = conn.cursor()
         cur.execute('UPDATE "Appointment" SET status = %s, updated_at = NOW() WHERE id = %s', (new_status, appt_id))
+        if new_status == 'In Session':
+            try:
+                cur.execute('SELECT student_name, student_id FROM "Appointment" WHERE id = %s', (appt_id,))
+                appt = cur.fetchone()
+                if appt:
+                    cur.execute(
+                        '''INSERT INTO "session" (student_name, student_id, session_type, session_date, counsellor, status, created_at, updated_at)
+                           VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())''',
+                        (appt[0], appt[1], 'Individual', datetime.now().strftime('%Y-%m-%d'), session.get('full_name', session.get('username', '')), 'In Progress')
+                    )
+            except Exception:
+                pass
         conn.commit()
         cur.close()
         conn.close()
-    except Exception:
-        pass
+        flash(f"Status updated to '{new_status}'", "success")
+    except Exception as e:
+        flash(f"Error: {e}", "error")
     return redirect(url_for('manage_appointments'))
 
 @app.route("/update_appointment_status/<int:appointment_id>", methods=["POST"])
 @login_required
 def update_appointment_status(appointment_id):
     new_status = request.form.get('status', '')
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute('UPDATE "Appointment" SET status = %s, updated_at = NOW() WHERE id = %s', (new_status, appointment_id))
-        conn.commit()
-        cur.close()
-        conn.close()
-    except Exception:
-        pass
-    return redirect(url_for('manage_appointments'))
+    return redirect(url_for('update_appt_status', appt_id=appointment_id, new_status=new_status))
 
 @app.route("/student_profile/<int:id>")
 @login_required
@@ -1891,27 +2076,91 @@ def delete_report(report_id):
 @app.route("/print_session/<int:session_id>")
 @login_required
 def print_session(session_id):
-    return redirect(url_for('sessions_list'))
+    data = None
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM "session" WHERE id = %s', (session_id,))
+        data = cur.fetchone()
+        if data:
+            for k, v in data.items():
+                if isinstance(v, (datetime, date)):
+                    data[k] = v.isoformat()
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    if not data:
+        flash("Session not found", "error")
+        return redirect(url_for('sessions_list'))
+    return render_template('print_session.html', session_data=data)
 
 @app.route("/print_referral/<int:id>")
 @login_required
 def print_referral(id):
-    return redirect(url_for('all_referrals'))
+    data = None
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM "Referral" WHERE id = %s', (id,))
+        data = cur.fetchone()
+        if data:
+            for k, v in data.items():
+                if isinstance(v, (datetime, date)):
+                    data[k] = v.isoformat()
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    if not data:
+        flash("Referral not found", "error")
+        return redirect(url_for('all_referrals'))
+    return render_template('print_referral.html', referral=data)
 
 @app.route("/print_case/<int:case_id>")
-@login_required
-def print_case(case_id):
-    return redirect(url_for('case_notes_list'))
-
 @app.route("/print_case_note/<int:case_id>")
 @login_required
 def print_case_note(case_id):
-    return redirect(url_for('case_notes_list'))
+    data = None
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM "CaseManagement" WHERE id = %s', (case_id,))
+        data = cur.fetchone()
+        if data:
+            for k, v in data.items():
+                if isinstance(v, (datetime, date)):
+                    data[k] = v.isoformat()
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    if not data:
+        flash("Case note not found", "error")
+        return redirect(url_for('case_notes_list'))
+    return render_template('print_case_note.html', case=data)
 
 @app.route("/print_dass21/<int:dass21_id>")
 @login_required
 def print_dass21(dass21_id):
-    return redirect(url_for('dass21_list'))
+    data = None
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM "DASS21" WHERE id = %s', (dass21_id,))
+        data = cur.fetchone()
+        if data:
+            for k, v in data.items():
+                if isinstance(v, (datetime, date)):
+                    data[k] = v.isoformat()
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    if not data:
+        flash("Assessment not found", "error")
+        return redirect(url_for('dass21_list'))
+    return render_template('print_dass21.html', assessment=data)
 
 @app.route("/print_report/<int:report_id>")
 @login_required
@@ -1921,7 +2170,20 @@ def print_report(report_id):
 @app.route("/get_session/<int:session_id>")
 @login_required
 def get_session(session_id):
-    return jsonify({"error": "Use API endpoint"}), 404
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM "session" WHERE id = %s', (session_id,))
+        data = cur.fetchone()
+        if data:
+            for k, v in data.items():
+                if isinstance(v, (datetime, date)):
+                    data[k] = v.isoformat()
+        cur.close()
+        conn.close()
+        return jsonify(data or {})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/admin/forms")
 @login_required
