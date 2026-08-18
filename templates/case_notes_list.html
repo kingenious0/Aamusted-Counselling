@@ -28,20 +28,24 @@
                     <tr>
                         <th>DATE</th>
                         <th>STUDENT</th>
-                        <th>SESSION DATE</th>
-                        <th>APPEARANCE & PROBLEMS</th>
-                        <th>CLINICAL PLAN</th>
+                        <th>APPEARANCE</th>
+                        <th>PROBLEMS</th>
+                        <th>INTERVENTIONS</th>
+                        <th>RECOMMENDATIONS</th>
+                        <th>COUNSELLOR</th>
                         <th>ACTIONS</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for c in cases %}
                     <tr>
-                        <td>{{ c.date }}</td>
-                        <td>{{ c.student_name }}</td>
-                        <td>{{ c.session_date }}</td>
-                        <td><span style="max-width:200px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ c.appearance }}</span></td>
-                        <td><span style="max-width:200px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ c.clinical_plan }}</span></td>
+                        <td>{{ c.created_at or '' }}</td>
+                        <td>{{ c.student_name or '' }}</td>
+                        <td><span style="max-width:150px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ c.client_appearance or c.appearance_problems or '' }}">{{ c.client_appearance or c.appearance_problems or '' }}</span></td>
+                        <td><span style="max-width:150px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ c.presenting_problems or '' }}">{{ c.presenting_problems or '' }}</span></td>
+                        <td><span style="max-width:150px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ c.interventions or '' }}">{{ c.interventions or '' }}</span></td>
+                        <td><span style="max-width:150px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ c.recommendations or '' }}">{{ c.recommendations or '' }}</span></td>
+                        <td>{{ c.counsellor_name or c.counsellor or '' }}</td>
                         <td>
                             <a href="/print_case_note/{{ c.id }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Print"><i class="fas fa-print"></i></a>
                         </td>

@@ -1,66 +1,157 @@
 {% set active_page = 'outcome' %}
 {% extends 'base.html' %}
-{% block title %}Outcome Questionnaire - AAMUSTED Counselling{% endblock %}
-{% block heading %}<i class="fas fa-clipboard-list me-2" style="color:#4ade80"></i>Outcome Questionnaire{% endblock %}
+{% block title %}OQ-45 Outcome Questionnaire - AAMUSTED Counselling{% endblock %}
+{% block heading %}<i class="fas fa-clipboard-list me-2" style="color:#4ade80"></i>Outcome Questionnaire (OQ-45){% endblock %}
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-8">
+    <div class="col-lg-10">
         <div class="card-dark">
             <form method="POST" action="/outcome_questionnaire">
                 <h3 style="margin-bottom:20px;"><i class="fas fa-clipboard-check me-2" style="color:#4ade80"></i>Assessment Details</h3>
                 <div class="row g-3 mb-4">
-                    <div class="col-md-12">
+                    <div class="col-md-4">
                         <label class="form-label">Student *</label>
-                        <select name="student_id" class="form-select" required>
+                        <select name="student_name" id="studentSelect" class="form-select" required onchange="fillStudentId()">
                             <option value="">Select Student...</option>
                             {% for s in students %}
-                            <option value="{{ s.id }}">{{ s.name }} ({{ s.case_number }})</option>
+                            <option value="{{ s.name }}" data-id="{{ s.student_id or s.id }}">{{ s.name }} ({{ s.case_number }})</option>
                             {% endfor %}
                         </select>
+                        <input type="hidden" name="student_id" id="studentIdHidden">
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Session</label>
+                    <div class="col-md-4">
+                        <label class="form-label">Session (optional)</label>
                         <select name="session_id" class="form-select">
                             <option value="">Select Session...</option>
                             {% for s in sessions %}
-                            <option value="{{ s.id }}">{{ s.student_name }} - {{ s.date }}</option>
+                            <option value="{{ s.id }}">{{ s.student_name or 'Unknown' }} - {{ s.session_date or 'N/A' }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Date</label>
-                        <input type="date" name="date" class="form-control">
+                    <div class="col-md-4">
+                        <label class="form-label">Notes</label>
+                        <input type="text" name="notes" class="form-control" placeholder="Optional notes...">
                     </div>
                 </div>
 
-                <h3 style="margin-bottom:20px;"><i class="fas fa-chart-line me-2" style="color:#60a5fa"></i>Outcome Scores</h3>
+                <div class="alert" style="background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.3); color:#4ade80; font-size:13px; margin-bottom:20px;">
+                    <strong>Instructions:</strong> Rate each item from 0 (Never) to 4 (Always) based on the past week.
+                </div>
+
+                <h3 style="margin-bottom:20px;"><i class="fas fa-heart me-2" style="color:#f87171"></i>Symptom Distress (Items 1-25)</h3>
+                {% set oq_items = [
+                    (1, "I feel nervous inside"),
+                    (2, "I don't feel at ease"),
+                    (3, "I have a low opinion of myself"),
+                    (4, "I do not enjoy anything at all"),
+                    (5, "I feel like giving up"),
+                    (6, "I feel irritated"),
+                    (7, "I feel bored"),
+                    (8, "I feel confused"),
+                    (9, "My sleep is disturbed"),
+                    (10, "I feel sad"),
+                    (11, "I blame myself for things"),
+                    (12, "I feel angry"),
+                    (13, "I feel restricted"),
+                    (14, "I feel lonely"),
+                    (15, "I feel hopeless"),
+                    (16, "I wake up early"),
+                    (17, "I feel like crying"),
+                    (18, "I feel scared"),
+                    (19, "Life is a strain for me"),
+                    (20, "I make decisions easily"),
+                    (21, "I feel inadequate"),
+                    (22, "I enjoy social gatherings"),
+                    (23, "I get along well with people"),
+                    (24, "I have overlapping relationships"),
+                    (25, "I feel something is wrong with my mind")
+                ] %}
                 <div class="row g-3 mb-4">
-                    <div class="col-md-4">
-                        <label class="form-label">Depression Score (0-21)</label>
-                        <input type="number" name="depression" class="form-control" min="0" max="21" step="0.5" placeholder="0">
+                    {% for num, text in oq_items %}
+                    <div class="col-md-6">
+                        <label class="form-label">{{ num }}. {{ text }}</label>
+                        <select name="item{{ num }}" class="form-select" required>
+                            <option value="0">0 - Never</option>
+                            <option value="1">1 - Rarely</option>
+                            <option value="2">2 - Sometimes</option>
+                            <option value="3">3 - Often</option>
+                            <option value="4">4 - Always</option>
+                        </select>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Anxiety Score (0-21)</label>
-                        <input type="number" name="anxiety" class="form-control" min="0" max="21" step="0.5" placeholder="0">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Stress Score (0-21)</label>
-                        <input type="number" name="stress" class="form-control" min="0" max="21" step="0.5" placeholder="0">
-                    </div>
+                    {% endfor %}
                 </div>
 
-                <h3 style="margin-bottom:20px;"><i class="fas fa-sticky-note me-2" style="color:#fbbf24"></i>Clinical Notes</h3>
-                <div class="mb-4">
-                    <label class="form-label">Notes &amp; Observations</label>
-                    <textarea name="notes" class="form-control" rows="4" placeholder="Record clinical observations, progress notes, and recommendations..."></textarea>
+                <h3 style="margin-bottom:20px;"><i class="fas fa-users me-2" style="color:#60a5fa"></i>Interpersonal Relations (Items 26-35)</h3>
+                {% set oq_items2 = [
+                    (26, "I feel distant from people around me"),
+                    (27, "I have arguments with people"),
+                    (28, "I am easy to get along with"),
+                    (29, "I have arguments at home"),
+                    (30, "I do not mix well in social situations"),
+                    (31, "I feel like I'm not wanted"),
+                    (32, "I am liked by people"),
+                    (33, "I enjoy being with people"),
+                    (34, "I get along well with family"),
+                    (35, "I feel accepted")
+                ] %}
+                <div class="row g-3 mb-4">
+                    {% for num, text in oq_items2 %}
+                    <div class="col-md-6">
+                        <label class="form-label">{{ num }}. {{ text }}</label>
+                        <select name="item{{ num }}" class="form-select" required>
+                            <option value="0">0 - Never</option>
+                            <option value="1">1 - Rarely</option>
+                            <option value="2">2 - Sometimes</option>
+                            <option value="3">3 - Often</option>
+                            <option value="4">4 - Always</option>
+                        </select>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <h3 style="margin-bottom:20px;"><i class="fas fa-briefcase me-2" style="color:#fbbf24"></i>Social Role (Items 36-45)</h3>
+                {% set oq_items3 = [
+                    (36, "I am satisfied with my life"),
+                    (37, "I have trouble with work/school"),
+                    (38, "I feel I have no one to talk to"),
+                    (39, "I have a good social life"),
+                    (40, "I feel restless"),
+                    (41, "I feel no interest in activities"),
+                    (42, "I handle my daily responsibilities"),
+                    (43, "I am able to do my daily activities"),
+                    (44, "I am able to do my daily activities"),
+                    (45, "I am able to do my daily activities")
+                ] %}
+                <div class="row g-3 mb-4">
+                    {% for num, text in oq_items3 %}
+                    <div class="col-md-6">
+                        <label class="form-label">{{ num }}. {{ text }}</label>
+                        <select name="item{{ num }}" class="form-select" required>
+                            <option value="0">0 - Never</option>
+                            <option value="1">1 - Rarely</option>
+                            <option value="2">2 - Sometimes</option>
+                            <option value="3">3 - Often</option>
+                            <option value="4">4 - Always</option>
+                        </select>
+                    </div>
+                    {% endfor %}
                 </div>
 
                 <div class="d-flex justify-content-end gap-2">
-                    <a href="/dashboard" class="btn btn-outline-secondary">Cancel</a>
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save Assessment</button>
+                    <a href="/reports" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Submit OQ-45</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+function fillStudentId() {
+    var sel = document.getElementById('studentSelect');
+    var opt = sel.options[sel.selectedIndex];
+    document.getElementById('studentIdHidden').value = opt.dataset.id || '';
+}
+</script>
 {% endblock %}

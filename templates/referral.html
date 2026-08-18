@@ -4,20 +4,40 @@
 {% block heading %}<i class="fas fa-share-square me-2" style="color:#f87171"></i>New Referral{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-8">
+    <div class="col-lg-10">
         <div class="card-dark">
             <form method="POST" action="/referral">
                 <h3 style="margin-bottom:20px;"><i class="fas fa-user-tag me-2" style="color:#f87171"></i>Referral Information</h3>
                 <div class="row g-3 mb-4">
-                    <div class="col-md-12">
+                    <div class="col-md-4">
                         <label class="form-label">Student *</label>
-                        <select name="student" class="form-select" required>
+                        <select name="student_name" id="studentSelect" class="form-select" required onchange="fillStudentId()">
                             <option value="">Select Student...</option>
                             {% for s in students %}
-                            <option value="{{ s.id }}">{{ s.name }} ({{ s.case_number }})</option>
+                            <option value="{{ s.name }}" data-id="{{ s.student_id or s.id }}">{{ s.name }} ({{ s.case_number }})</option>
+                            {% endfor %}
+                        </select>
+                        <input type="hidden" name="student_id" id="studentIdHidden">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Session (optional)</label>
+                        <select name="session_id" class="form-select">
+                            <option value="">Select Session...</option>
+                            {% for s in sessions %}
+                            <option value="{{ s.id }}">{{ s.student_name or 'Unknown' }} - {{ s.session_date or 'N/A' }}</option>
                             {% endfor %}
                         </select>
                     </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Urgency</label>
+                        <select name="urgency" class="form-select">
+                            <option value="Normal">Normal</option>
+                            <option value="Urgent">Urgent</option>
+                            <option value="Emergency">Emergency</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row g-3 mb-4">
                     <div class="col-md-6">
                         <label class="form-label">Referred By *</label>
                         <input type="text" name="referred_by" class="form-control" required placeholder="Name or department">
@@ -28,11 +48,37 @@
                     </div>
                 </div>
 
-                <h3 style="margin-bottom:20px;"><i class="fas fa-exclamation-triangle me-2" style="color:#fbbf24"></i>Reason &amp; Details</h3>
+                <h3 style="margin-bottom:20px;"><i class="fas fa-exclamation-triangle me-2" style="color:#fbbf24"></i>Reason for Referral</h3>
                 <div class="mb-3">
-                    <label class="form-label">Reason for Referral *</label>
-                    <textarea name="reason" class="form-control" rows="3" required placeholder="Describe the reason for this referral..."></textarea>
+                    <label class="form-label">Detailed Reason *</label>
+                    <textarea name="reason_for_referral" class="form-control" rows="3" required placeholder="Describe the reason for this referral..."></textarea>
                 </div>
+                <div class="mb-4">
+                    <label class="form-label">Referral Reasons (select all that apply)</label>
+                    <div class="row g-2">
+                        {% for reason in ['Academic', 'Personal', 'Social', 'Financial', 'Health', 'Family', 'Other'] %}
+                        <div class="col-md-3 col-6">
+                            <div class="form-check p-2" style="background:rgba(96,165,250,0.05); border:1px solid rgba(96,165,250,0.15); border-radius:6px;">
+                                <input class="form-check-input" type="checkbox" name="referral_reasons" value="{{ reason }}" id="reason{{ reason }}">
+                                <label class="form-check-label" for="reason{{ reason }}">{{ reason }}</label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <h3 style="margin-bottom:20px;"><i class="fas fa-tasks me-2" style="color:#4ade80"></i>Actions &amp; Outcome</h3>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Action Taken</label>
+                        <textarea name="action_taken" class="form-control" rows="3" placeholder="Actions taken in response to referral..."></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Outcome</label>
+                        <textarea name="outcome" class="form-control" rows="3" placeholder="Outcome or resolution..."></textarea>
+                    </div>
+                </div>
+
                 <div class="mb-4">
                     <label class="form-label">Additional Notes</label>
                     <textarea name="notes" class="form-control" rows="3" placeholder="Any additional information or clinical notes..."></textarea>
@@ -46,4 +92,13 @@
         </div>
     </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+function fillStudentId() {
+    var sel = document.getElementById('studentSelect');
+    var opt = sel.options[sel.selectedIndex];
+    document.getElementById('studentIdHidden').value = opt.dataset.id || '';
+}
+</script>
 {% endblock %}

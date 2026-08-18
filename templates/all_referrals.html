@@ -31,17 +31,31 @@
                         <th>REFERRED BY</th>
                         <th>CONTACT</th>
                         <th>REASON</th>
+                        <th>REASONS</th>
+                        <th>URGENCY</th>
+                        <th>STATUS</th>
                         <th>ACTIONS</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for r in referrals %}
                     <tr>
-                        <td>{{ r.date }}</td>
-                        <td>{{ r.student_name }}</td>
-                        <td>{{ r.referred_by }}</td>
-                        <td>{{ r.contact }}</td>
-                        <td><span style="max-width:200px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ r.reason }}">{{ r.reason }}</span></td>
+                        <td>{{ r.created_at or '' }}</td>
+                        <td>{{ r.student_name or '' }}</td>
+                        <td>{{ r.referred_by or '' }}</td>
+                        <td>{{ r.contact or '' }}</td>
+                        <td><span style="max-width:150px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ r.reason or r.reason_for_referral or '' }}">{{ r.reason or r.reason_for_referral or '' }}</span></td>
+                        <td><span style="max-width:120px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ r.referral_reasons or '' }}</span></td>
+                        <td>
+                            <span class="badge {% if r.urgency == 'Emergency' %}badge-red{% elif r.urgency == 'Urgent' %}badge-amber{% else %}badge-green{% endif %}">
+                                {{ r.urgency or 'Normal' }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge {% if r.status == 'Completed' %}badge-green{% elif r.status == 'Pending' %}badge-amber{% else %}badge-red{% endif %}">
+                                {{ r.status or 'Pending' }}
+                            </span>
+                        </td>
                         <td>
                             <a href="/print_referral/{{ r.id }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Print"><i class="fas fa-print"></i></a>
                         </td>

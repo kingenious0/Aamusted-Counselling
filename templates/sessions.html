@@ -50,13 +50,13 @@
                 <tbody>
                     {% for s in sessions %}
                     <tr>
-                        <td>{{ s.date }}</td>
-                        <td>{{ s.student_name }}</td>
-                        <td><span class="badge badge-blue">{{ s.session_type }}</span></td>
-                        <td>{{ s.Counsellor_name or 'Unassigned' }}</td>
+                        <td>{{ s.session_date or s.date or '' }}</td>
+                        <td>{{ s.student_name_s or s.student_name or 'Walk-in' }}</td>
+                        <td><span class="badge badge-blue">{{ s.session_type or 'Individual' }}</span></td>
+                        <td>{{ s.counsellor or 'N/A' }}</td>
                         <td>
                             <span class="badge {% if s.status == 'Completed' %}badge-green{% elif s.status == 'Scheduled' %}badge-amber{% else %}badge-red{% endif %}">
-                                {{ s.status }}
+                                {{ s.status or 'Scheduled' }}
                             </span>
                         </td>
                         <td>

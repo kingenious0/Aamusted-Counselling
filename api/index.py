@@ -449,6 +449,54 @@ def init_db():
     except Exception as e:
         logger.error(f"init_db alter columns: {e}")
         conn.rollback()
+    # Clinical workflow columns
+    try:
+        _clinical_alters = [
+            # CaseManagement
+            'ALTER TABLE "CaseManagement" ADD COLUMN IF NOT EXISTS session_id TEXT',
+            'ALTER TABLE "CaseManagement" ADD COLUMN IF NOT EXISTS client_appearance TEXT',
+            'ALTER TABLE "CaseManagement" ADD COLUMN IF NOT EXISTS presenting_problems TEXT',
+            'ALTER TABLE "CaseManagement" ADD COLUMN IF NOT EXISTS interventions TEXT',
+            'ALTER TABLE "CaseManagement" ADD COLUMN IF NOT EXISTS recommendations TEXT',
+            'ALTER TABLE "CaseManagement" ADD COLUMN IF NOT EXISTS next_visit_date TEXT',
+            'ALTER TABLE "CaseManagement" ADD COLUMN IF NOT EXISTS counsellor_signature TEXT',
+            'ALTER TABLE "CaseManagement" ADD COLUMN IF NOT EXISTS counsellor_name TEXT',
+            'ALTER TABLE "CaseManagement" ADD COLUMN IF NOT EXISTS notes TEXT',
+            # DASS21
+            'ALTER TABLE "DASS21" ADD COLUMN IF NOT EXISTS depression_score INTEGER DEFAULT 0',
+            'ALTER TABLE "DASS21" ADD COLUMN IF NOT EXISTS anxiety_score INTEGER DEFAULT 0',
+            'ALTER TABLE "DASS21" ADD COLUMN IF NOT EXISTS stress_score INTEGER DEFAULT 0',
+            'ALTER TABLE "DASS21" ADD COLUMN IF NOT EXISTS depression_severity TEXT',
+            'ALTER TABLE "DASS21" ADD COLUMN IF NOT EXISTS anxiety_severity TEXT',
+            'ALTER TABLE "DASS21" ADD COLUMN IF NOT EXISTS stress_severity TEXT',
+            'ALTER TABLE "DASS21" ADD COLUMN IF NOT EXISTS notes TEXT',
+            # Referral
+            'ALTER TABLE "Referral" ADD COLUMN IF NOT EXISTS session_id TEXT',
+            'ALTER TABLE "Referral" ADD COLUMN IF NOT EXISTS referral_reasons TEXT',
+            'ALTER TABLE "Referral" ADD COLUMN IF NOT EXISTS action_taken TEXT',
+            'ALTER TABLE "Referral" ADD COLUMN IF NOT EXISTS outcome TEXT',
+            'ALTER TABLE "Referral" ADD COLUMN IF NOT EXISTS urgency TEXT DEFAULT \'Normal\'',
+            # OutcomeQuestionnaire
+            'ALTER TABLE "OutcomeQuestionnaire" ADD COLUMN IF NOT EXISTS session_id TEXT',
+            'ALTER TABLE "OutcomeQuestionnaire" ADD COLUMN IF NOT EXISTS total_score INTEGER DEFAULT 0',
+            'ALTER TABLE "OutcomeQuestionnaire" ADD COLUMN IF NOT EXISTS individual_scores TEXT',
+            'ALTER TABLE "OutcomeQuestionnaire" ADD COLUMN IF NOT EXISTS notes TEXT',
+            # session
+            'ALTER TABLE "session" ADD COLUMN IF NOT EXISTS appointment_id INTEGER',
+            'ALTER TABLE "session" ADD COLUMN IF NOT EXISTS outcome TEXT',
+            'ALTER TABLE "session" ADD COLUMN IF NOT EXISTS student_name TEXT',
+            'ALTER TABLE "session" ADD COLUMN IF NOT EXISTS student_id TEXT',
+            'ALTER TABLE "session" ADD COLUMN IF NOT EXISTS counsellor TEXT',
+        ]
+        for sql in _clinical_alters:
+            try:
+                cur.execute(sql)
+            except Exception:
+                conn.rollback()
+        conn.commit()
+    except Exception as e:
+        logger.error(f"init_db clinical alters: {e}")
+        conn.rollback()
     try:
         conn.commit()
     except Exception:
@@ -1436,12 +1484,28 @@ def referral():
         try:
             conn = get_db()
             cur = conn.cursor()
+            student_name = request.form.get('student_name', '')
+            student_id = request.form.get('student_id', '')
+            session_id = request.form.get('session_id', '')
+            referred_by = request.form.get('referred_by', '')
+            contact = request.form.get('contact', '')
+            reason_for_referral = request.form.get('reason_for_referral', '')
+            action_taken = request.form.get('action_taken', '')
+            outcome = request.form.get('outcome', '')
+            urgency = request.form.get('urgency', 'Normal')
+            notes = request.form.get('notes', '')
+
+            import json
+            selected_reasons = request.form.getlist('referral_reasons')
+            referral_reasons = json.dumps(selected_reasons) if selected_reasons else '[]'
+
             cur.execute(
-                '''INSERT INTO "Referral" (student_name, student_id, referred_by, contact, reason, notes, status, created_at, updated_at)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())''',
-                (request.form.get('student_name', ''), request.form.get('student_id', ''),
-                 request.form.get('referred_by', ''), request.form.get('contact', ''),
-                 request.form.get('reason', ''), request.form.get('notes', ''), 'Pending'),
+                '''INSERT INTO "Referral" (student_name, student_id, session_id, referred_by, contact,
+                   reason, referral_reasons, action_taken, outcome, urgency, notes, status, created_at, updated_at)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW(),NOW())''',
+                (student_name, student_id, session_id if session_id else None,
+                 referred_by, contact, reason_for_referral, referral_reasons,
+                 action_taken, outcome, urgency, notes, 'Pending')
             )
             conn.commit()
             cur.close()
@@ -1450,7 +1514,22 @@ def referral():
             return redirect(url_for('all_referrals'))
         except Exception as e:
             flash(f"Error: {e}", "error")
-    return render_template('referral.html')
+
+    students = []
+    sessions = []
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT id, name, student_id, case_number FROM "Student" WHERE is_deleted = FALSE ORDER BY name')
+        students = [dict(r) for r in cur.fetchall()]
+        cur.execute('''SELECT ss.id, ss.session_date, ss.student_name, ss.student_id
+                       FROM "session" ss WHERE ss.is_deleted = FALSE ORDER BY ss.created_at DESC''')
+        sessions = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('referral.html', students=students, sessions=sessions)
 
 
 @app.route("/case_notes_list")
@@ -1481,13 +1560,54 @@ def case_note():
         try:
             conn = get_db()
             cur = conn.cursor()
-            cur.execute(
-                '''INSERT INTO "CaseManagement" (student_name, student_id, session_date, appearance_problems, clinical_plan, counsellor, created_at, updated_at)
-                   VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())''',
-                (request.form.get('student_name', ''), request.form.get('student_id', ''),
-                 request.form.get('session_date', ''), request.form.get('appearance', ''),
-                 request.form.get('clinical_plan', ''), session.get('username', '')),
-            )
+            student_name = request.form.get('student_name', '')
+            student_id = request.form.get('student_id', '')
+            session_id = request.form.get('session_id', '')
+            client_appearance = request.form.get('client_appearance', '')
+            presenting_problems = request.form.get('presenting_problems', '')
+            interventions = request.form.get('interventions', '')
+            recommendations = request.form.get('recommendations', '')
+            next_visit_date = request.form.get('next_visit_date', '')
+            counsellor_name = request.form.get('counsellor_name', '')
+            counsellor_signature = request.form.get('counsellor_signature', '')
+            notes = request.form.get('notes', '')
+
+            if session_id:
+                cur.execute(
+                    '''SELECT id FROM "CaseManagement" WHERE session_id = %s AND is_deleted = FALSE''',
+                    (session_id,)
+                )
+                existing = cur.fetchone()
+                if existing:
+                    cur.execute(
+                        '''UPDATE "CaseManagement" SET student_name=%s, student_id=%s, client_appearance=%s,
+                           presenting_problems=%s, interventions=%s, recommendations=%s,
+                           next_visit_date=%s, counsellor_name=%s, counsellor_signature=%s, notes=%s, updated_at=NOW()
+                           WHERE session_id=%s AND is_deleted = FALSE''',
+                        (student_name, student_id, client_appearance, presenting_problems,
+                         interventions, recommendations, next_visit_date, counsellor_name,
+                         counsellor_signature, notes, session_id)
+                    )
+                else:
+                    cur.execute(
+                        '''INSERT INTO "CaseManagement" (student_name, student_id, session_id, client_appearance,
+                           presenting_problems, interventions, recommendations, next_visit_date,
+                           counsellor_name, counsellor_signature, notes, counsellor, created_at, updated_at)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW(),NOW())''',
+                        (student_name, student_id, session_id, client_appearance, presenting_problems,
+                         interventions, recommendations, next_visit_date, counsellor_name,
+                         counsellor_signature, notes, session.get('username', ''))
+                    )
+            else:
+                cur.execute(
+                    '''INSERT INTO "CaseManagement" (student_name, student_id, client_appearance,
+                       presenting_problems, interventions, recommendations, next_visit_date,
+                       counsellor_name, counsellor_signature, notes, counsellor, created_at, updated_at)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW(),NOW())''',
+                    (student_name, student_id, client_appearance, presenting_problems,
+                     interventions, recommendations, next_visit_date, counsellor_name,
+                     counsellor_signature, notes, session.get('username', ''))
+                )
             conn.commit()
             cur.close()
             conn.close()
@@ -1495,7 +1615,22 @@ def case_note():
             return redirect(url_for('case_notes_list'))
         except Exception as e:
             flash(f"Error: {e}", "error")
-    return render_template('case_note.html')
+
+    students = []
+    sessions = []
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT id, name, student_id, case_number FROM "Student" WHERE is_deleted = FALSE ORDER BY name')
+        students = [dict(r) for r in cur.fetchall()]
+        cur.execute('''SELECT ss.id, ss.session_date, ss.student_name, ss.student_id
+                       FROM "session" ss WHERE ss.is_deleted = FALSE ORDER BY ss.created_at DESC''')
+        sessions = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('case_note.html', students=students, sessions=sessions)
 
 
 @app.route("/sessions")
@@ -1505,7 +1640,10 @@ def sessions_list():
     try:
         conn = get_db()
         cur = dict_cursor(conn)
-        cur.execute('SELECT * FROM "session" WHERE is_deleted = FALSE ORDER BY created_at DESC LIMIT 500')
+        cur.execute('''SELECT ss.*, st.name as student_name_s, st.student_id as student_id_s
+                       FROM "session" ss
+                       LEFT JOIN "Student" st ON ss.student_id = st.id::text
+                       WHERE ss.is_deleted = FALSE ORDER BY ss.created_at DESC LIMIT 500''')
         rows = cur.fetchall()
         for r in rows:
             for k, v in r.items():
@@ -1526,14 +1664,27 @@ def create_session():
         try:
             conn = get_db()
             cur = conn.cursor()
+            appointment_id = request.form.get('appointment_id', '')
+            student_name = request.form.get('student_name', '')
+            student_id = request.form.get('student_id', '')
+            session_type = request.form.get('session_type', 'Individual')
+            notes = request.form.get('notes', '')
+            outcome = request.form.get('outcome', '')
+            session_date = request.form.get('session_date', '')
+
             cur.execute(
-                '''INSERT INTO "session" (student_name, student_id, session_type, session_date, notes, diagnosis, plan, counsellor, status, created_at, updated_at)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())''',
-                (request.form.get('student_name', ''), request.form.get('student_id', ''),
-                 request.form.get('session_type', 'Individual'), request.form.get('session_date', ''),
-                 request.form.get('notes', ''), request.form.get('diagnosis', ''),
-                 request.form.get('plan', ''), session.get('username', ''), 'Scheduled'),
+                '''INSERT INTO "session" (student_name, student_id, session_type, session_date,
+                   notes, outcome, appointment_id, counsellor, status, created_at, updated_at)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW(),NOW())''',
+                (student_name, student_id, session_type, session_date,
+                 notes, outcome, appointment_id if appointment_id else None,
+                 session.get('username', ''), 'Completed')
             )
+            if appointment_id:
+                cur.execute(
+                    '''UPDATE "Appointment" SET status = 'Completed', updated_at = NOW() WHERE id = %s''',
+                    (appointment_id,)
+                )
             conn.commit()
             cur.close()
             conn.close()
@@ -1541,7 +1692,26 @@ def create_session():
             return redirect(url_for('sessions_list'))
         except Exception as e:
             flash(f"Error: {e}", "error")
-    return render_template('create_session.html')
+
+    students = []
+    appointments = []
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT id, name, student_id, case_number FROM "Student" WHERE is_deleted = FALSE ORDER BY name')
+        students = [dict(r) for r in cur.fetchall()]
+        cur.execute('''SELECT a.id, a.appointment_date, a.appointment_time, a.status, a.student_name,
+                       a.counsellor, a.urgency, a.purpose
+                       FROM "Appointment" a
+                       WHERE a.status IN (%s, %s, %s) AND a.is_deleted = FALSE
+                       ORDER BY a.appointment_date DESC''',
+                    ('Scheduled', 'In Session', 'Sent to Counsellor'))
+        appointments = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('create_session.html', students=students, appointments=appointments)
 
 
 @app.route("/dass21_list")
@@ -1570,28 +1740,77 @@ def dass21_list():
 def dass21():
     if request.method == "POST":
         try:
-            total = sum(int(request.form.get(f'q{i}', 0)) for i in range(1, 22))
-            severity = "Normal"
-            if total >= 28: severity = "Extremely Severe"
-            elif total >= 20: severity = "Severe"
-            elif total >= 15: severity = "Moderate"
-            elif total >= 10: severity = "Mild"
+            student_name = request.form.get('student_name', '')
+            student_id = request.form.get('student_id', '')
+            notes = request.form.get('notes', '')
+
+            depression_items = [3, 5, 10, 13, 16, 17, 21]
+            anxiety_items = [2, 4, 7, 9, 15, 19, 20]
+            stress_items = [1, 6, 8, 11, 12, 14, 18]
+
+            depression_raw = sum(int(request.form.get(f'q{i}', 0)) for i in depression_items)
+            anxiety_raw = sum(int(request.form.get(f'q{i}', 0)) for i in anxiety_items)
+            stress_raw = sum(int(request.form.get(f'q{i}', 0)) for i in stress_items)
+
+            depression_score = depression_raw * 2
+            anxiety_score = anxiety_raw * 2
+            stress_score = stress_raw * 2
+
+            def classify_depression(s):
+                if s >= 28: return "Extremely Severe"
+                elif s >= 21: return "Severe"
+                elif s >= 14: return "Moderate"
+                elif s >= 10: return "Mild"
+                return "Normal"
+
+            def classify_anxiety(s):
+                if s >= 20: return "Extremely Severe"
+                elif s >= 15: return "Severe"
+                elif s >= 10: return "Moderate"
+                elif s >= 8: return "Mild"
+                return "Normal"
+
+            def classify_stress(s):
+                if s >= 34: return "Extremely Severe"
+                elif s >= 26: return "Severe"
+                elif s >= 19: return "Moderate"
+                elif s >= 15: return "Mild"
+                return "Normal"
+
+            depression_severity = classify_depression(depression_score)
+            anxiety_severity = classify_anxiety(anxiety_score)
+            stress_severity = classify_stress(stress_score)
+            total_score = depression_score + anxiety_score + stress_score
+
             conn = get_db()
             cur = conn.cursor()
             cur.execute(
-                '''INSERT INTO "DASS21" (student_name, student_id, total_score, severity, counsellor, created_at, updated_at)
-                   VALUES (%s, %s, %s, %s, %s, NOW(), NOW())''',
-                (request.form.get('student_name', ''), request.form.get('student_id', ''),
-                 total, severity, session.get('username', '')),
+                '''INSERT INTO "DASS21" (student_name, student_id, depression_score, anxiety_score, stress_score,
+                   depression_severity, anxiety_severity, stress_severity, total_score, notes, counsellor, created_at, updated_at)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW(),NOW())''',
+                (student_name, student_id, depression_score, anxiety_score, stress_score,
+                 depression_severity, anxiety_severity, stress_severity, total_score, notes,
+                 session.get('username', ''))
             )
             conn.commit()
             cur.close()
             conn.close()
-            flash(f"Assessment complete. Score: {total} ({severity})", "success")
+            flash(f"DASS-21 complete. Depression: {depression_score} ({depression_severity}), Anxiety: {anxiety_score} ({anxiety_severity}), Stress: {stress_score} ({stress_severity})", "success")
             return redirect(url_for('dass21_list'))
         except Exception as e:
             flash(f"Error: {e}", "error")
-    return render_template('dass21.html')
+
+    students = []
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT id, name, student_id, case_number FROM "Student" WHERE is_deleted = FALSE ORDER BY name')
+        students = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('dass21.html', students=students)
 
 
 @app.route("/outcome_questionnaire", methods=["GET", "POST"])
@@ -1599,22 +1818,56 @@ def dass21():
 def outcome_questionnaire():
     if request.method == "POST":
         try:
+            student_name = request.form.get('student_name', '')
+            student_id = request.form.get('student_id', '')
+            session_id = request.form.get('session_id', '')
+            notes = request.form.get('notes', '')
+
+            item_scores = []
+            for i in range(1, 46):
+                score = request.form.get(f'item{i}', '0')
+                try:
+                    item_scores.append(int(score))
+                except ValueError:
+                    item_scores.append(0)
+
+            total_score = sum(item_scores)
+
+            import json
+            individual_scores = json.dumps({f'item{i}': item_scores[i-1] for i in range(1, 46)})
+
             conn = get_db()
             cur = conn.cursor()
             cur.execute(
-                '''INSERT INTO "OutcomeQuestionnaire" (student_name, student_id, responses, created_at, updated_at)
-                   VALUES (%s, %s, %s, NOW(), NOW())''',
-                (request.form.get('student_name', ''), request.form.get('student_id', ''),
-                 str(dict(request.form))),
+                '''INSERT INTO "OutcomeQuestionnaire" (student_name, student_id, session_id, total_score,
+                   individual_scores, notes, created_at, updated_at)
+                   VALUES (%s,%s,%s,%s,%s,%s,NOW(),NOW())''',
+                (student_name, student_id, session_id if session_id else None,
+                 total_score, individual_scores, notes)
             )
             conn.commit()
             cur.close()
             conn.close()
-            flash("Outcome recorded", "success")
+            flash(f"OQ-45 submitted. Total score: {total_score}", "success")
             return redirect(url_for('reports'))
         except Exception as e:
             flash(f"Error: {e}", "error")
-    return render_template('outcome_questionnaire.html')
+
+    students = []
+    sessions = []
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT id, name, student_id, case_number FROM "Student" WHERE is_deleted = FALSE ORDER BY name')
+        students = [dict(r) for r in cur.fetchall()]
+        cur.execute('''SELECT ss.id, ss.session_date, ss.student_name, ss.student_id
+                       FROM "session" ss WHERE ss.is_deleted = FALSE ORDER BY ss.created_at DESC''')
+        sessions = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('outcome_questionnaire.html', students=students, sessions=sessions)
 
 
 @app.route("/reports")
@@ -2172,7 +2425,13 @@ def my_cases():
     try:
         conn = get_db()
         cur = dict_cursor(conn)
-        cur.execute('SELECT * FROM "CaseManagement" WHERE is_deleted = FALSE ORDER BY created_at DESC LIMIT 200')
+        current_user = session.get('full_name', session.get('username', ''))
+        user_role = session.get('role', '')
+        if user_role == 'Admin':
+            cur.execute('SELECT * FROM "CaseManagement" WHERE is_deleted = FALSE ORDER BY created_at DESC LIMIT 200')
+        else:
+            cur.execute('SELECT * FROM "CaseManagement" WHERE (counsellor_name = %s OR counsellor = %s) AND is_deleted = FALSE ORDER BY created_at DESC LIMIT 200',
+                        (current_user, current_user))
         rows = cur.fetchall()
         for r in rows:
             for k, v in r.items():

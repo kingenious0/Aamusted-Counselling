@@ -28,18 +28,34 @@
                     <tr>
                         <th>DATE</th>
                         <th>STUDENT</th>
-                        <th>SCORE</th>
-                        <th>SEVERITY</th>
+                        <th>DEPRESSION</th>
+                        <th>ANXIETY</th>
+                        <th>STRESS</th>
+                        <th>TOTAL</th>
                         <th>ACTIONS</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for a in assessments %}
                     <tr>
-                        <td>{{ a.date }}</td>
-                        <td>{{ a.student_name }}</td>
-                        <td><span class="badge badge-amber">{{ a.score }}</span></td>
-                        <td>{{ a.severity }}</td>
+                        <td>{{ a.created_at or '' }}</td>
+                        <td>{{ a.student_name or '' }}</td>
+                        <td>
+                            <span class="badge {% if 'Extremely' in (a.depression_severity or '') %}badge-red{% elif 'Severe' in (a.depression_severity or '') %}badge-red{% elif 'Moderate' in (a.depression_severity or '') %}badge-amber{% else %}badge-green{% endif %}">
+                                {{ a.depression_score or 0 }} ({{ a.depression_severity or 'N/A' }})
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge {% if 'Extremely' in (a.anxiety_severity or '') %}badge-red{% elif 'Severe' in (a.anxiety_severity or '') %}badge-red{% elif 'Moderate' in (a.anxiety_severity or '') %}badge-amber{% else %}badge-green{% endif %}">
+                                {{ a.anxiety_score or 0 }} ({{ a.anxiety_severity or 'N/A' }})
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge {% if 'Extremely' in (a.stress_severity or '') %}badge-red{% elif 'Severe' in (a.stress_severity or '') %}badge-red{% elif 'Moderate' in (a.stress_severity or '') %}badge-amber{% else %}badge-green{% endif %}">
+                                {{ a.stress_score or 0 }} ({{ a.stress_severity or 'N/A' }})
+                            </span>
+                        </td>
+                        <td><span class="badge badge-blue">{{ a.total_score or 0 }}</span></td>
                         <td>
                             <a href="/print_dass21/{{ a.id }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Print"><i class="fas fa-print"></i></a>
                         </td>

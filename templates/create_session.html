@@ -7,16 +7,30 @@
     <div class="col-lg-8">
         <div class="card-dark">
             <form method="POST" action="/create_session">
+                <h3 style="margin-bottom:20px;"><i class="fas fa-link me-2" style="color:#60a5fa"></i>Appointment Link</h3>
+                <div class="mb-4">
+                    <label class="form-label">Link to Appointment (optional)</label>
+                    <select name="appointment_id" id="appointmentSelect" class="form-select" onchange="fillFromAppointment()">
+                        <option value="">Walk-in / No appointment</option>
+                        {% for a in appointments %}
+                        <option value="{{ a.id }}" data-student="{{ a.student_name or '' }}" data-date="{{ a.appointment_date or '' }}" data-type="{{ a.purpose or a.appointment_type or 'Individual' }}">
+                            {{ a.student_name or 'Unknown' }} - {{ a.appointment_date or 'N/A' }} ({{ a.status }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
                 <h3 style="margin-bottom:20px;"><i class="fas fa-notes-medical me-2" style="color:#60a5fa"></i>Session Details</h3>
                 <div class="row g-3 mb-4">
-                    <div class="col-md-12">
+                    <div class="col-md-6">
                         <label class="form-label">Student *</label>
-                        <select name="student" class="form-select" required>
+                        <select name="student_name" id="studentSelect" class="form-select" required onchange="fillStudentId()">
                             <option value="">Select Student...</option>
                             {% for s in students %}
-                            <option value="{{ s.id }}">{{ s.name }} ({{ s.case_number }})</option>
+                            <option value="{{ s.name }}" data-id="{{ s.student_id or s.id }}">{{ s.name }} ({{ s.case_number }})</option>
                             {% endfor %}
                         </select>
+                        <input type="hidden" name="student_id" id="studentIdHidden">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Session Type *</label>
@@ -27,11 +41,12 @@
                             <option value="Crisis">Crisis Intervention</option>
                             <option value="Academic">Academic Support</option>
                             <option value="Career">Career Guidance</option>
+                            <option value="Walk-in">Walk-in Session</option>
                         </select>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Date *</label>
-                        <input type="date" name="date" class="form-control" required>
+                        <input type="date" name="session_date" class="form-control" required>
                     </div>
                 </div>
 
@@ -40,21 +55,40 @@
                     <label class="form-label">Session Notes *</label>
                     <textarea name="notes" class="form-control" rows="4" required placeholder="Enter session notes, observations, and key discussion points..."></textarea>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Diagnosis / Assessment</label>
-                    <textarea name="diagnosis" class="form-control" rows="3" placeholder="Clinical assessment or diagnosis..."></textarea>
-                </div>
                 <div class="mb-4">
-                    <label class="form-label">Treatment Plan</label>
-                    <textarea name="plan" class="form-control" rows="3" placeholder="Proposed treatment plan and next steps..."></textarea>
+                    <label class="form-label">Outcome</label>
+                    <textarea name="outcome" class="form-control" rows="3" placeholder="Session outcome and next steps..."></textarea>
                 </div>
 
                 <div class="d-flex justify-content-end gap-2">
-                    <a href="/dashboard" class="btn btn-outline-secondary">Cancel</a>
+                    <a href="/sessions" class="btn btn-outline-secondary">Cancel</a>
                     <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save Session</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+function fillStudentId() {
+    var sel = document.getElementById('studentSelect');
+    var opt = sel.options[sel.selectedIndex];
+    document.getElementById('studentIdHidden').value = opt.dataset.id || '';
+}
+function fillFromAppointment() {
+    var sel = document.getElementById('appointmentSelect');
+    var opt = sel.options[sel.selectedIndex];
+    if (opt.dataset.student) {
+        var studentSel = document.getElementById('studentSelect');
+        for (var i = 0; i < studentSel.options.length; i++) {
+            if (studentSel.options[i].value === opt.dataset.student) {
+                studentSel.selectedIndex = i;
+                fillStudentId();
+                break;
+            }
+        }
+    }
+}
+</script>
 {% endblock %}

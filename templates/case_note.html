@@ -4,36 +4,68 @@
 {% block heading %}<i class="fas fa-file-medical me-2" style="color:#a78bfa"></i>Clinical Case Note{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-8">
+    <div class="col-lg-10">
         <div class="card-dark">
             <form method="POST" action="/case_note">
-                <h3 style="margin-bottom:20px;"><i class="fas fa-link me-2" style="color:#60a5fa"></i>Session Link</h3>
-                <div class="mb-4">
-                    <label class="form-label">Select Session *</label>
-                    <select name="session_id" class="form-select" required>
-                        <option value="">Choose a session...</option>
-                        {% for s in sessions %}
-                        <option value="{{ s.id }}">{{ s.student_name }} - {{ s.date }}</option>
-                        {% endfor %}
-                    </select>
+                <h3 style="margin-bottom:20px;"><i class="fas fa-user me-2" style="color:#60a5fa"></i>Client &amp; Session Link</h3>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label">Student *</label>
+                        <select name="student_name" id="studentSelect" class="form-select" required onchange="fillStudentId()">
+                            <option value="">Select Student...</option>
+                            {% for s in students %}
+                            <option value="{{ s.name }}" data-id="{{ s.student_id or s.id }}">{{ s.name }} ({{ s.case_number }})</option>
+                            {% endfor %}
+                        </select>
+                        <input type="hidden" name="student_id" id="studentIdHidden">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Session (optional)</label>
+                        <select name="session_id" class="form-select">
+                            <option value="">Walk-in / No session</option>
+                            {% for s in sessions %}
+                            <option value="{{ s.id }}">{{ s.student_name or 'Unknown' }} - {{ s.session_date or 'N/A' }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Counsellor Name</label>
+                        <input type="text" name="counsellor_name" class="form-control" placeholder="Counsellor name">
+                    </div>
                 </div>
 
                 <h3 style="margin-bottom:20px;"><i class="fas fa-notes-medical me-2" style="color:#a78bfa"></i>Clinical Observations</h3>
                 <div class="mb-3">
-                    <label class="form-label">Session Date *</label>
-                    <input type="date" name="session_date" class="form-control" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Appearance &amp; Behavior *</label>
-                    <textarea name="appearance" class="form-control" rows="3" required placeholder="Describe dress, grooming, mood, affect, eye contact..."></textarea>
+                    <label class="form-label">Client Appearance &amp; Behavior *</label>
+                    <textarea name="client_appearance" class="form-control" rows="3" required placeholder="Well-groomed, disheveled, appropriate mood, flat affect, good eye contact..."></textarea>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Presenting Problems *</label>
-                    <textarea name="problems" class="form-control" rows="3" required placeholder="Key concerns, impact on daily life, duration..."></textarea>
+                    <textarea name="presenting_problems" class="form-control" rows="3" required placeholder="Key concerns, impact on daily life, duration, severity..."></textarea>
                 </div>
-                <div class="mb-4">
-                    <label class="form-label">Clinical Plan *</label>
-                    <textarea name="clinical_plan" class="form-control" rows="4" required placeholder="Interventions, recommendations, next steps..."></textarea>
+                <div class="mb-3">
+                    <label class="form-label">Interventions Used *</label>
+                    <textarea name="interventions" class="form-control" rows="3" required placeholder="CBT techniques, supportive listening, psychoeducation, grounding exercises..."></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Recommendations *</label>
+                    <textarea name="recommendations" class="form-control" rows="3" required placeholder="Follow-up sessions, referral to specialist, self-care strategies..."></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Next Visit Date</label>
+                    <input type="date" name="next_visit_date" class="form-control">
+                </div>
+
+                <h3 style="margin-bottom:20px;"><i class="fas fa-signature me-2" style="color:#fbbf24"></i>Signature &amp; Notes</h3>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Counsellor Signature</label>
+                        <input type="text" name="counsellor_signature" class="form-control" placeholder="Type full name as signature">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Additional Notes</label>
+                        <input type="text" name="notes" class="form-control" placeholder="Any additional clinical notes...">
+                    </div>
                 </div>
 
                 <div class="d-flex justify-content-end gap-2">
@@ -44,4 +76,13 @@
         </div>
     </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+function fillStudentId() {
+    var sel = document.getElementById('studentSelect');
+    var opt = sel.options[sel.selectedIndex];
+    document.getElementById('studentIdHidden').value = opt.dataset.id || '';
+}
+</script>
 {% endblock %}
