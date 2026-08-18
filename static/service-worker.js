@@ -1,10 +1,8 @@
 // ═══════════════════════════════════════════════════════════════
-// AAMUSTED GCC - Offline-First Service Worker v3
-// Caches ALL navigation pages, static assets, and API responses.
-// Shows proper offline page (never redirects to dashboard).
+// AAMUSTED GCC - Offline-First Service Worker v4
 // ═══════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'aamusted-v4';
+const CACHE_VERSION = 'aamusted-v5';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const PAGE_CACHE   = `${CACHE_VERSION}-pages`;
 const API_CACHE    = `${CACHE_VERSION}-api`;
@@ -17,6 +15,7 @@ const STATIC_ASSETS = [
   '/static/js/db.js',
   '/static/js/offline-sync.js',
   '/static/js/offline-forms.js',
+  '/static/js/precache.js',
   '/static/js/sweetalert2.all.min.js',
   '/static/js/jquery-3.6.0.min.js',
   '/static/js/flatpickr.min.js',
@@ -26,29 +25,23 @@ const STATIC_ASSETS = [
 ];
 
 // ═══════════════════════════════════════════════════════════════
-// INSTALL — cache static assets
+// INSTALL
 // ═══════════════════════════════════════════════════════════════
 self.addEventListener('install', event => {
-  console.log('[SW] Installing...');
   event.waitUntil(
-    caches.open(STATIC_CACHE).then(cache => {
-      return cache.addAll(STATIC_ASSETS);
-    }).then(() => self.skipWaiting())
+    caches.open(STATIC_CACHE).then(cache => cache.addAll(STATIC_ASSETS))
+      .then(() => self.skipWaiting())
   );
 });
 
 // ═══════════════════════════════════════════════════════════════
-// ACTIVATE — clean old caches
+// ACTIVATE
 // ═══════════════════════════════════════════════════════════════
 self.addEventListener('activate', event => {
-  console.log('[SW] Activating...');
   event.waitUntil(
-    caches.keys().then(keys => {
-      return Promise.all(
-        keys.filter(k => !k.startsWith(CACHE_VERSION))
-            .map(k => caches.delete(k))
-      );
-    }).then(() => self.clients.claim())
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => !k.startsWith(CACHE_VERSION)).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
   );
 });
 
@@ -59,107 +52,96 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Mutations (POST/PUT/DELETE) — intercept and queue if offline
+  if (url.origin !== self.location.origin) return;
+
+  // POST/PUT/DELETE — queue if offline
   if (request.method !== 'GET') {
     event.respondWith(handleMutation(request));
     return;
   }
 
-  // Skip cross-origin
-  if (url.origin !== self.location.origin) return;
-
-  // Skip non-HTML, non-API, non-static
   const isNavigation = request.mode === 'navigate';
   const isAPI = url.pathname.startsWith('/api/') || url.pathname.startsWith('/sync/');
-  const isStatic = url.pathname.startsWith('/static/') || url.pathname.includes('.');
+  const isStatic = url.pathname.startsWith('/static/');
 
-  event.respondWith(
-    (async () => {
+  event.respondWith((async () => {
 
-      // ── API GET: network-first, cache fallback ──
-      if (isAPI) {
-        try {
-          const resp = await fetch(request);
-          if (resp.ok) {
-            const cache = await caches.open(API_CACHE);
-            cache.put(request, resp.clone());
-          }
-          return resp;
-        } catch (e) {
-          const cached = await caches.match(request);
-          if (cached) return cached;
-          return jsonOffline();
-        }
-      }
-
-      // ── NAVIGATION: cache-first (instant from cache), then network ──
-      if (isNavigation) {
-        // Check page cache first (instant load)
-        const cached = await caches.match(request);
-        if (cached) {
-          // Return cached immediately, but also refresh in background
-          fetchAndCache(request);
-          return cached;
-        }
-
-        // Not in cache — try network
-        try {
-          const resp = await fetch(request);
-          if (resp.ok) {
-            const cache = await caches.open(PAGE_CACHE);
-            cache.put(request, resp.clone());
-          }
-          return resp;
-        } catch (e) {
-          // OFFLINE + NOT CACHED: show offline page (never redirect to dashboard)
-          return offlinePage(request.url);
-        }
-      }
-
-      // ── STATIC ASSETS: cache-first ──
-      const cached = await caches.match(request);
-      if (cached) return cached;
-
+    // ── API: network-first ──
+    if (isAPI) {
       try {
         const resp = await fetch(request);
         if (resp.ok) {
-          const cache = await caches.open(STATIC_CACHE);
+          const cache = await caches.open(API_CACHE);
           cache.put(request, resp.clone());
         }
         return resp;
       } catch (e) {
-        return new Response('', { status: 408 });
+        const cached = await caches.match(request);
+        return cached || new Response('{"error":"Offline"}', {
+          status: 503, headers: { 'Content-Type': 'application/json' }
+        });
       }
-    })()
-  );
+    }
+
+    // ── NAVIGATION: cache-first ──
+    if (isNavigation) {
+      const cached = await caches.match(request);
+      if (cached) {
+        fetchAndRefresh(request);
+        return cached;
+      }
+
+      try {
+        const resp = await fetch(request);
+        if (resp.ok) {
+          const ct = resp.headers.get('content-type') || '';
+          if (ct.includes('text/html')) {
+            const cache = await caches.open(PAGE_CACHE);
+            cache.put(request, resp.clone());
+          }
+        }
+        return resp;
+      } catch (e) {
+        return offlinePage(url.pathname);
+      }
+    }
+
+    // ── STATIC: cache-first ──
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    try {
+      const resp = await fetch(request);
+      if (resp.ok) {
+        const cache = await caches.open(STATIC_CACHE);
+        cache.put(request, resp.clone());
+      }
+      return resp;
+    } catch (e) {
+      return new Response('', { status: 408 });
+    }
+  })());
 });
 
-// Background refresh — update cache without blocking user
-async function fetchAndCache(request) {
+async function fetchAndRefresh(request) {
   try {
     const resp = await fetch(request);
     if (resp.ok) {
       const cache = await caches.open(PAGE_CACHE);
       cache.put(request, resp.clone());
     }
-  } catch (e) { /* silent */ }
+  } catch (e) {}
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MUTATIONS — queue offline POST/PUT/DELETE
+// MUTATIONS — queue offline, never show raw JSON
 // ═══════════════════════════════════════════════════════════════
 async function handleMutation(request) {
+  // Online: pass through
   if (navigator.onLine) {
-    try {
-      return await fetch(request);
-    } catch (e) {
-      return queueAndRespond(request);
-    }
+    try { return await fetch(request); } catch (e) {}
   }
-  return queueAndRespond(request);
-}
 
-async function queueAndRespond(request) {
+  // Offline: queue + return JSON (JS will handle it)
   let body = null;
   try { body = await request.clone().text(); } catch (e) {}
 
@@ -185,15 +167,15 @@ async function queueAndRespond(request) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MESSAGE — background sync trigger + page pre-cache
+// MESSAGES
 // ═══════════════════════════════════════════════════════════════
 self.addEventListener('message', event => {
   const { type, pages } = event.data || {};
-
   if (type === 'TRIGGER_SYNC') {
-    syncPendingChanges();
+    const clients = self.clients.matchAll().then(clients => {
+      for (const c of clients) c.postMessage({ type: 'REQUEST_SYNC' });
+    });
   }
-
   if (type === 'PRE_CACHE_PAGES' && Array.isArray(pages)) {
     preCachePages(pages);
   }
@@ -205,74 +187,122 @@ async function preCachePages(pages) {
     try {
       const resp = await fetch(url);
       if (resp.ok) {
-        await cache.put(url, resp);
-        console.log('[SW] Cached:', url);
+        const ct = resp.headers.get('content-type') || '';
+        if (ct.includes('text/html')) {
+          await cache.put(url, resp);
+        }
       }
-    } catch (e) {
-      console.log('[SW] Failed to cache:', url);
-    }
+    } catch (e) {}
   }
-  // Notify client pre-caching is done
   const clients = await self.clients.matchAll();
-  for (const client of clients) {
-    client.postMessage({ type: 'PRE_CACHE_DONE', count: pages.length });
-  }
-}
-
-async function syncPendingChanges() {
-  const clients = await self.clients.matchAll();
-  for (const client of clients) {
-    client.postMessage({ type: 'REQUEST_SYNC' });
-  }
+  for (const c of clients) c.postMessage({ type: 'PRE_CACHE_DONE', count: pages.length });
 }
 
 // ═══════════════════════════════════════════════════════════════
-// OFFLINE PAGE — shows which page wasn't cached, with links
+// OFFLINE PAGE — matches the app's sidebar + maroon theme
 // ═══════════════════════════════════════════════════════════════
-function offlinePage(requestedUrl) {
-  const path = new URL(requestedUrl, self.location.origin).pathname;
-  const pageName = path.split('/').filter(Boolean).pop() || 'home';
+function offlinePage(pathname) {
   return new Response(`<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Offline - ${pageName}</title>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Offline - AAMUSTED GCC</title>
+<link href="/static/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/bootstrap-icons.css">
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
-.card{background:#1e293b;padding:36px;border-radius:16px;border:1px solid #334155;max-width:440px;width:100%;text-align:center}
-.icon{font-size:2.5rem;margin-bottom:12px}
-h2{font-size:1.2rem;margin-bottom:8px;color:#f8fafc}
-p{color:#94a3b8;font-size:0.85rem;line-height:1.6;margin-bottom:20px}
-.url{background:#0f172a;padding:8px 14px;border-radius:8px;font-family:monospace;font-size:0.75rem;color:#38bdf8;margin-bottom:20px;word-break:break-all}
-.links{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
-.links a{padding:8px 16px;border-radius:8px;background:#334155;color:#e2e8f0;text-decoration:none;font-size:0.8rem;font-weight:500;transition:all 0.2s}
-.links a:hover{background:#475569}
-.links a.primary{background:#800000;color:#fff}
-.tip{margin-top:16px;padding:10px;background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.2);border-radius:8px;font-size:0.75rem;color:#ffc107}
-</style></head><body>
-<div class="card">
-  <div class="icon">📄</div>
-  <h2>Page Not Cached Offline</h2>
-  <p>This page hasn't been visited while online, so it's not available offline. Visit it once while connected and it will be available next time.</p>
-  <div class="url">${path}</div>
-  <div class="links">
-    <a href="/dashboard" class="primary">Dashboard</a>
-    <a href="/students">Clients</a>
-    <a href="/appointments">Appointments</a>
-    <a href="/admin/bookings">Bookings</a>
-    <a href="/sessions">Sessions</a>
-    <a href="/welcome">Login</a>
-  </div>
-  <div class="tip">Tip: Visit each page once while online to cache it for offline use.</div>
-</div>
-</body></html>`, {
-    headers: { 'Content-Type': 'text/html' },
-    status: 200
-  });
-}
+  :root { --brand-primary: #800000; --brand-secondary: #FFD700; --sage-50:#f8faf6; --sage-100:#e8ede4; --sage-200:#d4dece; --sage-600:#4a7c3f; --sage-700:#3a6332; --sage-800:#2d4d27; --sage-900:#1a2e18; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f1f5f9; display: flex; min-height: 100vh; }
+  
+  /* SIDEBAR */
+  .sidebar { width: 260px; background: linear-gradient(180deg, #800000 0%, #5a0000 100%); color: #fff; padding: 20px 16px; flex-shrink: 0; display: flex; flex-direction: column; }
+  .sidebar-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; padding: 0 8px; }
+  .sidebar-logo .icon { width: 36px; height: 36px; background: rgba(255,255,255,0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .sidebar-logo .text { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; }
+  .sidebar-section { font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.45); padding: 16px 8px 6px; }
+  .sidebar-link { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.82rem; font-weight: 500; transition: all 0.2s; margin-bottom: 2px; }
+  .sidebar-link:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .sidebar-link.active { background: rgba(255,255,255,0.15); color: #fff; font-weight: 600; }
+  .sidebar-link i { font-size: 1rem; width: 20px; text-align: center; }
+  
+  /* MAIN */
+  .main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; }
+  .card-offline { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; padding: 48px 40px; max-width: 480px; width: 100%; text-align: center; }
+  .card-offline .icon { font-size: 3rem; margin-bottom: 16px; }
+  .card-offline h2 { font-size: 1.3rem; color: #1e293b; margin-bottom: 8px; }
+  .card-offline p { color: #64748b; font-size: 0.85rem; line-height: 1.6; margin-bottom: 20px; }
+  .card-offline .url-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px 16px; border-radius: 8px; font-family: monospace; font-size: 0.8rem; color: #800000; margin-bottom: 24px; word-break: break-all; }
+  .nav-links { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 20px; }
+  .nav-links a { padding: 8px 18px; border-radius: 8px; font-size: 0.8rem; font-weight: 500; text-decoration: none; transition: all 0.2s; border: 1px solid #e2e8f0; color: #475569; background: #fff; }
+  .nav-links a:hover { background: #800000; color: #fff; border-color: #800000; }
+  .nav-links a.primary { background: #800000; color: #fff; border-color: #800000; }
+  .tip-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 14px; font-size: 0.75rem; color: #92400e; display: flex; align-items: center; gap: 8px; }
+  .status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 16px; font-size: 0.7rem; font-weight: 600; background: #ffc107; color: #000; position: fixed; bottom: 15px; right: 15px; z-index: 9999; }
+</style>
+</head>
+<body>
 
-function jsonOffline() {
-  return new Response(JSON.stringify({ error: 'Offline', message: 'No network' }), {
-    status: 503,
-    headers: { 'Content-Type': 'application/json' }
+<!-- SIDEBAR (matching app) -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="icon"><i class="bi bi-heart-pulse-fill"></i></div>
+    <span class="text">USTED SYSTEM</span>
+  </div>
+  
+  <div class="sidebar-section">Clients</div>
+  <a href="/students" class="sidebar-link"><i class="bi bi-people"></i> Client Registry</a>
+  <a href="/add_student" class="sidebar-link"><i class="bi bi-person-plus"></i> New Client Intake</a>
+  
+  <div class="sidebar-section">Appointments</div>
+  <a href="/appointments" class="sidebar-link"><i class="bi bi-calendar-plus"></i> Schedule Appt.</a>
+  <a href="/manage_appointments" class="sidebar-link"><i class="bi bi-calendar-check"></i> Manage Appts.</a>
+  <a href="/admin/bookings" class="sidebar-link"><i class="bi bi-inbox"></i> Booking Requests</a>
+  
+  <div class="sidebar-section">Clinical</div>
+  <a href="/sessions" class="sidebar-link"><i class="bi bi-journal-text"></i> Session Log</a>
+  <a href="/case_notes_list" class="sidebar-link"><i class="bi bi-clipboard2-pulse"></i> Case Notes</a>
+  <a href="/all_referrals" class="sidebar-link"><i class="bi bi-arrow-left-right"></i> Referrals</a>
+  <a href="/dass21_list" class="sidebar-link"><i class="bi bi-clipboard-data"></i> DASS-21</a>
+  
+  <div class="sidebar-section">Reports</div>
+  <a href="/reports" class="sidebar-link"><i class="bi bi-file-earmark-bar-graph"></i> Reports</a>
+  <a href="/statistics" class="sidebar-link"><i class="bi bi-graph-up"></i> Statistics</a>
+  
+  <div style="flex:1"></div>
+  <a href="/dashboard" class="sidebar-link" style="margin-top:auto;"><i class="bi bi-house"></i> Dashboard</a>
+</nav>
+
+<!-- MAIN CONTENT -->
+<div class="main">
+  <div class="card-offline">
+    <div class="icon">📴</div>
+    <h2>Page Not Available Offline</h2>
+    <p>This page hasn't been cached yet. Visit it once while online and it will be available offline next time.</p>
+    <div class="url-box">${pathname}</div>
+    <div class="nav-links">
+      <a href="/dashboard" class="primary">Dashboard</a>
+      <a href="/students">Clients</a>
+      <a href="/appointments">Appointments</a>
+      <a href="/admin/bookings">Bookings</a>
+      <a href="/sessions">Sessions</a>
+      <a href="/case_notes_list">Case Notes</a>
+      <a href="/dass21_list">DASS-21</a>
+      <a href="/reports">Reports</a>
+      <a href="/welcome">Login</a>
+    </div>
+    <div class="tip-box">
+      <i class="bi bi-lightbulb"></i>
+      Visit each page once while online to cache it for offline use.
+    </div>
+  </div>
+</div>
+
+<div class="status-badge">Offline</div>
+
+</body>
+</html>`, {
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    status: 200
   });
 }

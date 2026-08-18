@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
-// AAMUSTED GCC - Background Page Pre-Cache
-// After login, quietly fetches and caches all important pages
-// so they're available offline immediately.
+// AAMUSTED GCC - Background Page Pre-Cache v2
+// After login, quietly fetches and caches ALL important pages.
+// Only caches HTML responses (skips redirects/errors).
 // ═══════════════════════════════════════════════════════════════
 
 (function () {
@@ -12,6 +12,8 @@
     '/students',
     '/add_student',
     '/appointments',
+    '/manage_appointments',
+    '/intake',
     '/admin/bookings',
     '/admin/bookings?tab=recent',
     '/admin/bookings?tab=history',
@@ -19,58 +21,91 @@
     '/sessions',
     '/create_session',
     '/case_note',
+    '/case_notes_list',
     '/referral',
+    '/all_referrals',
     '/outcome_questionnaire',
     '/dass21',
+    '/dass21_list',
+    '/reports',
+    '/statistics',
+    '/my_cases',
+    '/booking',
     '/admin/users',
     '/admin/settings',
     '/admin/workflow',
     '/admin/cloud_sync',
-    '/reports',
+    '/admin/forms',
     '/profile',
-    '/notifications'
+    '/audit_logs',
+    '/welcome'
   ];
 
   let _preCaching = false;
+  let _done = false;
 
   async function preCacheAllPages() {
-    if (_preCaching || !navigator.onLine) return;
-    _preCaching = true;
+    if (_preCaching || _done || !navigator.onLine) return;
 
-    // Check if SW is ready
-    if (!navigator.serviceWorker.controller) {
-      // Wait for SW to be active
-      navigator.serviceWorker.ready.then(() => doPreCache());
+    // Don't pre-cache if not logged in
+    if (!document.cookie.includes('session') && !window.location.pathname.includes('/login')) {
       return;
     }
-    doPreCache();
-  }
 
-  async function doPreCache() {
+    _preCaching = true;
+    console.log('[PreCache] Starting background page cache...');
+
     try {
-      // Ask SW to pre-cache pages
-      navigator.serviceWorker.controller.postMessage({
-        type: 'PRE_CACHE_PAGES',
-        pages: PAGES_TO_CACHE
-      });
-
-      // Also cache via IndexedDB page cache as backup
+      const cache = await caches.open('aamusted-v4-pages');
       let cached = 0;
+      let skipped = 0;
+
       for (const url of PAGES_TO_CACHE) {
         try {
-          const resp = await fetch(url, { credentials: 'same-origin' });
+          // Check if already cached
+          const existing = await cache.match(url);
+          if (existing) {
+            skipped++;
+            continue;
+          }
+
+          const resp = await fetch(url, {
+            credentials: 'same-origin',
+            redirect: 'follow',
+            headers: { 'Accept': 'text/html' }
+          });
+
+          // Only cache successful HTML responses
           if (resp.ok) {
-            const html = await resp.text();
-            if (typeof cachePage === 'function') {
-              await cachePage(url, html);
+            const contentType = resp.headers.get('content-type') || '';
+            const text = await resp.text();
+
+            // Skip if it's not HTML (JSON, redirect page, etc.)
+            if (!contentType.includes('text/html') && !text.includes('<!DOCTYPE html>') && !text.includes('<html')) {
+              continue;
             }
+
+            // Skip if it's a login redirect
+            if (text.includes('window.location') && text.includes('login')) {
+              continue;
+            }
+
+            // Cache the response
+            const response = new Response(text, {
+              headers: { 'Content-Type': 'text/html; charset=utf-8' },
+              status: 200
+            });
+            await cache.put(url, response);
             cached++;
           }
         } catch (e) {
-          // Skip failed pages silently
+          // Skip failed pages
         }
       }
-      console.log(`[PreCache] Cached ${cached}/${PAGES_TO_CACHE.length} pages`);
+
+      console.log(`[PreCache] Done: ${cached} cached, ${skipped} already cached, ${PAGES_TO_CACHE.length - cached - skipped} skipped`);
+      _done = true;
+
     } catch (e) {
       console.error('[PreCache] Error:', e);
     } finally {
@@ -78,23 +113,14 @@
     }
   }
 
-  // Listen for SW confirmation
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.addEventListener('message', event => {
-      if (event.data.type === 'PRE_CACHE_DONE') {
-        console.log(`[PreCache] SW cached ${event.data.count} pages`);
-      }
-    });
+  // Run after page load (don't block)
+  if (navigator.onLine) {
+    setTimeout(preCacheAllPages, 3000);
   }
 
-  // Run on page load if online and logged in
-  if (navigator.onLine && document.cookie.includes('session')) {
-    // Delay 2 seconds to not block page load
-    setTimeout(preCacheAllPages, 2000);
-  }
-
-  // Also pre-cache when coming back online
+  // Re-run when coming back online
   window.addEventListener('online', () => {
-    setTimeout(preCacheAllPages, 1000);
+    _done = false;
+    setTimeout(preCacheAllPages, 1500);
   });
 })();
