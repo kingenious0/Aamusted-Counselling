@@ -1,466 +1,156 @@
-{% extends "base_modern.html" %}
+{% set active_page = 'admin_settings' %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - AAMUSTED Counselling</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; }
+        .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: #1e293b; border-right: 1px solid #334155; padding: 20px 0; overflow-y: auto; z-index: 100; }
+        .sidebar-brand { padding: 0 20px 20px; border-bottom: 1px solid #334155; }
+        .sidebar-brand h4 { color: #f8fafc; font-size: 16px; margin: 0; font-weight: 700; }
+        .sidebar-brand small { color: #64748b; font-size: 12px; }
+        .sidebar-nav { padding: 12px 0; }
+        .sidebar-nav a { display: flex; align-items: center; padding: 10px 20px; color: #94a3b8; text-decoration: none; font-size: 14px; transition: all 0.2s; }
+        .sidebar-nav a:hover, .sidebar-nav a.active { background: rgba(37,99,235,0.15); color: #60a5fa; }
+        .sidebar-nav a i { width: 20px; margin-right: 10px; text-align: center; }
+        .sidebar-nav .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #475569; padding: 16px 20px 6px; font-weight: 600; }
+        .main-content { margin-left: 260px; padding: 24px 32px; min-height: 100vh; }
+        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+        .topbar h2 { font-size: 22px; font-weight: 700; margin: 0; }
+        .user-badge { display: flex; align-items: center; gap: 8px; color: #94a3b8; font-size: 14px; }
+        .card-dark { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; margin-bottom: 20px; }
+        .card-dark h3 { font-size: 18px; font-weight: 600; margin: 0 0 16px; }
+        .form-label { color: #94a3b8; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+        .form-control, .form-select { background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 10px; padding: 10px 14px; }
+        .form-control:focus, .form-select:focus { background: #0f172a; border-color: #2563eb; color: #f8fafc; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+        .btn-primary { background: #2563eb; border: none; border-radius: 10px; padding: 10px 24px; font-weight: 600; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .theme-option { display: inline-block; width: 36px; height: 36px; border-radius: 50%; margin: 4px; cursor: pointer; border: 3px solid transparent; transition: all 0.2s; }
+        .theme-option:hover, .theme-option.active { border-color: #f8fafc; transform: scale(1.15); }
+        .logo-preview { width: 80px; height: 80px; border-radius: 14px; object-fit: contain; background: #0f172a; border: 1px solid #334155; }
+        .alert-box { background: rgba(37,99,235,0.1); border: 1px solid rgba(37,99,235,0.3); border-radius: 10px; padding: 14px 18px; font-size: 13px; color: #60a5fa; margin-bottom: 20px; }
+        .logout-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+        .logout-btn:hover { color: #f87171; }
+    </style>
+</head>
+<body>
+    {% include '_sidebar.html' %}
 
-{% block title %}System Settings{% endblock %}
-
-{% block content %}
-<div class="row mb-4">
-    <div class="col-12">
-        <h2 class="fw-bold text-dark">System Configuration</h2>
-        <p class="text-muted">Customize the look and feel of the application.</p>
-    </div>
-</div>
-
-<div class="row g-4">
-    <div class="col-lg-8">
-        {% if session.get('role') == 'Admin' %}
-        <div class="card card-glass border-0 shadow-sm">
-            <div class="card-header bg-transparent border-0 pt-4 px-4">
-                <h5 class="fw-bold mb-0">General Settings</h5>
-            </div>
-            <div class="card-body p-4">
-                <form method="POST" action="{{ url_for('admin_update_settings') }}" enctype="multipart/form-data">
-
-                    <!-- Branding Section -->
-                    <h6 class="text-uppercase text-muted small fw-bold mb-3 border-bottom pb-2">Branding</h6>
-
-                    <div class="mb-3">
-                        <label for="system_name" class="form-label fw-bold small text-secondary">System Name</label>
-                        <input type="text" class="form-control bg-light border-0" id="system_name" name="system_name"
-                            value="{{ settings.system_name or 'AAMUSTED Guidance & Counselling' }}">
-                        <div class="form-text">Appears in the browser tab and top navigation.</div>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="form-label fw-bold small text-secondary">System Logo</label>
-                        <div class="card bg-light border-0 p-3 mb-2">
-                            <div class="d-flex align-items-center gap-3">
-                                <div class="border rounded-3 p-2 bg-white d-flex align-items-center justify-content-center shadow-sm" style="width: 70px; height: 70px;">
-                                    <img id="logo_preview" src="{{ settings.logo_url or '/static/aamusted system_logo.png' }}" 
-                                         alt="Logo Preview" style="max-width: 100%; max-height: 100%; object-fit: contain;">
-                                </div>
-                                <div class="flex-grow-1">
-                                    <label for="logo_file" class="form-label fw-bold mb-1 small">Choose Logo File from Device</label>
-                                    <input type="file" class="form-control border-0 bg-white shadow-sm" id="logo_file" name="logo_file" accept="image/*" onchange="previewLogoImage(this)">
-                                    <div class="form-text mt-1">Upload PNG, JPG, WEBP, or SVG image from phone/PC (Max 2MB). Automatically saved & synced to all devices.</div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <details class="mt-2">
-                            <summary class="text-muted small cursor-pointer">Advanced: Edit Direct Logo URL or Path</summary>
-                            <div class="mt-2">
-                                <div class="input-group">
-                                    <span class="input-group-text border-0 bg-light"><i class="bi bi-link-45deg"></i></span>
-                                    <input type="text" class="form-control bg-light border-0" id="logo_url" name="logo_url"
-                                        value="{{ settings.logo_url or 'static/aamusted system_logo.png' }}" placeholder="https://... or static/logo.png">
-                                </div>
-                            </div>
-                        </details>
-                    </div>
-
-                    <!-- Theme Section -->
-                    <h6 class="text-uppercase text-muted small fw-bold mb-3 border-bottom pb-2 mt-4">Appearance</h6>
-
-                    <div class="mb-4">
-                        <label class="form-label fw-bold small text-secondary">Global Interface Theme</label>
-                        <div class="row g-3">
-                            <!-- Theme Grid -->
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="theme-option p-3 border rounded text-center cursor-pointer"
-                                    onclick="updateTheme('sage')"
-                                    style="background: #f6fbf9; border-color: #428879 !important;">
-                                    <div class="rounded-circle mx-auto mb-2"
-                                        style="width: 32px; height: 32px; background: #428879;"></div>
-                                    <small class="d-block fw-bold text-dark">Sage</small>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="theme-option p-3 border rounded text-center cursor-pointer"
-                                    onclick="updateTheme('ocean')" style="background: #f0f9ff;">
-                                    <div class="rounded-circle mx-auto mb-2"
-                                        style="width: 32px; height: 32px; background: #0284c7;"></div>
-                                    <small class="d-block fw-bold text-dark">Ocean</small>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="theme-option p-3 border rounded text-center cursor-pointer"
-                                    onclick="updateTheme('sunset')" style="background: #fff7ed;">
-                                    <div class="rounded-circle mx-auto mb-2"
-                                        style="width: 32px; height: 32px; background: #ea580c;"></div>
-                                    <small class="d-block fw-bold text-dark">Sunset</small>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="theme-option p-3 border rounded text-center cursor-pointer"
-                                    onclick="updateTheme('royal')" style="background: #faf5ff;">
-                                    <div class="rounded-circle mx-auto mb-2"
-                                        style="width: 32px; height: 32px; background: #7c3aed;"></div>
-                                    <small class="d-block fw-bold text-dark">Royal</small>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="theme-option p-3 border rounded text-center cursor-pointer"
-                                    onclick="updateTheme('midnight')" style="background: #0f172a;">
-                                    <div class="rounded-circle mx-auto mb-2"
-                                        style="width: 32px; height: 32px; background: #38bdf8;"></div>
-                                    <small class="d-block fw-bold text-white">Midnight</small>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="theme-option p-3 border rounded text-center cursor-pointer"
-                                    onclick="updateTheme('cherry')" style="background: #fff1f2;">
-                                    <div class="rounded-circle mx-auto mb-2"
-                                        style="width: 32px; height: 32px; background: #e11d48;"></div>
-                                    <small class="d-block fw-bold text-dark">Cherry</small>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="theme-option p-3 border rounded text-center cursor-pointer"
-                                    onclick="updateTheme('forest')" style="background: #f0fdf4;">
-                                    <div class="rounded-circle mx-auto mb-2"
-                                        style="width: 32px; height: 32px; background: #16a34a;"></div>
-                                    <small class="d-block fw-bold text-dark">Forest</small>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="theme-option p-3 border rounded text-center cursor-pointer"
-                                    onclick="updateTheme('gold')" style="background: #fefce8;">
-                                    <div class="rounded-circle mx-auto mb-2"
-                                        style="width: 32px; height: 32px; background: #ca8a04;"></div>
-                                    <small class="d-block fw-bold text-dark">Gold</small>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="theme-option p-3 border rounded text-center cursor-pointer"
-                                    onclick="updateTheme('lavender')" style="background: #fdf4ff;">
-                                    <div class="rounded-circle mx-auto mb-2"
-                                        style="width: 32px; height: 32px; background: #c026d3;"></div>
-                                    <small class="d-block fw-bold text-dark">Lavender</small>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="theme-option p-3 border rounded text-center cursor-pointer"
-                                    onclick="updateTheme('corporate')" style="background: #f8fafc;">
-                                    <div class="rounded-circle mx-auto mb-2"
-                                        style="width: 32px; height: 32px; background: #475569;"></div>
-                                    <small class="d-block fw-bold text-dark">Corporate</small>
-                                </div>
-                            </div>
-                        </div>
-                        <input type="hidden" name="theme_color" id="theme_color_input" value="{{ settings.get('active_theme', 'default') }}">
-                        <div class="form-text mt-2"><i class="bi bi-broadcast me-1"></i> Changes apply to ALL users
-                            instantly across the network.</div>
-                    </div>
-
-                    <script>
-                        function updateTheme(themeName) {
-                            const btn = event.currentTarget;
-                            const originalContent = btn.innerHTML;
-
-                            const hiddenInput = document.getElementById('theme_color_input');
-                            if (hiddenInput) hiddenInput.value = themeName;
-
-                            // Show loading
-                            btn.style.opacity = '0.7';
-
-                            fetch('/admin/set_theme', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/x-www-form-urlencoded',
-                                },
-                                body: 'theme=' + themeName
-                            })
-                                .then(response => response.json())
-                                .then(data => {
-                                    if (data.status === 'success') {
-                                        // Visual feedback
-                                        // Force immediate update for admin
-                                        document.body.setAttribute('data-theme', themeName);
-
-                                        // Reset buttons style
-                                        document.querySelectorAll('.theme-option').forEach(el => el.style.borderColor = '#dee2e6');
-                                        btn.style.borderColor = '#000 !important';
-                                        btn.style.borderWidth = '2px';
-                                    } else {
-                                        alert('Error: ' + data.message);
-                                    }
-                                    btn.style.opacity = '1';
-                                })
-                                .catch(error => {
-                                    console.error('Error:', error);
-                                    btn.style.opacity = '1';
-                                });
-                        }
-                    </script>
-
-                    <style>
-                        .theme-option {
-                            transition: all 0.2s;
-                            cursor: pointer;
-                        }
-
-                        .theme-option:hover {
-                            transform: translateY(-3px);
-                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                        }
-                    </style>
-
-                    <div class="d-flex justify-content-end pt-4">
-                        <button type="submit" class="btn btn-primary px-4 shadow-sm">
-                            <i class="bi bi-save me-2"></i> Save Configuration
-                        </button>
-                    </div>
-                </form>
+    <div class="main-content">
+        <div class="topbar">
+            <h2><i class="fas fa-cog me-2" style="color:#60a5fa"></i>System Settings</h2>
+            <div class="user-badge">
+                <i class="fas fa-user-circle"></i>
+                {{ session.get('full_name', session.get('username', '')) }}
+                <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i></a>
             </div>
         </div>
-        {% endif %}
 
-        <!-- Data Management & Import Section -->
-        {% if (session.get('role') or '')|trim in ['Admin', 'Counsellor', 'Counselor', 'Secretary'] %}
-        <div class="card card-glass border-0 shadow-sm mt-4">
-            <div class="card-header bg-transparent border-0 pt-4 px-4">
-                <div class="d-flex align-items-center">
-                    <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3 text-primary">
-                        <i class="bi bi-file-earmark-arrow-up-fill"></i>
-                    </div>
-                    <h5 class="fw-bold mb-0">Data Management & Import</h5>
-                </div>
-            </div>
-            <div class="card-body p-4">
-                <p class="text-muted small mb-4">Upload a file to bulk import student records into the registry. Supported formats: <strong>CSV</strong>, <strong>Excel (.xlsx)</strong>.</p>
-                
-                <form action="{{ url_for('import_students') }}" method="POST" enctype="multipart/form-data" class="bg-light p-4 rounded-3 border dashed-border">
-                    <div class="text-center py-2">
+        <div class="alert-box">
+            <i class="fas fa-info-circle me-1"></i>
+            Settings are synced across all devices via Supabase.
+        </div>
+
+        <form method="POST" action="/admin/settings/update" enctype="multipart/form-data">
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card-dark">
+                        <h3><i class="fas fa-palette me-2" style="color:#a78bfa"></i>Branding</h3>
+
                         <div class="mb-3">
-                            <i class="bi bi-cloud-arrow-up text-primary" style="font-size: 2.5rem;"></i>
+                            <label class="form-label">System Name</label>
+                            <input type="text" class="form-control" name="system_name"
+                                   value="{{ settings.get('system_name', 'AAMUSTED Guidance & Counselling') }}">
                         </div>
-                        <label for="importFile" class="form-label fw-bold">Select Import File</label>
-                        <input type="file" class="form-control mb-3" id="importFile" name="file" accept=".csv, .xlsx, .xls" required>
-                        <button type="submit" class="btn btn-primary px-5 shadow-sm btn-hover-lift">
-                            <i class="bi bi-box-arrow-in-down me-2"></i> Start Import
-                        </button>
-                    </div>
-                </form>
 
-                <div class="mt-4">
-                    <h6 class="text-uppercase text-muted small fw-bold mb-2">Instructions:</h6>
-                    <ul class="small text-muted mb-0">
-                        <li>Ensure column headers are present (e.g., <strong>Name, Index Number, Department, Programme</strong>).</li>
-                        <li>Case numbers will be automatically generated based on student names.</li>
-                        <li>Duplicate index numbers may cause import errors.</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Remote Update & Version Control -->
-        <div class="card card-glass border-0 shadow-sm mt-4 border-top border-4 border-primary">
-            <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
-                <div>
-                    <h5 class="fw-bold mb-0">System Updates</h5>
-                    <p class="text-muted small mb-0">Synchronize code with the main GitHub repository.</p>
-                </div>
-                <div class="bg-primary bg-opacity-10 p-2 rounded-circle text-primary">
-                    <i class="bi bi-cloud-arrow-down-fill fs-5"></i>
-                </div>
-            </div>
-            <div class="card-body p-4">
-                <div class="p-3 bg-light rounded-3 mb-4 border-start border-4 border-info">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-info-circle-fill text-info me-3 fs-5"></i>
-                        <div>
-                            <span class="fw-bold d-block text-dark">One-Click Remote Update</span>
-                            <p class="small text-muted mb-0">Updates pulled from the remote server directly to this local system.</p>
+                        <div class="mb-3">
+                            <label class="form-label">System Logo</label>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                {% if settings.get('logo_url') %}
+                                <img src="{{ settings.get('logo_url') }}" class="logo-preview" alt="Logo">
+                                {% else %}
+                                <div class="logo-preview d-flex align-items-center justify-content-center">
+                                    <i class="fas fa-image" style="color:#475569; font-size:24px;"></i>
+                                </div>
+                                {% endif %}
+                                <div>
+                                    <input type="file" class="form-control" name="logo_file" accept="image/*"
+                                           style="background:#0f172a; border-color:#334155; color:#f8fafc;">
+                                    <small class="text-muted">PNG, JPG, WEBP, SVG (Max 2MB)</small>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <label class="form-label">Or enter Logo URL</label>
+                                <input type="text" class="form-control" name="logo_url"
+                                       value="{{ settings.get('logo_url', '') }}" placeholder="https://...">
+                            </div>
                         </div>
-                    </div>
-                </div>
 
-                <div class="d-grid gap-2">
-                    <button type="button" class="btn btn-outline-primary fw-bold py-2 btn-hover-lift" id="updateBtn" onclick="runSystemUpdate()">
-                        <i class="bi bi-git me-2"></i> Check for Updates
-                    </button>
-                </div>
-
-                <div id="updateResultArea" class="mt-3 small" style="display:none;">
-                    <div class="alert alert-secondary border-0 p-3 mb-0 overflow-auto" style="max-height:100px; font-family: monospace;" id="updateTerminalOutput">
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <script>
-        async function runSystemUpdate() {
-            const btn = document.getElementById('updateBtn');
-            const outputArea = document.getElementById('updateResultArea');
-            const terminal = document.getElementById('updateTerminalOutput');
-            const originalContent = btn.innerHTML;
-
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Connecting to GitHub...';
-            outputArea.style.display = 'none';
-
-            try {
-                const response = await fetch('/api/admin/update_system', { method: 'POST' });
-                
-                // Detect Non-JSON (HTML 404/Login)
-                const contentType = response.headers.get("content-type");
-                if (!contentType || !contentType.includes("application/json")) {
-                    throw new Error("Server returned an invalid response (HTML). Please refresh the page.");
-                }
-
-                const data = await response.json();
-
-                if (data.status === 'success') {
-                    if (data.already_latest) {
-                        Swal.fire({
-                            title: 'Up to Date!',
-                            text: data.message,
-                            icon: 'success',
-                            confirmButtonColor: '#428879'
-                        });
-                    } else {
-                        Swal.fire({
-                            title: 'Update Successful!',
-                            text: data.message + ' ' + (data.details || ''),
-                            icon: 'success',
-                            confirmButtonText: 'Great!'
-                        });
-                        if (data.details) {
-                            outputArea.style.display = 'block';
-                            terminal.innerText = data.details;
-                        }
-                    }
-                } else {
-                    Swal.fire({
-                        title: 'Update Failed',
-                        text: data.message,
-                        icon: 'error',
-                        footer: data.details ? '<pre class="small">' + data.details + '</pre>' : ''
-                    });
-                }
-            } catch (error) {
-                console.error('Update Request Error:', error);
-                Swal.fire({ 
-                    title: 'System Error', 
-                    text: 'The check could not be completed: ' + error.message, 
-                    icon: 'error' 
-                });
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = originalContent;
-            }
-        }
-        </script>
-
-        <!-- Node Configuration Section -->
-        <div class="card card-glass border-0 shadow-sm mt-4">
-            <div class="card-header bg-transparent border-0 pt-4 px-4">
-                <h5 class="fw-bold mb-0">Local Node & Sync Configuration</h5>
-            </div>
-            <div class="card-body p-4">
-                <form method="POST" action="/admin/settings/node">
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold small text-secondary">Node ID (Read-Only)</label>
-                            <input type="text" class="form-control bg-light border-0" value="{{ node_config.node_id }}"
-                                readonly disabled>
-                            <div class="form-text">Unique identifier for this machine.</div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold small text-secondary">Node Role</label>
-                            <select class="form-select bg-light border-0" name="node_role">
-                                <option value="Unassigned" {% if node_config.node_role=='Unassigned' %}selected{% endif
-                                    %}>Unassigned</option>
-                                <option value="SECRETARY" {% if node_config.node_role=='SECRETARY' %}selected{% endif
-                                    %}>Desk Administrator PC</option>
-                                <option value="COUNSELLOR" {% if node_config.node_role=='COUNSELLOR' %}selected{% endif
-                                    %}>Counsellor Mac</option>
-                                <option value="ADMIN" {% if node_config.node_role=='ADMIN' %}selected{% endif %}>Admin
-                                    Node</option>
-                            </select>
+                        <div class="mb-3">
+                            <label class="form-label">Theme Color</label>
+                            <div class="d-flex gap-2 flex-wrap mt-1">
+                                {% set current_theme = settings.get('active_theme', 'blue') %}
+                                {% for color, hex in [('blue','#2563eb'), ('purple','#9333ea'), ('green','#16a34a'), ('red','#dc2626'), ('amber','#d97706'), ('slate','#475569')] %}
+                                <label>
+                                    <input type="radio" name="active_theme" value="{{ color }}" class="d-none"
+                                           {{ 'checked' if current_theme == color }}>
+                                    <span class="theme-option" style="background:{{ hex }};"></span>
+                                </label>
+                                {% endfor %}
+                            </div>
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small text-secondary">Peer IP Address (Local Network)</label>
-                        <input type="text" class="form-control bg-light border-0" name="peer_ip"
-                            value="{{ node_config.peer_ip }}" placeholder="e.g., 192.168.1.5">
-                        <div class="form-text">Enter the IP address of the other machine to enable synchronization.
+                    <div class="card-dark">
+                        <h3><i class="fas fa-users me-2" style="color:#4ade80"></i>User Accounts</h3>
+                        <p class="text-muted mb-3" style="font-size:13px;">Manage user accounts in the Supabase Dashboard → Authentication → Users</p>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div style="background:#0f172a; border-radius:10px; padding:14px; border:1px solid #334155;">
+                                    <div style="font-size:13px; color:#94a3b8;">Admin</div>
+                                    <div style="font-weight:600;">admin</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div style="background:#0f172a; border-radius:10px; padding:14px; border:1px solid #334155;">
+                                    <div style="font-size:13px; color:#94a3b8;">Secretary</div>
+                                    <div style="font-weight:600;">secretary</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div style="background:#0f172a; border-radius:10px; padding:14px; border:1px solid #334155;">
+                                    <div style="font-size:13px; color:#94a3b8;">Counsellor</div>
+                                    <div style="font-weight:600;">counsellor</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="d-flex justify-content-between pt-2">
-                        <a href="{{ url_for('manual_sync') }}" class="btn btn-warning shadow-sm">
-                            <i class="bi bi-arrow-repeat me-2"></i> Sync Now
+                <div class="col-lg-4">
+                    <div class="card-dark">
+                        <h3><i class="fas fa-info-circle me-2" style="color:#fbbf24"></i>System Info</h3>
+                        <div class="mb-2"><span style="color:#94a3b8;">Version:</span> 3.0 (Vercel)</div>
+                        <div class="mb-2"><span style="color:#94a3b8;">Database:</span> Supabase PostgreSQL</div>
+                        <div class="mb-2"><span style="color:#94a3b8;">Status:</span> <span style="color:#4ade80;">Online</span></div>
+                        <hr style="border-color:#334155;">
+                        <a href="/admin/cloud_sync" style="color:#60a5fa; font-size:13px; text-decoration:none;">
+                            <i class="fas fa-sync me-1"></i>Cloud Sync Status
                         </a>
-                        <button type="submit" class="btn btn-secondary px-4 shadow-sm">
-                            <i class="bi bi-hdd-network me-2"></i> Update Node Settings
-                        </button>
                     </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Preview / Info Column -->
-    <div class="col-lg-4">
-        <div class="card card-glass border-0 shadow-sm mb-4">
-            <div class="card-body text-center p-4">
-                <h6 class="fw-bold mb-3">Logo Preview</h6>
-                <div class="p-3 bg-light rounded-3 mb-3 d-inline-block">
-                    <img id="sidebar_logo_preview" src="{{ settings.logo_url or url_for('static', filename='aamusted system_logo.png') }}" alt="Logo"
-                        style="max-height: 80px; max-width: 100%; object-fit: contain;" class="img-fluid">
                 </div>
-                <p class="small text-muted">This logo is displayed on the login screen, navigation header, and reports.</p>
             </div>
-        </div>
 
-        <div class="alert alert-info border-0 shadow-sm d-flex align-items-start mb-3">
-            <i class="bi bi-info-circle-fill me-3 fs-4"></i>
-            <div>
-                <strong>Note to Admin:</strong>
-                <p class="small mb-0 mt-1">Changing the system name or uploading a logo updates all screens and syncs across all devices automatically.</p>
+            <div class="mt-3 mb-4">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="fas fa-save me-1"></i>Save Settings
+                </button>
             </div>
-        </div>
-
-        <div class="alert alert-warning border-0 shadow-sm d-flex align-items-start">
-            <i class="bi bi-diagram-3-fill me-3 fs-4"></i>
-            <div>
-                <strong>Sync Status:</strong>
-                <p class="small mb-0 mt-1">
-                    Node ID: <strong>{{ node_config.node_id [:8] }}...</strong><br>
-                    Role: <strong>{{ node_config.node_role }}</strong><br>
-                    {% if node_config.peer_ip %}
-                    Peer: {{ node_config.peer_ip }}
-                    {% else %}
-                    <span class="text-danger">Offline / No Peer Configured</span>
-                    {% endif %}
-                </p>
-            </div>
-        </div>
+        </form>
     </div>
-</div>
-
-<script>
-function previewLogoImage(input) {
-    if (input.files && input.files[0]) {
-        const file = input.files[0];
-        if (file.size > 2 * 1024 * 1024) {
-            alert('File is too large! Please select an image under 2MB.');
-            input.value = '';
-            return;
-        }
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const previewEl = document.getElementById('logo_preview');
-            const sidebarEl = document.getElementById('sidebar_logo_preview');
-            if (previewEl) previewEl.src = e.target.result;
-            if (sidebarEl) sidebarEl.src = e.target.result;
-        }
-        reader.readAsDataURL(file);
-    }
-}
-</script>
-{% endblock %}
+</body>
+</html>

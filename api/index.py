@@ -747,6 +747,88 @@ def offline_pull():
     return jsonify(result)
 
 
+@app.route("/admin/settings")
+@login_required
+def admin_settings():
+    settings = {}
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT setting_name, setting_value FROM app_settings')
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        settings = {r['setting_name']: r['setting_value'] for r in rows}
+    except Exception:
+        pass
+    return render_template('admin_settings.html', settings=settings)
+
+
+@app.route("/admin/settings/update", methods=["POST"])
+@login_required
+def admin_update_settings():
+    if session.get('role') != 'Admin':
+        flash("Unauthorized", "error")
+        return redirect(url_for('dashboard'))
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        system_name = request.form.get('system_name', '')
+        logo_url = request.form.get('logo_url', '')
+        active_theme = request.form.get('active_theme', '')
+        updates = {
+            'system_name': system_name,
+            'logo_url': logo_url,
+            'active_theme': active_theme,
+            'theme_color': active_theme,
+        }
+        for key, val in updates.items():
+            if val and str(val).strip():
+                cur.execute(
+                    """INSERT INTO app_settings (setting_name, setting_value, global_id, updated_at)
+                       VALUES (%s, %s, gen_random_uuid(), NOW())
+                       ON CONFLICT (setting_name) DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = NOW()""",
+                    (key, val),
+                )
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("Settings saved successfully", "success")
+    except Exception as e:
+        logger.error(f"admin_update_settings: {e}")
+        flash(f"Error saving settings: {e}", "error")
+    return redirect(url_for('admin_settings'))
+
+
+@app.route("/admin/cloud_sync")
+@login_required
+def admin_cloud_sync():
+    if session.get('role') != 'Admin':
+        flash("Unauthorized access", "error")
+        return redirect(url_for('dashboard'))
+    tables = [
+        'Student', 'Appointment', 'Referral', 'CaseManagement',
+        'OutcomeQuestionnaire', 'DASS21', 'Feedback', 'SessionIssue',
+        'Notification', 'Counsellor', 'BookingRequest',
+    ]
+    local_counts = {}
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        for t in tables:
+            try:
+                cur.execute(f'SELECT COUNT(*) FROM "{t}"')
+                local_counts[t] = cur.fetchone()[0]
+            except Exception:
+                local_counts[t] = 0
+        cur.close()
+        conn.close()
+    except Exception:
+        for t in tables:
+            local_counts[t] = 0
+    return render_template('admin_cloud_sync.html', local_counts=local_counts, sync_tables=tables)
+
+
 @app.route("/appointments")
 @login_required
 def appointments_page():

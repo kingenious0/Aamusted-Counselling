@@ -1,614 +1,135 @@
-{% extends 'base_modern.html' %}
+{% set active_page = 'admin_cloud_sync' %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Sync - AAMUSTED Counselling</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; }
+        .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: #1e293b; border-right: 1px solid #334155; padding: 20px 0; overflow-y: auto; z-index: 100; }
+        .sidebar-brand { padding: 0 20px 20px; border-bottom: 1px solid #334155; }
+        .sidebar-brand h4 { color: #f8fafc; font-size: 16px; margin: 0; font-weight: 700; }
+        .sidebar-brand small { color: #64748b; font-size: 12px; }
+        .sidebar-nav { padding: 12px 0; }
+        .sidebar-nav a { display: flex; align-items: center; padding: 10px 20px; color: #94a3b8; text-decoration: none; font-size: 14px; transition: all 0.2s; }
+        .sidebar-nav a:hover, .sidebar-nav a.active { background: rgba(37,99,235,0.15); color: #60a5fa; }
+        .sidebar-nav a i { width: 20px; margin-right: 10px; text-align: center; }
+        .sidebar-nav .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #475569; padding: 16px 20px 6px; font-weight: 600; }
+        .main-content { margin-left: 260px; padding: 24px 32px; min-height: 100vh; }
+        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+        .topbar h2 { font-size: 22px; font-weight: 700; margin: 0; }
+        .user-badge { display: flex; align-items: center; gap: 8px; color: #94a3b8; font-size: 14px; }
+        .card-dark { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; margin-bottom: 20px; }
+        .card-dark h3 { font-size: 18px; font-weight: 600; margin: 0 0 16px; }
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #334155; }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-label { color: #94a3b8; font-size: 13px; }
+        .stat-value { font-weight: 600; font-size: 14px; }
+        .badge-online { background: rgba(34,197,94,0.15); color: #4ade80; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .badge-offline { background: rgba(239,68,68,0.15); color: #f87171; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .btn-sync { background: #2563eb; border: none; border-radius: 10px; padding: 10px 24px; font-weight: 600; color: #fff; }
+        .btn-sync:hover { background: #1d4ed8; color: #fff; }
+        .logout-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+        .logout-btn:hover { color: #f87171; }
+    </style>
+</head>
+<body>
+    {% include '_sidebar.html' %}
 
-{% block content %}
-<div class="container-fluid py-4">
-    <!-- Header Section -->
-    <div class="row align-items-end mb-4">
-        <div class="col-lg-6">
-            <h2 class="fw-bold text-dark mb-1">Cloud Lookout</h2>
-            <p class="text-muted small mb-0">Monitor and manage real-time synchronization with Supabase Cloud Database</p>
-        </div>
-        <div class="col-lg-6 d-flex justify-content-end gap-2">
-            <!-- Main Live Action -->
-            <button onclick="triggerManualSync()" class="btn btn-primary d-flex align-items-center gap-2 shadow-sm rounded-pill px-4">
-                <i class="bi bi-arrow-repeat" id="syncIcon"></i>
-                <span class="fw-bold">Sync Now</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- CLEAN ACTION TOOLS (Categorized & Scalable) -->
-    <div class="card card-glass border-0 shadow-sm mb-4">
-        <div class="card-body p-2 px-3">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                
-                <!-- Group 1: Data Health & Forcing -->
-                <div class="d-flex align-items-center gap-2 p-1 border-end pe-3 me-2" style="border-color: rgba(0,0,0,0.05) !important;">
-                    <span class="text-muted x-small text-uppercase fw-bold tracking-wider me-2">Maintenance</span>
-                    <button onclick="confirmResetAndPull()" class="btn btn-sm btn-light-danger border-0 d-flex align-items-center gap-2" title="Overwrite local data with cloud data">
-                        <i class="bi bi-cloud-download text-danger"></i>
-                        <span class="d-none d-md-inline">Pull Cloud Records</span>
-                    </button>
-                    <button onclick="confirmResetAndPush()" class="btn btn-sm btn-light-warning border-0 d-flex align-items-center gap-2" title="Force push all local data to cloud">
-                        <i class="bi bi-cloud-upload text-warning"></i>
-                        <span class="d-none d-md-inline">Push Local Records</span>
-                    </button>
-                </div>
-
-                <!-- Group 2: Backup & Portability -->
-                <div class="d-flex align-items-center gap-2 p-1 border-end pe-3 me-2" style="border-color: rgba(0,0,0,0.05) !important;">
-                    <span class="text-muted x-small text-uppercase fw-bold tracking-wider me-2">Data Portability</span>
-                    <button onclick="downloadCloudBackup()" class="btn btn-sm btn-light-primary border-0 d-flex align-items-center gap-2">
-                        <i class="bi bi-file-earmark-arrow-down fs-6"></i>
-                        <span class="d-none d-md-inline">Export JSON</span>
-                    </button>
-                    <button onclick="document.getElementById('backupFileInput').click()" class="btn btn-sm btn-light-info border-0 d-flex align-items-center gap-2">
-                        <i class="bi bi-file-earmark-arrow-up fs-6"></i>
-                        <span class="d-none d-md-inline">Import JSON</span>
-                    </button>
-                </div>
-
-                <!-- Group 3: Danger Zone -->
-                <div class="d-flex align-items-center gap-2 p-1">
-                    <span class="text-muted x-small text-uppercase fw-bold tracking-wider me-2">Privacy Control</span>
-                    <button onclick="confirmClearCloud()" class="btn btn-sm btn-subtle-danger d-flex align-items-center gap-2">
-                        <i class="bi bi-trash3-fill text-danger"></i>
-                        <span class="fw-bold text-danger">Wipe Cloud Data</span>
-                    </button>
-                </div>
-
-                <input type="file" id="backupFileInput" style="display:none;" accept=".json" onchange="handleRestoreBackup(this)">
-            </div>
-        </div>
-    </div>
-
-    <!-- Stats Row -->
-    <div class="row g-4 mb-4">
-        <!-- Local Identity -->
-        <div class="col-md-3">
-            <div class="card card-glass h-100 border-0 shadow-sm p-3">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="bg-primary bg-opacity-10 p-2 rounded-3 me-3">
-                        <i class="bi bi-cpu text-primary fs-4"></i>
-                    </div>
-                    <div>
-                        <div class="text-muted small">Node Identity</div>
-                        <div class="fw-bold">{{ config.node_id }}</div>
-                    </div>
-                </div>
-                <div class="mt-auto">
-                    <span class="badge bg-secondary opacity-75">{{ config.node_role }}</span>
-                </div>
+    <div class="main-content">
+        <div class="topbar">
+            <h2><i class="fas fa-cloud me-2" style="color:#60a5fa"></i>Cloud Sync</h2>
+            <div class="user-badge">
+                <i class="fas fa-user-circle"></i>
+                {{ session.get('full_name', session.get('username', '')) }}
+                <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i></a>
             </div>
         </div>
 
-        <!-- Connection Status -->
-        <div class="col-md-3">
-            <div class="card card-glass h-100 border-0 shadow-sm p-3">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="bg-success bg-opacity-10 p-2 rounded-3 me-3" id="statusBg">
-                        <i class="bi bi-wifi text-success fs-4" id="statusIcon"></i>
-                    </div>
-                    <div>
-                        <div class="text-muted small">Bridge Status</div>
-                        <div class="fw-bold" id="bridgeStatus">Checking...</div>
-                    </div>
-                </div>
-                <div class="progress" style="height: 4px;">
-                    <div class="progress-bar bg-success" id="statusBar" style="width: 0%"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Last Sync Time -->
-        <div class="col-md-3">
-            <div class="card card-glass h-100 border-0 shadow-sm p-3">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="bg-info bg-opacity-10 p-2 rounded-3 me-3">
-                        <i class="bi bi-clock-history text-info fs-4"></i>
-                    </div>
-                    <div>
-                        <div class="text-muted small">Last Successful Sync</div>
-                        <div class="fw-bold" id="lastSyncTime">{{ config.last_cloud_sync or 'Never' }}</div>
-                    </div>
-                </div>
-                <div class="text-muted x-small" id="syncRelative">Counting seconds...</div>
-            </div>
-        </div>
-
-        <!-- Sync Mode -->
-        <div class="col-md-3">
-            <div class="card card-glass h-100 border-0 shadow-sm p-3">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="bg-warning bg-opacity-10 p-2 rounded-3 me-3">
-                        <i class="bi bi-shield-shaded text-warning fs-4"></i>
-                    </div>
-                    <div>
-                        <div class="text-muted small">Encryption & Security</div>
-                        <div class="fw-bold">AES-256 Enabled</div>
-                    </div>
-                </div>
-                <div class="text-success x-small"><i class="bi bi-check-circle-fill me-1"></i> X-API-KEY Verified</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row g-4">
-        <!-- Data Integrity Lookout -->
-        <div class="col-lg-8">
-            <div class="card card-glass border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0 pt-4 px-4">
-                    <h5 class="fw-bold mb-0">Data Integrity Comparison</h5>
-                    <p class="text-muted small">Comparing Local SQLite records vs Supabase Cloud records</p>
-                </div>
-                <div class="card-body px-4 pb-4">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead class="bg-light">
-                                <tr>
-                                    <th>Table Name</th>
-                                    <th class="text-center">Local Count</th>
-                                    <th class="text-center">Cloud Count</th>
-                                    <th class="text-center">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="statsTableBody">
-                                {% for table in sync_tables %}
-                                <tr>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <div class="bg-light p-1 rounded me-2">
-                                                <i class="bi bi-table text-muted"></i>
-                                            </div>
-                                            <span class="fw-medium text-dark">{{ table }}</span>
-                                        </div>
-                                    </td>
-                                    <td class="text-center fw-bold">{{ local_counts[table] }}</td>
-                                    <td class="text-center text-muted cloud-count" data-table="{{ table }}">
-                                        <div class="spinner-border spinner-border-sm" role="status"></div>
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="badge rounded-pill bg-light text-dark sync-status" data-table="{{ table }}">Checking...</span>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Real-time Sync Activity -->
-        <div class="col-lg-4">
-            <div class="card card-glass border-0 shadow-sm h-100">
-                <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
-                    <h5 class="fw-bold mb-0">Live Activity Feed</h5>
-                    <span class="badge bg-success pulse-badge">LIVE</span>
-                </div>
-                <div class="card-body px-4">
-                    <div class="sync-logs-container" id="syncLogs" style="max-height: 450px; overflow-y: auto;">
-                        <div class="text-center py-5 text-muted">
-                            <i class="bi bi-terminal fs-2 opacity-25"></i>
-                            <p class="small mt-2">Waiting for sync activity...</p>
+        <div class="row">
+            <div class="col-lg-6">
+                <div class="card-dark">
+                    <h3><i class="fas fa-database me-2" style="color:#60a5fa"></i>Cloud Database (Supabase)</h3>
+                    <div id="cloudStats">
+                        <div class="stat-row">
+                            <span class="stat-label">Status</span>
+                            <span id="cloudStatus" class="badge-online">Checking...</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Total Records</span>
+                            <span id="cloudTotal" class="stat-value">-</span>
                         </div>
                     </div>
+                    <div id="tableCounts" class="mt-3"></div>
+                    <button class="btn-sync mt-3" onclick="refreshStats()">
+                        <i class="fas fa-sync me-1"></i>Refresh
+                    </button>
                 </div>
-                <div class="card-footer bg-transparent border-0 p-4">
-                    <div class="alert alert-info py-2 px-3 mb-0" style="font-size: 0.75rem;">
-                        <i class="bi bi-info-circle me-2"></i>
-                        Next automated sync in <span id="syncCountdown">{{ config.sync_interval_seconds }}</span>s
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card-dark">
+                    <h3><i class="fas fa-server me-2" style="color:#a78bfa"></i>Local Database</h3>
+                    <p class="text-muted" style="font-size:13px;">In Vercel mode, Supabase is the primary database. There is no separate local SQLite database.</p>
+                    <div class="stat-row">
+                        <span class="stat-label">Mode</span>
+                        <span class="stat-value" style="color:#60a5fa;">Cloud (Vercel)</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Backend</span>
+                        <span class="stat-value">Supabase PostgreSQL</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Host</span>
+                        <span class="stat-value" style="font-size:12px;">aws-1-eu-west-1.pooler.supabase.com</span>
+                    </div>
+                </div>
+
+                <div class="card-dark">
+                    <h3><i class="fas fa-clock me-2" style="color:#fbbf24"></i>Last Sync</h3>
+                    <div class="stat-row">
+                        <span class="stat-label">Time</span>
+                        <span id="lastSync" class="stat-value">-</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Mode</span>
+                        <span class="stat-value">Real-time (PostgreSQL)</span>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<style>
-    .x-small { font-size: 0.7rem; }
-    .pulse-badge {
-        animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-        0% { opacity: 1; }
-        50% { opacity: 0.5; }
-        100% { opacity: 1; }
-    }
-    .sync-log-item {
-        border-left: 2px solid var(--brand-primary);
-        padding-left: 0.75rem;
-        margin-bottom: 1rem;
-        position: relative;
-    }
-    .sync-log-item::before {
-        content: '';
-        position: absolute;
-        left: -5px;
-        top: 0;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--brand-primary);
-    }
-    .sync-log-time { font-size: 0.65rem; color: #94a3b8; }
-    .sync-log-msg { font-size: 0.8rem; color: #334155; }
-    
-    .sync-logs-container::-webkit-scrollbar { width: 4px; }
-    .sync-logs-container::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-</style>
-{% endblock %}
-
-{% block scripts %}
-<script>
-    let localCounts = {{ local_counts | tojson }};
-    let syncTables = {{ sync_tables | tojson }};
-    let nextSyncIn = {{ config.sync_interval_seconds }};
-    let intervalId = null;
-
-    // Initial load
-    document.addEventListener('DOMContentLoaded', () => {
-        refreshCloudStats();
-        startCountdown();
-        
-        // Polling every 15 seconds for cloud stats
-        setInterval(refreshCloudStats, 15000);
-    });
-
-    function startCountdown() {
-        if (intervalId) clearInterval(intervalId);
-        nextSyncIn = {{ config.sync_interval_seconds }};
-        intervalId = setInterval(() => {
-            nextSyncIn--;
-            if (nextSyncIn < 0) {
-                // Background sync likely happening
-                addLog('System', 'Initiating background sync cycle...');
-                nextSyncIn = {{ config.sync_interval_seconds }};
-            }
-            const countEl = document.getElementById('syncCountdown');
-            if (countEl) countEl.innerText = nextSyncIn;
-        }, 1000);
-    }
-
-    function refreshCloudStats() {
-        console.log('Refreshing cloud stats...');
-        fetch('/api/admin/cloud_proxy/stats')
-            .then(r => r.json())
-            .then(data => {
-                const bridgeStatus = document.getElementById('bridgeStatus');
-                const statusBar = document.getElementById('statusBar');
-                const statusBg = document.getElementById('statusBg');
-                const statusIcon = document.getElementById('statusIcon');
-
-                if (data.status === 'success') {
-                    if (bridgeStatus) {
-                        bridgeStatus.innerText = 'Online (Supabase connected)';
-                        bridgeStatus.className = 'fw-bold text-success';
-                    }
-                    if (statusBar) {
-                        statusBar.style.width = '100%';
-                        statusBar.className = 'progress-bar bg-success';
-                    }
-                    if (statusBg) {
-                        statusBg.className = 'bg-success bg-opacity-10 p-2 rounded-3 me-3';
-                    }
-                    if (statusIcon) {
-                        statusIcon.className = 'bi bi-wifi text-success fs-4';
-                    }
-
-                    if (data.counts) updateTableStats(data.counts);
-                } else {
-                    if (bridgeStatus) {
-                        bridgeStatus.innerText = 'Offline or Error';
-                        bridgeStatus.className = 'fw-bold text-danger';
-                    }
-                    if (statusBar) {
-                        statusBar.style.width = '30%';
-                        statusBar.className = 'progress-bar bg-danger';
-                    }
-                    if (statusBg) {
-                        statusBg.className = 'bg-danger bg-opacity-10 p-2 rounded-3 me-3';
-                    }
-                    if (statusIcon) {
-                        statusIcon.className = 'bi bi-wifi-off text-danger fs-4';
-                    }
+    <script>
+    async function refreshStats() {
+        try {
+            const resp = await fetch('/api/admin/cloud_proxy/stats');
+            const data = await resp.json();
+            document.getElementById('cloudStatus').className = 'badge-online';
+            document.getElementById('cloudStatus').textContent = 'Online';
+            document.getElementById('cloudTotal').textContent = data.total_records || 0;
+            const container = document.getElementById('tableCounts');
+            container.innerHTML = '';
+            if (data.tables) {
+                for (const [table, count] of Object.entries(data.tables)) {
+                    container.innerHTML += '<div class="stat-row"><span class="stat-label">' + table + '</span><span class="stat-value">' + count + '</span></div>';
                 }
-            })
-            .catch(err => {
-                const bridgeStatus = document.getElementById('bridgeStatus');
-                if (bridgeStatus) {
-                    bridgeStatus.innerText = 'Network Error';
-                    bridgeStatus.className = 'fw-bold text-danger';
-                }
-                addLog('Error', 'Failed to reach cloud bridge: ' + err.message);
-            });
-            
-        // Also update last sync time from local status
-        fetch('/api/sync/status')
-            .then(r => r.json())
-            .then(data => {
-                const lstEl = document.getElementById('lastSyncTime');
-                if (lstEl) lstEl.innerText = data.last_sync || 'Never';
-                updateRelativeTime(data.last_sync);
-            });
-    }
-
-    function updateTableStats(cloudCounts) {
-        if (!cloudCounts) return;
-        syncTables.forEach(table => {
-            try {
-                const countEl = document.querySelector(`.cloud-count[data-table="${table}"]`);
-                const statusEl = document.querySelector(`.sync-status[data-table="${table}"]`);
-                
-                if (countEl && cloudCounts[table] !== undefined) {
-                    const cloudVal = cloudCounts[table];
-                    const localVal = localCounts[table] || 0;
-                    
-                    countEl.innerHTML = `<span class="fw-bold text-dark">${cloudVal === -1 ? 'Err' : cloudVal}</span>`;
-                    
-                    if (statusEl) {
-                        if (cloudVal === -1) {
-                            statusEl.innerText = 'DB ERROR';
-                            statusEl.className = 'badge rounded-pill bg-danger shadow-sm';
-                        } else if (localVal === cloudVal) {
-                            statusEl.innerText = 'SYNCED';
-                            statusEl.className = 'badge rounded-pill bg-success-subtle text-success border border-success border-opacity-25';
-                        } else {
-                            const diff = Math.abs(localVal - cloudVal);
-                            statusEl.innerText = `${diff} DIFF`;
-                            statusEl.className = 'badge rounded-pill bg-warning-subtle text-dark border border-warning border-opacity-25';
-                        }
-                    }
-                }
-            } catch (e) {
-                console.error("Error updating stats for table " + table, e);
             }
-        });
-    }
-
-    function triggerManualSync() {
-        const btn = document.getElementById('syncIcon');
-        btn.classList.add('bi-spin');
-        addLog('Sync', 'Triggering manual synchronization...');
-
-        fetch('/api/admin/cloud_proxy/force_sync', { method: 'POST' })
-            .then(r => r.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    Swal.fire({
-                        toast: true,
-                        position: 'top-end',
-                        icon: 'success',
-                        title: 'Sync Started',
-                        text: 'Cloud sync is running in the background.',
-                        showConfirmButton: false,
-                        timer: 3000
-                    });
-                    addLog('Success', 'Manual sync cycle initiated successfully.');
-                    setTimeout(refreshCloudStats, 3000);
-                } else {
-                    addLog('Error', 'Sync trigger failed: ' + data.error);
-                }
-            })
-            .finally(() => {
-                setTimeout(() => btn.classList.remove('bi-spin'), 2000);
-            });
-    }
-
-    function handleRestoreBackup(input) {
-        if (!input.files || !input.files[0]) return;
-        const file = input.files[0];
-        
-        Swal.fire({
-            title: 'Restore Clinical Backup?',
-            text: `This will merge clinical data from "${file.name}" into your local database. Existing records will be updated, and new ones will be created. Always backup your current data first!`,
-            icon: 'info',
-            showCancelButton: true,
-            confirmButtonText: 'Yes, Restore Now',
-            reverseButtons: true
-        }).then((result) => {
-            if (result.isConfirmed) {
-                const formData = new FormData();
-                formData.append('backup_file', file);
-                
-                addLog('Restore', 'Uploading and processing backup file...');
-                Swal.fire({
-                    title: 'Restoring Data...',
-                    text: 'Merging records. This may take a minute...',
-                    allowOutsideClick: false,
-                    didOpen: () => { Swal.showLoading(); }
-                });
-
-                fetch('/api/admin/cloud_proxy/import_backup', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        Swal.fire('Restored!', `${data.count} clinical records have been restored successfully.`, 'success');
-                        addLog('Success', `Data restoration complete: ${data.count} records processed.`);
-                        setTimeout(() => window.location.reload(), 3000);
-                    } else {
-                        Swal.fire('Error', data.error || 'Restoration failed.', 'error');
-                        addLog('Error', 'Restore failed: ' + (data.error || 'Server error'));
-                    }
-                })
-                .catch(err => {
-                    Swal.fire('Network Error', err.message, 'error');
-                    addLog('Error', 'Network error during restore.');
-                });
-            }
-            // Clear input so same file can be selected again if needed
-            input.value = '';
-        });
-    }
-
-    function downloadCloudBackup() {
-        addLog('Backup', 'Initiating full cloud data dump for backup...');
-        Swal.fire({
-            title: 'Generating Backup...',
-            text: 'Fetching all data from the cloud. Please wait...',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
-        window.location.href = '/api/admin/cloud_proxy/export_backup';
-        
-        // We close the loader after a few seconds since we can't easily track the download stream success here
-        setTimeout(() => {
-            Swal.close();
-            addLog('Success', 'Cloud backup file generated and sent to browser.');
-        }, 3000);
-    }
-
-    function confirmClearCloud() {
-        Swal.fire({
-            title: 'WIPE CLOUD DATA?',
-            text: "This will permanently delete all clinical data (Students, Appointments, Sessions, Bookings) from the cloud. This will NOT affect your local computer. Users and System Settings are safe.",
-            icon: 'error',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Yes, WIPE CLOUD',
-            reverseButtons: true
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire({
-                    title: 'Type "WIPE" to confirm',
-                    input: 'text',
-                    inputPlaceholder: 'WIPE',
-                    showCancelButton: true,
-                    confirmButtonText: 'CONFIRM DELETE',
-                    preConfirm: (value) => {
-                        if (value !== 'WIPE') {
-                            Swal.showValidationMessage('You must type WIPE to confirm');
-                        }
-                    }
-                }).then((res) => {
-                   if (res.isConfirmed) {
-                       addLog('WIPE', 'Requesting cloud data purge...');
-                       fetch('/api/admin/cloud_proxy/wipe_clinical', { method: 'POST' })
-                           .then(r => r.json())
-                           .then(data => {
-                               if (data.status === 'success') {
-                                   Swal.fire('Wiped!', 'Cloud data has been cleared.', 'success');
-                                   addLog('Success', 'Cloud clinical data purge complete.');
-                                   setTimeout(refreshCloudStats, 2000);
-                               } else {
-                                   Swal.fire('Error', data.error || data.message || 'Purge failed.', 'error');
-                                   addLog('Error', 'Wipe failed: ' + (data.error || 'Server error'));
-                               }
-                           });
-                   }
-                });
-            }
-        });
-    }
-
-    function confirmResetAndPush() {
-        Swal.fire({
-            title: 'Force Full Upload?',
-            text: "This will reset sync markers for ALL local records and force the system to re-push everything to the cloud to ensure your records (e.g. all 29) are correctly uploaded. This is safest after wiping cloud data.",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#ffc107',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Yes, force upload'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                addLog('Sync', 'Resetting local marker flags for full re-seed...');
-                fetch('/api/admin/cloud_proxy/reset_and_push', { method: 'POST' })
-                    .then(r => r.json())
-                    .then(data => {
-                        Swal.fire('Initiated', data.message, 'success');
-                        addLog('Action', 'Full local data push command sent.');
-                    });
-            }
-        });
-    }
-
-    function confirmResetAndPull() {
-        Swal.fire({
-            title: 'Force Full Download?',
-            text: "This will re-download ALL data from Supabase Cloud and merge it into your local database. Existing records will be updated.",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Yes, force download',
-            showLoaderOnConfirm: true,
-            allowOutsideClick: false
-        }).then((result) => {
-            if (result.isConfirmed) {
-                addLog('Sync', 'Pulling all records from cloud...');
-                fetch('/api/admin/cloud_proxy/reset_and_pull', { method: 'POST' })
-                    .then(r => r.json().then(d => ({ok: r.ok, data: d})))
-                    .then(({ok, data}) => {
-                        if (ok && data.status === 'success') {
-                            let detail = `Fetched: ${data.fetched || 0} | Applied: ${data.applied || 0}`;
-                            if (data.tables) {
-                                detail += '\n\nTables: ' + Object.entries(data.tables).map(([t,c]) => `${t}(${c})`).join(', ');
-                            }
-                            Swal.fire('Pull Complete', detail, 'success');
-                            addLog('Action', detail);
-                            setTimeout(() => location.reload(), 1500);
-                        } else {
-                            Swal.fire('Pull Failed', data.error || 'Unknown error', 'error');
-                            addLog('Error', data.error || 'Unknown error');
-                        }
-                    })
-                    .catch(err => {
-                        Swal.fire('Network Error', err.message, 'error');
-                        addLog('Error', err.message);
-                    });
-            }
-        });
-    }
-
-    function addLog(type, msg) {
-        const logs = document.getElementById('syncLogs');
-        const time = new Date().toLocaleTimeString();
-        
-        // Remove empty state if present
-        if (logs.querySelector('.opacity-25')) {
-            logs.innerHTML = '';
+        } catch (e) {
+            document.getElementById('cloudStatus').className = 'badge-offline';
+            document.getElementById('cloudStatus').textContent = 'Error';
         }
 
-        const div = document.createElement('div');
-        div.className = 'sync-log-item';
-        div.innerHTML = `
-            <div class="sync-log-time">${time} | ${type.toUpperCase()}</div>
-            <div class="sync-log-msg">${msg}</div>
-        `;
-        logs.prepend(div);
+        try {
+            const resp2 = await fetch('/api/sync/status');
+            const data2 = await resp2.json();
+            document.getElementById('lastSync').textContent = data2.last_sync || 'Never';
+        } catch (e) {}
     }
-
-    function updateRelativeTime(lastSync) {
-        if (!lastSync) return;
-        const last = new Date(lastSync);
-        const now = new Date();
-        const diffSec = Math.floor((now - last) / 1000);
-        
-        let display = '';
-        if (diffSec < 60) display = `${diffSec} seconds ago`;
-        else display = `${Math.floor(diffSec/60)} minutes ago`;
-        
-        const relEl = document.getElementById('syncRelative');
-        if (relEl) relEl.innerText = 'Last sync: ' + display;
-    }
-</script>
-
-<style>
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-.bi-spin {
-    display: inline-block;
-    animation: spin 1s linear infinite;
-}
-</style>
-{% endblock %}
+    refreshStats();
+    </script>
+</body>
+</html>
