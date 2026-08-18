@@ -6,15 +6,28 @@
 <div class="row justify-content-center">
     <div class="col-lg-8">
         <div class="text-center mb-4">
+            {% if user.profile_pic %}
+            <img src="{{ user.profile_pic }}" alt="Profile" class="rounded-circle mb-3" style="width:100px; height:100px; object-fit:cover; border:3px solid #e2d9c8;">
+            {% else %}
             <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3" style="width:100px; height:100px; background:rgba(37,99,235,0.15); font-size:40px; color:#60a5fa;">
                 {{ user.full_name[:1].upper() }}
             </div>
+            {% endif %}
             <h3 style="color:#1a202c; font-weight:700;">{{ user.full_name }}</h3>
             <span class="badge badge-blue">{{ user.role }}</span>
         </div>
 
         <div class="card-dark">
             <form method="POST" action="/profile">
+                <h3 style="margin-bottom:20px;"><i class="fas fa-camera me-2" style="color:#60a5fa"></i>Profile Picture</h3>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-12">
+                        <label class="form-label">Picture URL (paste a link to your photo)</label>
+                        <input type="url" name="profile_picture" class="form-control" value="{{ user.profile_pic or '' }}" placeholder="https://example.com/photo.jpg">
+                        <small style="color:#6b7280;">Paste a URL to an image (JPG, PNG). The image will be displayed as your profile photo.</small>
+                    </div>
+                </div>
+
                 <h3 style="margin-bottom:20px;"><i class="fas fa-id-card me-2" style="color:#60a5fa"></i>Personal Information</h3>
                 <div class="row g-3 mb-4">
                     <div class="col-md-12">
@@ -43,7 +56,7 @@
                 <div class="row g-3 mb-4">
                     <div class="col-md-12">
                         <label class="form-label">New Password (leave blank to keep current)</label>
-                        <input type="password" name="password" class="form-control" minlength="4">
+                        <input type="password" name="new_password" class="form-control" minlength="4">
                     </div>
                 </div>
 

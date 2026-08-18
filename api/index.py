@@ -110,6 +110,11 @@ def init_db():
         logger.error(f"init_db users: {e}")
         conn.rollback()
     try:
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_pic TEXT")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+    try:
         cur.execute("SELECT id FROM users WHERE username = 'admin'")
         if not cur.fetchone():
             cur.execute(
@@ -827,6 +832,27 @@ def dashboard():
     except Exception as e:
         logger.error(f"dashboard error: {e}")
         return redirect(url_for('login'))
+
+
+@app.route("/api/dashboard/intake_list")
+@login_required
+def dashboard_intake_list():
+    bookings = []
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('''SELECT * FROM "BookingRequest"
+                       WHERE status = 'Pending' ORDER BY created_at DESC LIMIT 10''')
+        bookings = cur.fetchall()
+        for b in bookings:
+            for k, v in b.items():
+                if isinstance(v, (datetime, date)):
+                    b[k] = v.strftime('%Y-%m-%d %H:%M')
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return jsonify(bookings)
 
 
 @app.route('/admin/bookings')
@@ -2370,7 +2396,42 @@ def admin_workflow():
     if session.get('role') != 'Admin':
         flash("Unauthorized", "error")
         return redirect(url_for('dashboard'))
-    return render_template('admin_workflow.html')
+    settings = {}
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute("SELECT setting_name, setting_value FROM app_settings WHERE setting_name IN ('auto_notify', 'lock_notes', 'require_approval', 'allow_walkin')")
+        for row in cur.fetchall():
+            settings[row['setting_name']] = row['setting_value']
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+    return render_template('admin_workflow.html', settings=settings)
+
+
+@app.route("/admin_workflow/save", methods=["POST"])
+@login_required
+def admin_workflow_save():
+    if session.get('role') != 'Admin':
+        flash("Unauthorized", "error")
+        return redirect(url_for('dashboard'))
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        for key in ['auto_notify', 'lock_notes', 'require_approval', 'allow_walkin']:
+            val = request.form.get(key, 'false')
+            cur.execute('''INSERT INTO app_settings (setting_name, setting_value, updated_at)
+                           VALUES (%s, %s, NOW())
+                           ON CONFLICT (setting_name) DO UPDATE SET setting_value = %s, updated_at = NOW()''',
+                        (key, val, val))
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("Workflow settings saved", "success")
+    except Exception as e:
+        flash(f"Error: {e}", "error")
+    return redirect(url_for('admin_workflow'))
 
 
 @app.route("/profile", methods=["GET", "POST"])
@@ -2383,8 +2444,13 @@ def profile():
             full_name = request.form.get('full_name', '').strip()
             email = request.form.get('email', '').strip()
             phone = request.form.get('phone', '').strip()
+            profile_pic = request.form.get('profile_picture', '').strip()
             cur.execute("UPDATE users SET full_name = %s, email = %s, phone = %s, updated_at = NOW() WHERE username = %s",
                         (full_name, email, phone, session.get('username', '')))
+            if profile_pic:
+                cur.execute("UPDATE users SET profile_pic = %s, updated_at = NOW() WHERE username = %s",
+                            (profile_pic, session.get('username', '')))
+                session['profile_pic'] = profile_pic
             new_pw = request.form.get('new_password', '').strip()
             if new_pw:
                 from werkzeug.security import generate_password_hash
@@ -2401,7 +2467,7 @@ def profile():
     try:
         conn = get_db()
         cur = dict_cursor(conn)
-        cur.execute("SELECT id, username, full_name, role, email, phone FROM users WHERE username = %s", (session.get('username', ''),))
+        cur.execute("SELECT id, username, full_name, role, email, phone, profile_pic FROM users WHERE username = %s", (session.get('username', ''),))
         user = cur.fetchone() or {}
         cur.close()
         conn.close()
@@ -2788,68 +2854,80 @@ def sync_now():
 @app.route("/appointment/update_status/<int:appt_id>/<new_status>")
 @login_required
 def update_appt_status(appt_id, new_status):
-    """Update appointment status with timestamps + auto-create session on 'In Session'."""
     role = session.get('role', '')
-    allowed = {
-        'Secretary': ['Checked In', 'Sent to Counsellor', 'Cancelled'],
-        'Admin': ['Scheduled', 'Confirmed', 'Checked In', 'Sent to Counsellor', 'In Session', 'Completed', 'Cancelled', 'No Show'],
-        'Counsellor': ['In Session', 'Completed', 'Cancelled'],
+    username = session.get('username', '')
+
+    TRANSITIONS = {
+        'Secretary': {
+            'Scheduled': ['Confirmed', 'Checked In', 'Cancelled'],
+            'Confirmed': ['Checked In', 'Cancelled'],
+        },
+        'Counsellor': {
+            'Sent to Counsellor': ['In Session', 'Cancelled'],
+            'In Session': ['Completed', 'Cancelled'],
+        },
+        'Admin': {
+            'Scheduled': ['Confirmed', 'Checked In', 'Sent to Counsellor', 'Cancelled'],
+            'Confirmed': ['Checked In', 'Sent to Counsellor', 'Cancelled'],
+            'Checked In': ['Sent to Counsellor', 'In Session', 'Cancelled'],
+            'Sent to Counsellor': ['In Session', 'Cancelled'],
+            'In Session': ['Completed', 'Cancelled'],
+            'Completed': [],
+            'Cancelled': ['Scheduled'],
+        }
     }
-    if new_status not in allowed.get(role, []):
-        flash(f"Your role ({role}) cannot set status to '{new_status}'", "error")
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute('SELECT status FROM "Appointment" WHERE id = %s', (appt_id,))
+    row = cur.fetchone()
+    if not row:
+        flash("Appointment not found", "error")
         return redirect(url_for('manage_appointments'))
-    try:
-        conn = get_db()
-        cur = conn.cursor()
 
-        # Build dynamic UPDATE with timestamps
-        update_parts = ['status = %s', 'updated_at = NOW()']
-        params = [new_status]
+    current_status = row[0]
 
-        if new_status == 'Checked In':
-            update_parts.append('checked_in_at = NOW()')
-        elif new_status == 'In Session':
-            update_parts.append('started_at = NOW()')
-        elif new_status in ('Completed', 'Cancelled'):
-            update_parts.append('completed_at = NOW()')
+    allowed_next = TRANSITIONS.get(role, {}).get(current_status, [])
+    if new_status not in allowed_next:
+        flash(f"Cannot transition from '{current_status}' to '{new_status}' as {role}", "error")
+        return redirect(url_for('manage_appointments'))
 
-        set_clause = ', '.join(update_parts)
-        cur.execute(
-            f'UPDATE "Appointment" SET {set_clause} WHERE id = %s',
-            (*params, appt_id),
-        )
+    timestamp_col = {
+        'Checked In': 'checked_in_at',
+        'In Session': 'started_at',
+        'Completed': 'completed_at',
+        'Cancelled': 'completed_at',
+    }
+    ts_col = timestamp_col.get(new_status)
+    if ts_col:
+        cur.execute(f'UPDATE "Appointment" SET status = %s, {ts_col} = NOW(), updated_at = NOW() WHERE id = %s', (new_status, appt_id))
+    else:
+        cur.execute('UPDATE "Appointment" SET status = %s, updated_at = NOW() WHERE id = %s', (new_status, appt_id))
 
-        # Auto-create session record when status changes to 'In Session'
-        if new_status == 'In Session':
-            try:
-                cur.execute(
-                    'SELECT student_name, student_id FROM "Appointment" WHERE id = %s',
-                    (appt_id,),
-                )
-                appt = cur.fetchone()
-                if appt:
-                    appt_student_name = appt[0] if isinstance(appt, tuple) else appt.get('student_name', '')
-                    appt_student_id = appt[1] if isinstance(appt, tuple) else appt.get('student_id', '')
-                    counsellor_name = session.get('full_name', session.get('username', ''))
-                    cur.execute(
-                        '''INSERT INTO "session"
-                           (student_name, student_id, session_type, session_date,
-                            counsellor, status, global_id, created_at, updated_at)
-                           VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())''',
-                        (appt_student_name, appt_student_id, 'Individual',
-                         datetime.now().strftime('%Y-%m-%d'),
-                         counsellor_name, 'In Progress', str(uuid.uuid4())),
-                    )
-            except Exception as sess_err:
-                logger.error(f"auto-create session: {sess_err}")
+    cur.execute('''INSERT INTO audit_logs (action, table_name, record_id, user_id, details, created_at)
+                   VALUES (%s, %s, %s, %s, %s, NOW())''',
+                ('status_change', 'Appointment', appt_id, session.get('user_id'),
+                 f'{current_status} -> {new_status} by {username}'))
 
-        conn.commit()
-        cur.close()
-        conn.close()
-        flash(f"Status updated to '{new_status}'", "success")
-    except Exception as e:
-        logger.error(f"update_appt_status: {e}")
-        flash(f"Error: {e}", "error")
+    if new_status == 'In Session':
+        cur.execute('SELECT student_name, student_id FROM "Appointment" WHERE id = %s', (appt_id,))
+        appt = cur.fetchone()
+        if appt:
+            cur.execute('''INSERT INTO "session" (student_name, student_id, session_type, session_date, counsellor, status, created_at, updated_at)
+                           VALUES (%s, %s, %s, CURRENT_DATE, %s, 'In Progress', NOW(), NOW())''',
+                        (appt[0], appt[1], 'Individual', session.get('full_name', username)))
+
+    if new_status == 'Sent to Counsellor':
+        cur.execute('SELECT counsellor FROM "Appointment" WHERE id = %s', (appt_id,))
+        counsellor = cur.fetchone()
+        if counsellor:
+            fire_staff_notifications(conn, f"Appointment #{appt_id} sent to {counsellor[0]}", '/manage_appointments')
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    flash(f"Status updated: {current_status} -> {new_status}", "success")
     return redirect(url_for('manage_appointments'))
 
 @app.route("/update_appointment_status/<int:appointment_id>", methods=["POST"])
@@ -2880,14 +2958,25 @@ def student_profile(id):
 @app.route("/delete_student/<int:student_id>", methods=["POST"])
 @login_required
 def delete_student(student_id):
+    if session.get('role') != 'Admin':
+        flash("Unauthorized", "error")
+        return redirect(url_for('dashboard'))
     try:
         conn = get_db()
         cur = conn.cursor()
         cur.execute('UPDATE "Student" SET is_deleted = TRUE, updated_at = NOW() WHERE id = %s', (student_id,))
+        cur.execute('UPDATE "session" SET is_deleted = TRUE WHERE student_id = %s', (str(student_id),))
+        cur.execute('UPDATE "Appointment" SET is_deleted = TRUE WHERE student_id = %s', (str(student_id),))
+        cur.execute('UPDATE "Referral" SET is_deleted = TRUE WHERE student_id = %s', (str(student_id),))
+        cur.execute('UPDATE "CaseManagement" SET is_deleted = TRUE WHERE student_id = %s', (str(student_id),))
+        cur.execute('UPDATE "DASS21" SET is_deleted = TRUE WHERE student_id = %s', (str(student_id),))
+        cur.execute('''INSERT INTO audit_logs (action, table_name, record_id, user_id, details, created_at)
+                       VALUES (%s, %s, %s, %s, %s, NOW())''',
+                    ('delete', 'Student', student_id, session.get('user_id'), f'Student {student_id} soft-deleted'))
         conn.commit()
         cur.close()
         conn.close()
-        flash("Client deleted", "success")
+        flash("Student and related records deleted", "success")
     except Exception as e:
         flash(f"Error: {e}", "error")
     return redirect(url_for('students'))
@@ -2913,11 +3002,16 @@ def delete_session(session_id):
     try:
         conn = get_db()
         cur = conn.cursor()
+        cur.execute('UPDATE "Referral" SET is_deleted = TRUE WHERE session_id = %s', (session_id,))
+        cur.execute('UPDATE "CaseManagement" SET is_deleted = TRUE WHERE session_id = %s', (session_id,))
         cur.execute('UPDATE "session" SET is_deleted = TRUE, updated_at = NOW() WHERE id = %s', (session_id,))
+        cur.execute('''INSERT INTO audit_logs (action, table_name, record_id, user_id, details, created_at)
+                       VALUES (%s, %s, %s, %s, %s, NOW())''',
+                    ('delete', 'Session', session_id, session.get('user_id'), f'Session {session_id} soft-deleted'))
         conn.commit()
         cur.close()
         conn.close()
-        flash("Session deleted", "success")
+        flash("Session and related records deleted", "success")
     except Exception as e:
         flash(f"Error: {e}", "error")
     return redirect(url_for('sessions_list'))
@@ -2929,6 +3023,9 @@ def delete_referral(referral_id):
         conn = get_db()
         cur = conn.cursor()
         cur.execute('UPDATE "Referral" SET is_deleted = TRUE, updated_at = NOW() WHERE id = %s', (referral_id,))
+        cur.execute('''INSERT INTO audit_logs (action, table_name, record_id, user_id, details, created_at)
+                       VALUES (%s, %s, %s, %s, %s, NOW())''',
+                    ('delete', 'Referral', referral_id, session.get('user_id'), f'Referral {referral_id} soft-deleted'))
         conn.commit()
         cur.close()
         conn.close()
