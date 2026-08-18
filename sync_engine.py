@@ -29,6 +29,31 @@ def get_db_connection():
     import app
     return app.get_db_connection()
 
+def get_last_sync_timestamp():
+    """Read last_cloud_sync from the database (persists across cold starts)."""
+    try:
+        conn = get_db_connection()
+        row = conn.execute("SELECT setting_value FROM app_settings WHERE setting_name = 'last_cloud_sync'").fetchone()
+        conn.close()
+        if row:
+            return row[0] if isinstance(row, tuple) else row['setting_value']
+    except Exception:
+        pass
+    return '1970-01-01 00:00:00'
+
+def set_last_sync_timestamp(ts):
+    """Write last_cloud_sync to the database (persists across cold starts)."""
+    try:
+        conn = get_db_connection()
+        conn.execute(
+            "INSERT OR REPLACE INTO app_settings (setting_name, setting_value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+            ('last_cloud_sync', ts)
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Failed to save sync timestamp: {e}")
+
 # ==========================================
 # CLIENT LOGIC (Automated Background Sync)
 # ==========================================
@@ -171,8 +196,7 @@ class AutomatedSyncManager:
 
     def _pull_from_target(self, target_url, api_key):
         """Generic pull logic for any target (Cloud or Peer)."""
-        config = node_config.load_config()
-        last_pull_ts = config.get('last_cloud_sync', '1970-01-01 00:00:00')
+        last_pull_ts = get_last_sync_timestamp()
         
         try:
             resp = requests.post(
@@ -228,13 +252,11 @@ class AutomatedSyncManager:
 
                 # CRITICAL: Use server_time if provided to avoid local clock drift issues skipping records
                 if server_time:
-                    config['last_cloud_sync'] = server_time
+                    set_last_sync_timestamp(server_time)
                 else:
                     # Fallback to local time if bridge doesn't provide it
                     new_ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-                    config['last_cloud_sync'] = new_ts
-                
-                node_config.save_config(config)
+                    set_last_sync_timestamp(new_ts)
                 
         except Exception as e:
             logger.error(f"Network error pulling changes: {e}")
@@ -301,7 +323,7 @@ def get_sync_status():
     """Returns the current sync status for the UI."""
     config = node_config.load_config()
     return jsonify({
-        "last_sync": config.get('last_cloud_sync'),
+        "last_sync": get_last_sync_timestamp(),
         "enabled": config.get('sync_enabled'),
         "cloud_url": config.get('cloud_api_url')
     })
@@ -384,13 +406,8 @@ def apply_incoming_changes(changes):
                 
             for r in records:
                 try:
-                    # GTEC Privacy Preservation on Pull
-                    if table == 'Student' and 'name' in r:
-                        from app import name_to_initials
-                        r['name'] = name_to_initials(r['name'])
-                    elif table == 'BookingRequest' and 'full_name' in r:
-                        from app import name_to_initials
-                        r['full_name'] = name_to_initials(r['full_name'])
+                    # NOTE: GTEC name masking is done at DISPLAY layer only (in templates/views).
+                    # Names are stored as-is in the database to preserve data integrity.
 
                     merge_record(cursor, table, r)
                     processed += 1

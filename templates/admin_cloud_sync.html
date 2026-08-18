@@ -533,20 +533,36 @@
     function confirmResetAndPull() {
         Swal.fire({
             title: 'Force Full Download?',
-            text: "This will reset all sync markers and re-download all data from the cloud to ensure your local system is bit-for-bit with Supabase. Existing local records with the same IDs will be updated.",
+            text: "This will re-download ALL data from Supabase Cloud and merge it into your local database. Existing records will be updated.",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
             cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Yes, force download'
+            confirmButtonText: 'Yes, force download',
+            showLoaderOnConfirm: true,
+            allowOutsideClick: false
         }).then((result) => {
             if (result.isConfirmed) {
-                addLog('Sync', 'Resetting sync markers for full download...');
+                addLog('Sync', 'Pulling all records from cloud...');
                 fetch('/api/admin/cloud_proxy/reset_and_pull', { method: 'POST' })
-                    .then(r => r.json())
-                    .then(data => {
-                        Swal.fire('Initiated', data.message, 'success');
-                        addLog('Action', 'Full cloud download command sent.');
+                    .then(r => r.json().then(d => ({ok: r.ok, data: d})))
+                    .then(({ok, data}) => {
+                        if (ok && data.status === 'success') {
+                            let detail = `Fetched: ${data.fetched || 0} | Applied: ${data.applied || 0}`;
+                            if (data.tables) {
+                                detail += '\n\nTables: ' + Object.entries(data.tables).map(([t,c]) => `${t}(${c})`).join(', ');
+                            }
+                            Swal.fire('Pull Complete', detail, 'success');
+                            addLog('Action', detail);
+                            setTimeout(() => location.reload(), 1500);
+                        } else {
+                            Swal.fire('Pull Failed', data.error || 'Unknown error', 'error');
+                            addLog('Error', data.error || 'Unknown error');
+                        }
+                    })
+                    .catch(err => {
+                        Swal.fire('Network Error', err.message, 'error');
+                        addLog('Error', err.message);
                     });
             }
         });

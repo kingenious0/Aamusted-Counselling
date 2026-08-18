@@ -1119,12 +1119,63 @@ def reset_and_pull():
         return jsonify({'error': 'Unauthorized'}), 403
         
     try:
+        import requests as _requests
         config = node_config.load_config()
-        config['last_cloud_sync'] = '1970-01-01 00:00:00'
-        node_config.save_config(config)
-        trigger_sync_immediate()
-        return jsonify({'status': 'success', 'message': 'Sync markers reset. Full download started.'})
+        cloud_url = config.get('cloud_api_url')
+        api_key = config.get('cloud_api_key')
+        
+        if not cloud_url:
+            return jsonify({'error': 'Cloud URL not configured'}), 400
+        
+        resp = _requests.post(
+            f"{cloud_url}/pull",
+            json={
+                "last_sync_timestamp": "1970-01-01 00:00:00",
+                "api_key": api_key,
+                "node_id": node_config.get_node_id()
+            },
+            headers={"X-API-KEY": api_key},
+            timeout=60
+        )
+        
+        if resp.status_code != 200:
+            try:
+                err = resp.json().get('error', resp.text)
+            except Exception:
+                err = resp.text
+            return jsonify({'error': f'Cloud bridge error: {err}'}), 502
+        
+        data = resp.json()
+        changes = data.get('changes', {})
+        count = data.get('count', 0)
+        server_time = data.get('server_time')
+        
+        applied = 0
+        if count > 0:
+            from sync_engine import apply_incoming_changes
+            applied = apply_incoming_changes(changes)
+        
+        if server_time:
+            sync_ts = server_time
+        else:
+            sync_ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        from sync_engine import set_last_sync_timestamp
+        set_last_sync_timestamp(sync_ts)
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Pull complete. {count} records fetched from cloud, {applied} applied locally.',
+            'fetched': count,
+            'applied': applied,
+            'tables': {t: len(r) for t, r in changes.items()}
+        })
+        
+    except _requests.exceptions.ConnectionError:
+        return jsonify({'error': 'Cannot reach cloud bridge. Check network and cloud URL.'}), 502
+    except _requests.exceptions.Timeout:
+        return jsonify({'error': 'Cloud bridge timed out. Try again.'}), 504
     except Exception as e:
+        print(f"[RESET_AND_PULL] Error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/admin/cloud_proxy/wipe_clinical', methods=['POST'])
@@ -1158,8 +1209,8 @@ def wipe_clinical_data():
         
         if resp.status_code == 200:
             # Also reset local sync timestamp so we don't try to pull ghosts
-            config['last_cloud_sync'] = '1970-01-01 00:00:00'
-            node_config.save_config(config)
+            from sync_engine import set_last_sync_timestamp
+            set_last_sync_timestamp('1970-01-01 00:00:00')
             return jsonify({'status': 'success', 'message': 'Cloud data purged successfully.'})
         else:
             try:
