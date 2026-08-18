@@ -89,51 +89,286 @@ def init_db():
     from werkzeug.security import generate_password_hash
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            username TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            full_name TEXT,
-            role TEXT NOT NULL DEFAULT 'Admin',
-            phone TEXT,
-            email TEXT,
-            profile_pic TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    cur.execute("SELECT id FROM users WHERE username = 'admin'")
-    if not cur.fetchone():
-        cur.execute(
-            "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
-            ('admin', generate_password_hash('admin123'), 'System Admin', 'Admin')
-        )
-    cur.execute("SELECT id FROM users WHERE username = 'secretary'")
-    if not cur.fetchone():
-        cur.execute(
-            "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
-            ('secretary', generate_password_hash('secretary123'), 'Desk Secretary', 'Secretary')
-        )
-    cur.execute("SELECT id FROM users WHERE username = 'counsellor'")
-    if not cur.fetchone():
-        cur.execute(
-            "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
-            ('counsellor', generate_password_hash('counsellor123'), 'Default Counsellor', 'Counsellor')
-        )
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS "Counsellor" (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL,
-            contact TEXT,
-            specialization TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    cur.execute('SELECT id FROM "Counsellor" WHERE name = %s', ('Default Counsellor',))
-    if not cur.fetchone():
-        cur.execute('INSERT INTO "Counsellor" (name, contact) VALUES (%s, %s)', ('Default Counsellor', ''))
-    conn.commit()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                full_name TEXT,
+                role TEXT NOT NULL DEFAULT 'Admin',
+                phone TEXT,
+                email TEXT,
+                profile_pic TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        logger.error(f"init_db users: {e}")
+        conn.rollback()
+    try:
+        cur.execute("SELECT id FROM users WHERE username = 'admin'")
+        if not cur.fetchone():
+            cur.execute(
+                "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
+                ('admin', generate_password_hash('admin123'), 'System Admin', 'Admin')
+            )
+    except Exception as e:
+        logger.error(f"init_db admin user: {e}")
+        conn.rollback()
+    try:
+        cur.execute("SELECT id FROM users WHERE username = 'secretary'")
+        if not cur.fetchone():
+            cur.execute(
+                "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
+                ('secretary', generate_password_hash('secretary123'), 'Desk Secretary', 'Secretary')
+            )
+    except Exception as e:
+        logger.error(f"init_db secretary user: {e}")
+        conn.rollback()
+    try:
+        cur.execute("SELECT id FROM users WHERE username = 'counsellor'")
+        if not cur.fetchone():
+            cur.execute(
+                "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
+                ('counsellor', generate_password_hash('counsellor123'), 'Default Counsellor', 'Counsellor')
+            )
+    except Exception as e:
+        logger.error(f"init_db counsellor user: {e}")
+        conn.rollback()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS "Counsellor" (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                contact TEXT,
+                specialization TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        logger.error(f"init_db Counsellor: {e}")
+        conn.rollback()
+    try:
+        cur.execute('SELECT id FROM "Counsellor" WHERE name = %s', ('Default Counsellor',))
+        if not cur.fetchone():
+            cur.execute('INSERT INTO "Counsellor" (name, contact) VALUES (%s, %s)', ('Default Counsellor', ''))
+    except Exception as e:
+        logger.error(f"init_db default counsellor: {e}")
+        conn.rollback()
+
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS "Student" (
+                id SERIAL PRIMARY KEY,
+                first_name TEXT, last_name TEXT, name TEXT, student_id TEXT,
+                case_number TEXT, index_number TEXT, email TEXT, phone TEXT,
+                gender TEXT, program TEXT, programme TEXT, department TEXT,
+                level TEXT, reason_for_visit TEXT,
+                is_deleted BOOLEAN DEFAULT FALSE,
+                global_id UUID DEFAULT gen_random_uuid(),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        logger.error(f"init_db Student: {e}")
+        conn.rollback()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS "Appointment" (
+                id SERIAL PRIMARY KEY,
+                student_name TEXT, student_id TEXT,
+                appointment_date TEXT, appointment_time TEXT,
+                appointment_type TEXT, counsellor TEXT, notes TEXT,
+                status TEXT DEFAULT 'Scheduled', booking_ref TEXT,
+                is_deleted BOOLEAN DEFAULT FALSE,
+                global_id UUID DEFAULT gen_random_uuid(),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        logger.error(f"init_db Appointment: {e}")
+        conn.rollback()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS "session" (
+                id SERIAL PRIMARY KEY,
+                student_name TEXT, student_id TEXT, session_type TEXT,
+                session_date TEXT, notes TEXT, diagnosis TEXT, plan TEXT,
+                counsellor TEXT, status TEXT DEFAULT 'Scheduled',
+                is_deleted BOOLEAN DEFAULT FALSE,
+                global_id UUID DEFAULT gen_random_uuid(),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        logger.error(f"init_db session: {e}")
+        conn.rollback()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS "Referral" (
+                id SERIAL PRIMARY KEY,
+                student_name TEXT, student_id TEXT, referred_by TEXT,
+                contact TEXT, reason TEXT, notes TEXT, status TEXT DEFAULT 'Pending',
+                is_deleted BOOLEAN DEFAULT FALSE,
+                global_id UUID DEFAULT gen_random_uuid(),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        logger.error(f"init_db Referral: {e}")
+        conn.rollback()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS "CaseManagement" (
+                id SERIAL PRIMARY KEY,
+                student_name TEXT, student_id TEXT, session_date TEXT,
+                appearance_problems TEXT, clinical_plan TEXT, counsellor TEXT,
+                is_deleted BOOLEAN DEFAULT FALSE,
+                global_id UUID DEFAULT gen_random_uuid(),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        logger.error(f"init_db CaseManagement: {e}")
+        conn.rollback()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS "DASS21" (
+                id SERIAL PRIMARY KEY,
+                student_name TEXT, student_id TEXT, total_score INTEGER,
+                severity TEXT, counsellor TEXT,
+                is_deleted BOOLEAN DEFAULT FALSE,
+                global_id UUID DEFAULT gen_random_uuid(),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        logger.error(f"init_db DASS21: {e}")
+        conn.rollback()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS "OutcomeQuestionnaire" (
+                id SERIAL PRIMARY KEY,
+                student_name TEXT, student_id TEXT, responses TEXT,
+                is_deleted BOOLEAN DEFAULT FALSE,
+                global_id UUID DEFAULT gen_random_uuid(),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        logger.error(f"init_db OutcomeQuestionnaire: {e}")
+        conn.rollback()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS "Notification" (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER, message TEXT, type TEXT, link TEXT,
+                is_read BOOLEAN DEFAULT FALSE,
+                global_id UUID DEFAULT gen_random_uuid(),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        logger.error(f"init_db Notification: {e}")
+        conn.rollback()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS "BookingRequest" (
+                id SERIAL PRIMARY KEY,
+                reference TEXT UNIQUE, student_name TEXT, student_id TEXT,
+                email TEXT, phone TEXT, program TEXT, level TEXT,
+                reason TEXT, preferred_date TEXT, preferred_time TEXT,
+                status TEXT DEFAULT 'Pending',
+                is_deleted BOOLEAN DEFAULT FALSE,
+                global_id UUID DEFAULT gen_random_uuid(),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        logger.error(f"init_db BookingRequest: {e}")
+        conn.rollback()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS app_settings (
+                id SERIAL PRIMARY KEY,
+                setting_name TEXT UNIQUE NOT NULL,
+                setting_value TEXT,
+                global_id UUID DEFAULT gen_random_uuid(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        logger.error(f"init_db app_settings: {e}")
+        conn.rollback()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS "Feedback" (
+                id SERIAL PRIMARY KEY,
+                student_name TEXT, student_id TEXT, feedback_text TEXT,
+                rating INTEGER,
+                is_deleted BOOLEAN DEFAULT FALSE,
+                global_id UUID DEFAULT gen_random_uuid(),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        logger.error(f"init_db Feedback: {e}")
+        conn.rollback()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS "SessionIssue" (
+                id SERIAL PRIMARY KEY,
+                session_id INTEGER, issue_text TEXT, severity TEXT,
+                is_deleted BOOLEAN DEFAULT FALSE,
+                global_id UUID DEFAULT gen_random_uuid(),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        logger.error(f"init_db SessionIssue: {e}")
+        conn.rollback()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id SERIAL PRIMARY KEY,
+                username TEXT, action TEXT, table_name TEXT, details TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        logger.error(f"init_db audit_logs: {e}")
+        conn.rollback()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS reports (
+                id SERIAL PRIMARY KEY,
+                title TEXT, report_type TEXT, summary TEXT, file_path TEXT,
+                generated_by TEXT,
+                is_deleted BOOLEAN DEFAULT FALSE,
+                global_id UUID DEFAULT gen_random_uuid(),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        logger.error(f"init_db reports: {e}")
+        conn.rollback()
+    try:
+        conn.commit()
+    except Exception:
+        pass
     cur.close()
     conn.close()
 
@@ -229,23 +464,40 @@ def index():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    stats = {}
+    stats = {'total_students': 0, 'total_appointments': 0, 'pending_bookings': 0, 'total_sessions': 0, 'total_referrals': 0, 'total_users': 0}
+    recent_activity = []
+    booking_count = 0
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM \"Student\" WHERE is_deleted = FALSE")
-        stats['total_students'] = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM \"Appointment\" WHERE is_deleted = FALSE")
-        stats['total_appointments'] = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM \"BookingRequest\" WHERE status = 'Pending'")
-        stats['pending_bookings'] = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM \"session\" WHERE is_deleted = FALSE")
-        stats['total_sessions'] = cur.fetchone()[0]
+        queries = [
+            ('total_students', 'SELECT COUNT(*) FROM "Student" WHERE is_deleted = FALSE'),
+            ('total_appointments', 'SELECT COUNT(*) FROM "Appointment" WHERE is_deleted = FALSE'),
+            ('total_sessions', 'SELECT COUNT(*) FROM "session" WHERE is_deleted = FALSE'),
+            ('total_referrals', 'SELECT COUNT(*) FROM "Referral" WHERE is_deleted = FALSE'),
+        ]
+        for key, sql in queries:
+            try:
+                cur.execute(sql)
+                stats[key] = cur.fetchone()[0]
+            except Exception:
+                pass
+        try:
+            cur.execute("SELECT COUNT(*) FROM users")
+            stats['total_users'] = cur.fetchone()[0]
+        except Exception:
+            pass
+        try:
+            cur.execute('SELECT COUNT(*) FROM "BookingRequest" WHERE status = \'Pending\' AND is_deleted = FALSE')
+            booking_count = cur.fetchone()[0]
+            stats['pending_bookings'] = booking_count
+        except Exception:
+            pass
         cur.close()
         conn.close()
-    except Exception as e:
-        logger.error(f"dashboard: {e}")
-    return render_template('dashboard.html', stats=stats)
+    except Exception:
+        pass
+    return render_template('dashboard.html', stats=stats, booking_count=booking_count, recent_activity=recent_activity)
 
 
 @app.route('/admin/bookings')
@@ -1045,7 +1297,10 @@ def reports():
     try:
         conn = get_db()
         cur = dict_cursor(conn)
-        cur.execute('SELECT * FROM "OutcomeQuestionnaire" WHERE is_deleted = FALSE ORDER BY created_at DESC LIMIT 200')
+        try:
+            cur.execute('SELECT * FROM reports WHERE is_deleted = FALSE ORDER BY created_at DESC LIMIT 200')
+        except Exception:
+            cur.execute('SELECT * FROM "OutcomeQuestionnaire" WHERE is_deleted = FALSE ORDER BY created_at DESC LIMIT 200')
         rows = cur.fetchall()
         for r in rows:
             for k, v in r.items():
@@ -1219,11 +1474,16 @@ def admin_user_delete(user_id):
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
-        conn.commit()
+        cur.execute("SELECT username FROM users WHERE id = %s", (user_id,))
+        row = cur.fetchone()
+        if row and row[0] == session.get('username'):
+            flash("Cannot delete your own account", "error")
+        else:
+            cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+            conn.commit()
+            flash("User deleted", "success")
         cur.close()
         conn.close()
-        flash("User deleted", "success")
     except Exception as e:
         flash(f"Error: {e}", "error")
     return redirect(url_for('admin_users'))
@@ -1265,6 +1525,27 @@ def admin_workflow():
 @app.route("/profile", methods=["GET", "POST"])
 @login_required
 def profile():
+    if request.method == "POST":
+        try:
+            conn = get_db()
+            cur = conn.cursor()
+            full_name = request.form.get('full_name', '').strip()
+            email = request.form.get('email', '').strip()
+            phone = request.form.get('phone', '').strip()
+            cur.execute("UPDATE users SET full_name = %s, email = %s, phone = %s, updated_at = NOW() WHERE username = %s",
+                        (full_name, email, phone, session.get('username', '')))
+            new_pw = request.form.get('new_password', '').strip()
+            if new_pw:
+                from werkzeug.security import generate_password_hash
+                cur.execute("UPDATE users SET password_hash = %s WHERE username = %s",
+                            (generate_password_hash(new_pw), session.get('username', '')))
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash("Profile updated", "success")
+        except Exception as e:
+            flash(f"Error: {e}", "error")
+        return redirect(url_for('profile'))
     user = {}
     try:
         conn = get_db()
@@ -1399,11 +1680,29 @@ def import_students():
 @app.route("/notifications/mark_read/<int:notification_id>", methods=["POST"])
 @login_required
 def mark_read(notification_id):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('UPDATE "Notification" SET is_read = TRUE WHERE id = %s', (notification_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
     return jsonify({"ok": True})
 
 @app.route("/notifications/mark_all_read", methods=["POST"])
 @login_required
 def mark_all_read():
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('UPDATE "Notification" SET is_read = TRUE')
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
     return jsonify({"ok": True})
 
 @app.route("/admin/set_theme", methods=["POST"])
