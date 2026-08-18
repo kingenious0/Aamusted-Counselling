@@ -59,6 +59,18 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+def roles_required(*allowed_roles):
+    """Decorator: allow only users whose role is in allowed_roles."""
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            if session.get('role') not in allowed_roles:
+                flash('You do not have access to this page.', 'error')
+                return redirect(url_for('dashboard'))
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
+
 # ── DB init (runs once per cold start) ──────────────────────────────
 
 def init_db():
@@ -84,6 +96,33 @@ def init_db():
             cur.execute(
                 "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
                 ('admin', generate_password_hash('admin123'), 'System Admin', 'Admin')
+            )
+        cur.execute("SELECT id FROM users WHERE username = 'secretary'")
+        if not cur.fetchone():
+            cur.execute(
+                "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
+                ('secretary', generate_password_hash('secretary123'), 'Desk Secretary', 'Secretary')
+            )
+        cur.execute("SELECT id FROM users WHERE username = 'counsellor'")
+        if not cur.fetchone():
+            cur.execute(
+                "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
+                ('counsellor', generate_password_hash('counsellor123'), 'Default Counsellor', 'Counsellor')
+            )
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS "Counsellor" (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                contact TEXT,
+                specialization TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cur.execute('SELECT id FROM "Counsellor" WHERE name = %s', ('Default Counsellor',))
+        if not cur.fetchone():
+            cur.execute(
+                'INSERT INTO "Counsellor" (name, contact) VALUES (%s, %s)',
+                ('Default Counsellor', '')
             )
         conn.commit()
         cur.close()
@@ -198,7 +237,7 @@ def dashboard():
 
 @app.route('/admin/bookings')
 @login_required
-@admin_required
+@roles_required('Admin', 'Secretary', 'Counsellor', 'Counselor')
 def admin_bookings():
     tab = request.args.get('tab', 'recent')
     bookings = []
@@ -253,7 +292,7 @@ def admin_bookings():
 
 @app.route('/admin/bookings/<ref>/register')
 @login_required
-@admin_required
+@roles_required('Admin', 'Secretary', 'Counsellor', 'Counselor')
 def register_booking(ref):
     try:
         conn = get_db()
@@ -335,7 +374,7 @@ def register_booking(ref):
 
 @app.route('/admin/bookings/<ref>/decline', methods=['POST'])
 @login_required
-@admin_required
+@roles_required('Admin', 'Secretary', 'Counsellor')
 def decline_booking(ref):
     try:
         data = request.json or {}
@@ -561,7 +600,7 @@ def portal_booking():
 
 # ── Health check ────────────────────────────────────────────────────
 
-@app.route("/", methods=["GET"])
+@app.route("/health", methods=["GET"])
 def health_check():
     db_status = "Disconnected"
     db_error = None
@@ -606,10 +645,6 @@ def health_check():
             conn.close()
         except Exception:
             pass
-
-    accept = request.headers.get("Accept", "")
-    if 'text/html' in accept and 'user_id' not in session:
-        return redirect(url_for('login'))
 
     return jsonify({
         "status": "online",

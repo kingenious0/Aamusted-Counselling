@@ -1,3 +1,4 @@
+{% set active_page = 'bookings' %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -30,38 +31,20 @@
         .table-dark-custom td { border-color: #334155; font-size: 14px; vertical-align: middle; }
         .table-dark-custom tr:hover td { background: rgba(37,99,235,0.05); }
         .btn-sm { padding: 4px 12px; font-size: 12px; border-radius: 6px; }
-        .spinner-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; display: none; align-items: center; justify-content: center; }
+        .spinner-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; }
         .spinner-overlay.show { display: flex; }
         .spinner-box { background: #1e293b; padding: 32px 48px; border-radius: 16px; text-align: center; border: 1px solid #334155; }
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="sidebar-brand">
-            <h4><i class="fas fa-graduation-cap me-2"></i>AAMUSTED GCC</h4>
-            <small>Counselling Centre</small>
-        </div>
-        <nav class="sidebar-nav">
-            <a href="{{ url_for('dashboard') }}"><i class="fas fa-tachometer-alt"></i>Dashboard</a>
-            <a href="{{ url_for('admin_bookings') }}" class="active">
-                <i class="fas fa-calendar-check"></i>Bookings
-                {% if latest_booking_count > 0 %}<span class="badge bg-warning">{{ latest_booking_count }}</span>{% endif %}
-            </a>
-            <a href="{{ url_for('students') }}"><i class="fas fa-users"></i>Client Registry</a>
-            <a href="#"><i class="fas fa-chart-bar"></i>Reports</a>
-        </nav>
-        <nav class="sidebar-nav" style="border-top: 1px solid #334155; margin-top: 12px; padding-top: 12px;">
-            <a href="#"><i class="fas fa-cog"></i>Settings</a>
-            <a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i>Logout</a>
-        </nav>
-    </div>
+    {% include '_sidebar.html' %}
 
     <div class="main-content">
         <div class="topbar">
             <h2><i class="fas fa-calendar-check me-2 text-primary"></i>Booking Requests</h2>
             <div class="d-flex align-items-center gap-3">
                 <span class="text-muted" style="font-size:13px;">{{ session.get('full_name', '') }}</span>
-                <a href="{{ url_for('logout') }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-sign-out-alt"></i></a>
+                <a href="/logout" class="btn btn-outline-secondary btn-sm"><i class="fas fa-sign-out-alt"></i></a>
             </div>
         </div>
 

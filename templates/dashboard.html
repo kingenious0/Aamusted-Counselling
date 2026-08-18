@@ -1,3 +1,4 @@
+{% set active_page = 'dashboard' %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -33,35 +34,22 @@
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="sidebar-brand">
-            <h4><i class="fas fa-graduation-cap me-2"></i>AAMUSTED GCC</h4>
-            <small>Counselling Centre</small>
-        </div>
-        <nav class="sidebar-nav">
-            <a href="{{ url_for('dashboard') }}" class="active"><i class="fas fa-tachometer-alt"></i>Dashboard</a>
-            <a href="{{ url_for('admin_bookings') }}">
-                <i class="fas fa-calendar-check"></i>Bookings
-                {% if latest_booking_count > 0 %}<span class="badge bg-warning">{{ latest_booking_count }}</span>{% endif %}
-            </a>
-            <a href="{{ url_for('students') }}"><i class="fas fa-users"></i>Client Registry</a>
-            <a href="#"><i class="fas fa-chart-bar"></i>Reports</a>
-        </nav>
-        <nav class="sidebar-nav" style="border-top: 1px solid #334155; margin-top: 12px; padding-top: 12px;">
-            <a href="#"><i class="fas fa-cog"></i>Settings</a>
-            <a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i>Logout</a>
-        </nav>
-    </div>
+    {% include '_sidebar.html' %}
 
     <div class="main-content">
         <div class="topbar">
-            <h2>Dashboard</h2>
+            <h2>Dashboard {% if session.get('role') == 'Secretary' %}<small class="text-muted fs-6">- Desk Administrator</small>{% elif session.get('role') in ['Counsellor', 'Counselor'] %}<small class="text-muted fs-6">- Counsellor</small>{% endif %}</h2>
             <div class="user-badge">
                 <i class="fas fa-user-circle"></i>
                 {{ session.get('full_name', session.get('username', '')) }}
                 <span class="badge bg-secondary">{{ session.get('role', '') }}</span>
             </div>
         </div>
+
+        {% set role = session.get('role', '') %}
+        {% set is_admin = (role == 'Admin') %}
+        {% set is_secretary = (role == 'Secretary') %}
+        {% set is_counsellor = (role in ['Counsellor', 'Counselor']) %}
 
         <div class="row g-4 mb-4">
             <div class="col-md-3">
@@ -78,18 +66,20 @@
                     <p>Appointments</p>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="stat-card">
-                    <div class="stat-icon bg-amber"><i class="fas fa-clock"></i></div>
-                    <h3>{{ stats.get('pending_bookings', 0) }}</h3>
-                    <p>Pending Bookings</p>
-                </div>
-            </div>
+            {% if is_admin or is_counsellor %}
             <div class="col-md-3">
                 <div class="stat-card">
                     <div class="stat-icon bg-purple"><i class="fas fa-comments"></i></div>
                     <h3>{{ stats.get('total_sessions', 0) }}</h3>
                     <p>Sessions</p>
+                </div>
+            </div>
+            {% endif %}
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon bg-amber"><i class="fas fa-clock"></i></div>
+                    <h3>{{ stats.get('pending_bookings', 0) }}</h3>
+                    <p>Pending Bookings</p>
                 </div>
             </div>
         </div>
@@ -100,18 +90,34 @@
                     <h5 class="mb-3"><i class="fas fa-bolt me-2 text-warning"></i>Quick Actions</h5>
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <a href="{{ url_for('admin_bookings') }}" class="btn btn-outline-primary w-100 py-3">
+                            <a href="/admin/bookings" class="btn btn-outline-primary w-100 py-3">
                                 <i class="fas fa-calendar-check fa-2x mb-2 d-block"></i>
                                 View Bookings
                                 {% if latest_booking_count > 0 %}<br><small class="badge bg-warning">{{ latest_booking_count }} pending</small>{% endif %}
                             </a>
                         </div>
                         <div class="col-md-6">
-                            <a href="{{ url_for('students') }}" class="btn btn-outline-success w-100 py-3">
+                            <a href="/students" class="btn btn-outline-success w-100 py-3">
                                 <i class="fas fa-users fa-2x mb-2 d-block"></i>
                                 Client Registry
                             </a>
                         </div>
+                        {% if is_admin or is_counsellor %}
+                        <div class="col-md-6">
+                            <a href="/create_session" class="btn btn-outline-info w-100 py-3">
+                                <i class="fas fa-notes-medical fa-2x mb-2 d-block"></i>
+                                New Session
+                            </a>
+                        </div>
+                        {% endif %}
+                        {% if is_admin %}
+                        <div class="col-md-6">
+                            <a href="/admin/users" class="btn btn-outline-warning w-100 py-3">
+                                <i class="fas fa-users-cog fa-2x mb-2 d-block"></i>
+                                Manage Users
+                            </a>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

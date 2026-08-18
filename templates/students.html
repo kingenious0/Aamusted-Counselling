@@ -1,3 +1,4 @@
+{% set active_page = 'students' %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -32,32 +33,14 @@
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="sidebar-brand">
-            <h4><i class="fas fa-graduation-cap me-2"></i>AAMUSTED GCC</h4>
-            <small>Counselling Centre</small>
-        </div>
-        <nav class="sidebar-nav">
-            <a href="{{ url_for('dashboard') }}"><i class="fas fa-tachometer-alt"></i>Dashboard</a>
-            <a href="{{ url_for('admin_bookings') }}">
-                <i class="fas fa-calendar-check"></i>Bookings
-                {% if latest_booking_count > 0 %}<span class="badge bg-warning">{{ latest_booking_count }}</span>{% endif %}
-            </a>
-            <a href="{{ url_for('students') }}" class="active"><i class="fas fa-users"></i>Client Registry</a>
-            <a href="#"><i class="fas fa-chart-bar"></i>Reports</a>
-        </nav>
-        <nav class="sidebar-nav" style="border-top: 1px solid #334155; margin-top: 12px; padding-top: 12px;">
-            <a href="#"><i class="fas fa-cog"></i>Settings</a>
-            <a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i>Logout</a>
-        </nav>
-    </div>
+    {% include '_sidebar.html' %}
 
     <div class="main-content">
         <div class="topbar">
             <h2><i class="fas fa-users me-2 text-success"></i>Client Registry</h2>
             <div class="d-flex align-items-center gap-3">
                 <span class="text-muted" style="font-size:13px;">{{ session.get('full_name', '') }}</span>
-                <a href="{{ url_for('logout') }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-sign-out-alt"></i></a>
+                <a href="/logout" class="btn btn-outline-secondary btn-sm"><i class="fas fa-sign-out-alt"></i></a>
             </div>
         </div>
 
@@ -73,7 +56,7 @@
                 <div class="col-md-4 d-flex gap-2">
                     <button type="submit" class="btn btn-primary"><i class="fas fa-search me-1"></i>Search</button>
                     {% if search %}
-                    <a href="{{ url_for('students') }}" class="btn btn-outline-secondary"><i class="fas fa-times me-1"></i>Clear</a>
+                    <a href="/students" class="btn btn-outline-secondary"><i class="fas fa-times me-1"></i>Clear</a>
                     {% endif %}
                 </div>
             </form>
@@ -118,7 +101,7 @@
                     <i class="fas fa-user-slash fa-3x text-muted mb-3"></i>
                     <p class="text-muted">No students found.</p>
                     {% if search %}
-                    <a href="{{ url_for('students') }}" class="btn btn-outline-primary btn-sm">Clear search</a>
+                    <a href="/students" class="btn btn-outline-primary btn-sm">Clear search</a>
                     {% endif %}
                 </div>
                 {% endif %}
