@@ -366,11 +366,131 @@ def init_db():
         logger.error(f"init_db reports: {e}")
         conn.rollback()
     try:
+        cur.execute("""
+            ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS full_name TEXT;
+        """)
+        cur.execute("""
+            ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS index_number TEXT;
+        """)
+        cur.execute("""
+            ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS department TEXT;
+        """)
+        cur.execute("""
+            ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS programme TEXT;
+        """)
+        cur.execute("""
+            ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS hall_of_residence TEXT;
+        """)
+        cur.execute("""
+            ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMP WITH TIME ZONE;
+        """)
+        cur.execute("""
+            ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS decline_reason TEXT;
+        """)
+        cur.execute("""
+            ALTER TABLE "Appointment" ADD COLUMN IF NOT EXISTS urgency TEXT DEFAULT 'Normal';
+        """)
+        cur.execute("""
+            ALTER TABLE "Appointment" ADD COLUMN IF NOT EXISTS purpose TEXT;
+        """)
+        cur.execute("""
+            ALTER TABLE "Appointment" ADD COLUMN IF NOT EXISTS checked_in_at TIMESTAMP WITH TIME ZONE;
+        """)
+        cur.execute("""
+            ALTER TABLE "Appointment" ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE;
+        """)
+        cur.execute("""
+            ALTER TABLE "Appointment" ADD COLUMN IF NOT EXISTS started_at TIMESTAMP WITH TIME ZONE;
+        """)
+        cur.execute("""
+            ALTER TABLE "Student" ADD COLUMN IF NOT EXISTS age INTEGER;
+        """)
+        cur.execute("""
+            ALTER TABLE "Student" ADD COLUMN IF NOT EXISTS hall_of_residence TEXT;
+        """)
+        cur.execute("""
+            ALTER TABLE "Student" ADD COLUMN IF NOT EXISTS parent_contact TEXT;
+        """)
+    except Exception as e:
+        logger.error(f"init_db alter columns: {e}")
+        conn.rollback()
+    try:
         conn.commit()
     except Exception:
         pass
     cur.close()
     conn.close()
+
+
+def generate_booking_ref(conn):
+    """Generate a unique BK-YYYY-XXXX booking reference."""
+    cur = conn.cursor()
+    year = datetime.now().year
+    try:
+        cur.execute(
+            "SELECT reference FROM \"BookingRequest\" WHERE reference LIKE %s ORDER BY id DESC LIMIT 1",
+            (f"BK-{year}-%",),
+        )
+        row = cur.fetchone()
+        if row and row[0]:
+            last_num = int(row[0].split('-')[-1])
+        else:
+            last_num = 0
+        return f"BK-{year}-{str(last_num + 1).zfill(4)}"
+    except Exception:
+        return f"BK-{year}-{str(uuid.uuid4())[:4].upper()}"
+
+
+def generate_case_number(conn):
+    """Generate GCC/MONTH/YY/XXX case number."""
+    cur = conn.cursor()
+    now = datetime.now()
+    month_abbr = now.strftime('%b').upper()
+    year_short = now.strftime('%y')
+    try:
+        cur.execute(
+            "SELECT case_number FROM \"Student\" WHERE case_number LIKE %s ORDER BY id DESC LIMIT 1",
+            (f"GCC/{month_abbr}/{year_short}/%",),
+        )
+        row = cur.fetchone()
+        if row and row[0]:
+            last_num = int(row[0].split('/')[-1])
+        else:
+            last_num = 0
+        return f"GCC/{month_abbr}/{year_short}/{str(last_num + 1).zfill(3)}"
+    except Exception:
+        return f"GCC/{month_abbr}/{year_short}/001"
+
+
+def name_to_initials(name_input):
+    """Convert full name to initials for privacy."""
+    if not name_input:
+        return 'N/A'
+    parts = name_input.strip().split()
+    if len(parts) >= 2:
+        return parts[0][0] + '.' + parts[-1][0] + '.'
+    return name_input[0] + '.' if name_input else 'N/A'
+
+
+def fire_staff_notifications(conn, message, link='/admin/bookings'):
+    """Insert in-app notifications for all staff."""
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id FROM users WHERE role IN ('Secretary', 'Admin', 'Counsellor', 'Counselor')"
+        )
+        staff = cur.fetchall()
+        for row in staff:
+            uid = row[0] if isinstance(row, tuple) else row.get('id')
+            cur.execute(
+                """INSERT INTO "Notification" (user_id, message, type, link, global_id, created_at)
+                   VALUES (%s, %s, 'in_app', %s, %s, NOW())""",
+                (uid, message, link, str(uuid.uuid4())),
+            )
+        conn.commit()
+    except Exception as e:
+        logger.error(f"fire_staff_notifications: {e}")
+        conn.rollback()
 
 
 @app.before_request
@@ -861,6 +981,16 @@ def portal_booking():
         )
         ref = cur.fetchone()[0]
         conn.commit()
+
+        # Fire in-app notifications to all staff
+        full_name = data.get('full_name', 'Unknown')
+        idx = data.get('index_number', '')
+        fire_staff_notifications(
+            conn,
+            f"New booking {ref} from {full_name} ({idx}) via API",
+            '/admin/bookings',
+        )
+
         cur.close()
         conn.close()
         return jsonify({"status": "success", "reference": ref}), 201
@@ -1380,52 +1510,211 @@ def statistics():
 @app.route("/intake", methods=["GET", "POST"])
 @login_required
 def intake():
+    """Secretary Intake: register student + create appointment + fire notifications."""
     if request.method == "POST":
         try:
             conn = get_db()
             cur = conn.cursor()
+
+            # 1. Extract Student Info
+            full_name = request.form.get('full_name', '').strip()
+            if not full_name:
+                first = request.form.get('first_name', '').strip()
+                last = request.form.get('last_name', '').strip()
+                full_name = f"{first} {last}".strip()
+
+            index_number = request.form.get('index_number', '').strip()
+            student_id_val = request.form.get('student_id', '').strip()
+            identifier = index_number or student_id_val
+            email = request.form.get('email', '').strip()
+            phone = request.form.get('phone', '').strip()
+            gender = request.form.get('gender', '').strip()
+            department = request.form.get('department', '').strip()
+            programme = request.form.get('program', request.form.get('programme', '')).strip()
+            level = request.form.get('level', '').strip()
+            hall = request.form.get('hall_of_residence', '').strip()
+            age = request.form.get('age', None)
+
+            # 2. Extract Appointment Info
+            appt_date = request.form.get('appointment_date', '').strip()
+            appt_time = request.form.get('appointment_time', '').strip()
+            purpose = request.form.get('purpose', request.form.get('reason_for_visit', '')).strip()
+            urgency = request.form.get('urgency', 'Normal').strip()
+            referral = request.form.get('referral_source', 'Self').strip()
+
+            if not full_name:
+                flash("Student name is required.", "error")
+                return redirect(url_for('intake'))
+
+            # 3. Check for existing student by index_number
+            student_id = None
+            if identifier:
+                cur.execute(
+                    'SELECT id FROM "Student" WHERE index_number = %s AND is_deleted = FALSE',
+                    (identifier,),
+                )
+                row = cur.fetchone()
+                if row:
+                    student_id = row[0]
+
+            if not student_id and full_name:
+                cur.execute(
+                    'SELECT id FROM "Student" WHERE name = %s AND is_deleted = FALSE',
+                    (full_name,),
+                )
+                row = cur.fetchone()
+                if row:
+                    student_id = row[0]
+
+            # 4. Create Student if new
+            if not student_id:
+                case_number = generate_case_number(conn)
+                age_val = None
+                if age:
+                    try:
+                        age_val = int(age)
+                    except (ValueError, TypeError):
+                        age_val = None
+                cur.execute(
+                    '''INSERT INTO "Student"
+                       (name, case_number, index_number, email, phone, gender,
+                        program, programme, department, level, hall_of_residence,
+                        age, global_id, created_at, updated_at)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                       RETURNING id''',
+                    (full_name, case_number, identifier, email, phone, gender,
+                     programme, programme, department, level, hall,
+                     age_val, str(uuid.uuid4())),
+                )
+                student_id = cur.fetchone()[0]
+                conn.commit()
+
+            # 5. Create Appointment linked to student
+            counsellor_name = 'Unassigned'
+            cur.execute('SELECT name FROM "Counsellor" LIMIT 1')
+            c_row = cur.fetchone()
+            if c_row:
+                counsellor_name = c_row[0] if isinstance(c_row, tuple) else c_row.get('name', 'Unassigned')
+
             cur.execute(
-                '''INSERT INTO "Student" (first_name, last_name, student_id, email, phone, gender, program, level, reason_for_visit, created_at, updated_at)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())''',
-                (request.form.get('first_name', ''), request.form.get('last_name', ''),
-                 request.form.get('student_id', ''), request.form.get('email', ''),
-                 request.form.get('phone', ''), request.form.get('gender', ''),
-                 request.form.get('program', ''), request.form.get('level', ''),
-                 request.form.get('reason_for_visit', '')),
+                '''INSERT INTO "Appointment"
+                   (student_name, student_id, appointment_date, appointment_time,
+                    counsellor, purpose, status, urgency, global_id,
+                    created_at, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, 'Scheduled', %s, %s, NOW(), NOW())''',
+                (full_name, str(student_id),
+                 appt_date or datetime.now().strftime('%Y-%m-%d'),
+                 appt_time or '09:00',
+                 counsellor_name,
+                 purpose or 'General intake',
+                 urgency,
+                 str(uuid.uuid4())),
             )
             conn.commit()
+
+            # 6. Fire notifications
+            fire_staff_notifications(
+                conn,
+                f"New intake: {name_to_initials(full_name)} ({identifier}) scheduled by {session.get('full_name', 'Secretary')}",
+            )
+
             cur.close()
             conn.close()
-            flash("Client registered successfully", "success")
-            return redirect(url_for('students'))
+            flash("Client registered and appointment scheduled successfully.", "success")
+            return redirect(url_for('dashboard'))
+
         except Exception as e:
-            flash(f"Error: {e}", "error")
+            logger.error(f"intake: {e}")
+            flash(f"Error processing intake: {e}", "error")
+            return redirect(url_for('intake'))
+
     return render_template('intake.html')
 
 
 @app.route("/appointment", methods=["GET", "POST"])
 @login_required
 def appointment():
+    """Create a new appointment linked to a student."""
     if request.method == "POST":
         try:
             conn = get_db()
             cur = conn.cursor()
+
+            student_name = request.form.get('student_name', '').strip()
+            student_id_val = request.form.get('student_id', '').strip()
+            appt_date = request.form.get('date', '').strip()
+            appt_time = request.form.get('time', '').strip()
+            counsellor = request.form.get('counsellor', '').strip()
+            appt_type = request.form.get('type', request.form.get('appointment_type', 'Individual')).strip()
+            purpose = request.form.get('purpose', '').strip()
+            urgency = request.form.get('urgency', 'Normal').strip()
+            referral = request.form.get('referral_source', 'Self').strip()
+            notes = request.form.get('notes', '').strip()
+
+            if not appt_date or not appt_time:
+                flash("Appointment date and time are required.", "error")
+                return redirect(url_for('appointment'))
+
+            # Validate student exists
+            if student_id_val:
+                cur.execute(
+                    'SELECT id, name FROM "Student" WHERE id = %s AND is_deleted = FALSE',
+                    (student_id_val,),
+                )
+                student_row = cur.fetchone()
+                if not student_row:
+                    flash("Student not found. Please check the ID or add the student first.", "error")
+                    return redirect(url_for('appointment'))
+                student_name = student_row[1] if isinstance(student_row, tuple) else student_row.get('name', student_name)
+            elif student_name:
+                cur.execute(
+                    'SELECT id, name FROM "Student" WHERE name = %s AND is_deleted = FALSE',
+                    (student_name,),
+                )
+                student_row = cur.fetchone()
+                if student_row:
+                    student_id_val = str(student_row[0] if isinstance(student_row, tuple) else student_row.get('id'))
+                else:
+                    flash("Student not found. Please check the name or add the student first.", "error")
+                    return redirect(url_for('appointment'))
+            else:
+                flash("Student information is required.", "error")
+                return redirect(url_for('appointment'))
+
             cur.execute(
-                '''INSERT INTO "Appointment" (student_name, student_id, appointment_date, appointment_time, appointment_type, counsellor, notes, status, created_at, updated_at)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())''',
-                (request.form.get('student_name', ''), request.form.get('student_id', ''),
-                 request.form.get('date', ''), request.form.get('time', ''),
-                 request.form.get('type', 'Individual'), request.form.get('counsellor', ''),
-                 request.form.get('notes', ''), 'Scheduled'),
+                '''INSERT INTO "Appointment"
+                   (student_name, student_id, appointment_date, appointment_time,
+                    appointment_type, counsellor, purpose, urgency, notes,
+                    status, global_id, created_at, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Scheduled', %s, NOW(), NOW())''',
+                (student_name, student_id_val, appt_date, appt_time,
+                 appt_type, counsellor, purpose, urgency, notes,
+                 str(uuid.uuid4())),
             )
             conn.commit()
             cur.close()
             conn.close()
-            flash("Appointment scheduled", "success")
+            flash("Appointment scheduled successfully!", "success")
             return redirect(url_for('manage_appointments'))
         except Exception as e:
-            flash(f"Error: {e}", "error")
-    return render_template('appointment.html')
+            logger.error(f"appointment: {e}")
+            flash(f"Error scheduling appointment: {e}", "error")
+
+    # GET — load student and counsellor lists for dropdowns
+    students = []
+    counsellors = []
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT id, name, case_number, programme FROM "Student" WHERE is_deleted = FALSE ORDER BY name')
+        students = cur.fetchall()
+        cur.execute('SELECT id, name FROM "Counsellor" ORDER BY name')
+        counsellors = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        logger.error(f"appointment GET: {e}")
+    return render_template('appointment.html', students=students, counsellors=counsellors)
 
 
 @app.route("/manage_appointments")
@@ -1435,7 +1724,14 @@ def manage_appointments():
     try:
         conn = get_db()
         cur = dict_cursor(conn)
-        cur.execute('SELECT * FROM "Appointment" WHERE is_deleted = FALSE ORDER BY appointment_date DESC LIMIT 500')
+        cur.execute('''
+            SELECT a.*, s.name as student_display_name, s.case_number, s.index_number
+            FROM "Appointment" a
+            LEFT JOIN "Student" s ON a.student_id = s.id::text
+            WHERE a.is_deleted = FALSE
+            ORDER BY a.appointment_date DESC, a.appointment_time DESC
+            LIMIT 500
+        ''')
         rows = cur.fetchall()
         for r in rows:
             for k, v in r.items():
@@ -1444,8 +1740,8 @@ def manage_appointments():
         appointments = rows
         cur.close()
         conn.close()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"manage_appointments: {e}")
     return render_template('manage_appointments.html', appointments=appointments)
 
 
@@ -1890,6 +2186,7 @@ def sync_now():
 @app.route("/appointment/update_status/<int:appt_id>/<new_status>")
 @login_required
 def update_appt_status(appt_id, new_status):
+    """Update appointment status with timestamps + auto-create session on 'In Session'."""
     role = session.get('role', '')
     allowed = {
         'Secretary': ['Checked In', 'Sent to Counsellor', 'Cancelled'],
@@ -1902,24 +2199,54 @@ def update_appt_status(appt_id, new_status):
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute('UPDATE "Appointment" SET status = %s, updated_at = NOW() WHERE id = %s', (new_status, appt_id))
+
+        # Build dynamic UPDATE with timestamps
+        update_parts = ['status = %s', 'updated_at = NOW()']
+        params = [new_status]
+
+        if new_status == 'Checked In':
+            update_parts.append('checked_in_at = NOW()')
+        elif new_status == 'In Session':
+            update_parts.append('started_at = NOW()')
+        elif new_status in ('Completed', 'Cancelled'):
+            update_parts.append('completed_at = NOW()')
+
+        set_clause = ', '.join(update_parts)
+        cur.execute(
+            f'UPDATE "Appointment" SET {set_clause} WHERE id = %s',
+            (*params, appt_id),
+        )
+
+        # Auto-create session record when status changes to 'In Session'
         if new_status == 'In Session':
             try:
-                cur.execute('SELECT student_name, student_id FROM "Appointment" WHERE id = %s', (appt_id,))
+                cur.execute(
+                    'SELECT student_name, student_id FROM "Appointment" WHERE id = %s',
+                    (appt_id,),
+                )
                 appt = cur.fetchone()
                 if appt:
+                    appt_student_name = appt[0] if isinstance(appt, tuple) else appt.get('student_name', '')
+                    appt_student_id = appt[1] if isinstance(appt, tuple) else appt.get('student_id', '')
+                    counsellor_name = session.get('full_name', session.get('username', ''))
                     cur.execute(
-                        '''INSERT INTO "session" (student_name, student_id, session_type, session_date, counsellor, status, created_at, updated_at)
-                           VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())''',
-                        (appt[0], appt[1], 'Individual', datetime.now().strftime('%Y-%m-%d'), session.get('full_name', session.get('username', '')), 'In Progress')
+                        '''INSERT INTO "session"
+                           (student_name, student_id, session_type, session_date,
+                            counsellor, status, global_id, created_at, updated_at)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())''',
+                        (appt_student_name, appt_student_id, 'Individual',
+                         datetime.now().strftime('%Y-%m-%d'),
+                         counsellor_name, 'In Progress', str(uuid.uuid4())),
                     )
-            except Exception:
-                pass
+            except Exception as sess_err:
+                logger.error(f"auto-create session: {sess_err}")
+
         conn.commit()
         cur.close()
         conn.close()
         flash(f"Status updated to '{new_status}'", "success")
     except Exception as e:
+        logger.error(f"update_appt_status: {e}")
         flash(f"Error: {e}", "error")
     return redirect(url_for('manage_appointments'))
 
@@ -2010,31 +2337,145 @@ def delete_referral(referral_id):
 
 @app.route("/booking", methods=["GET", "POST"])
 def booking():
+    """Public booking portal — auto-accepted, creates Student + Appointment + BookingRequest."""
     if request.method == "POST":
         try:
-            ref = f"GCC-{random.randint(100000, 999999)}"
             conn = get_db()
             cur = conn.cursor()
+
+            full_name = request.form.get('full_name', '').strip()
+            index_number = request.form.get('index_number', '').strip()
+            programme_base = request.form.get('programme', '').strip()
+            programme_other = request.form.get('programme_other', '').strip()
+            programme = programme_other if programme_base == 'Other' else programme_base
+            department = request.form.get('department', '').strip()
+            phone = request.form.get('phone', '').strip()
+            email = request.form.get('email', '').strip()
+            hall_of_residence = request.form.get('hall_of_residence', '').strip()
+            preferred_date = request.form.get('preferred_date', '').strip()
+            preferred_time = request.form.get('preferred_time', 'Any').strip()
+            reason = request.form.get('reason', '').strip()
+
+            missing_fields = []
+            if not full_name:
+                missing_fields.append("Full Name")
+            if not index_number:
+                missing_fields.append("Index Number")
+            if not phone:
+                missing_fields.append("Phone Number")
+            if not department:
+                missing_fields.append("Department")
+            if not programme:
+                missing_fields.append("Programme")
+            if not preferred_time or preferred_time == 'Click to set time':
+                missing_fields.append("Preferred Time")
+
+            if missing_fields:
+                return render_template('booking_portal.html',
+                                       error=f"The following fields are required: {', '.join(missing_fields)}.")
+
+            ref = generate_booking_ref(conn)
+            now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+            # 1. Insert BookingRequest as Pending (staff can review in admin)
             cur.execute(
-                '''INSERT INTO "BookingRequest" (reference, student_name, student_id, email, phone, program, level, reason, preferred_date, preferred_time, status, created_at, updated_at)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())''',
-                (ref, request.form.get('student_name', ''), request.form.get('student_id', ''),
-                 request.form.get('email', ''), request.form.get('phone', ''),
-                 request.form.get('program', ''), request.form.get('level', ''),
-                 request.form.get('reason', ''), request.form.get('preferred_date', ''),
-                 request.form.get('preferred_time', ''), 'Pending'),
+                '''INSERT INTO "BookingRequest"
+                   (reference, full_name, index_number, department, programme, phone,
+                    preferred_date, preferred_time, reason, status, email,
+                    hall_of_residence, global_id, created_at, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pending', %s, %s, %s, NOW(), NOW())
+                   RETURNING id''',
+                (ref, full_name, index_number, department, programme, phone,
+                 preferred_date, preferred_time, reason, email, hall_of_residence,
+                 str(uuid.uuid4())),
+            )
+
+            # 2. Find or create Student record
+            cur.execute(
+                'SELECT id FROM "Student" WHERE index_number = %s AND is_deleted = FALSE',
+                (index_number,),
+            )
+            existing = cur.fetchone()
+
+            if existing:
+                student_id = existing[0] if isinstance(existing, tuple) else existing.get('id')
+            else:
+                case_number = generate_case_number(conn)
+                cur.execute(
+                    '''INSERT INTO "Student"
+                       (name, case_number, index_number, department, programme, contact,
+                        email, hall_of_residence, global_id, created_at, updated_at)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                       RETURNING id''',
+                    (full_name, case_number, index_number, department, programme,
+                     phone, email, hall_of_residence, str(uuid.uuid4())),
+                )
+                student_id = cur.fetchone()[0]
+                conn.commit()
+
+            # 3. Create Appointment linked to student
+            counsellor_name = 'Unassigned'
+            cur.execute('SELECT name FROM "Counsellor" LIMIT 1')
+            c_row = cur.fetchone()
+            if c_row:
+                counsellor_name = c_row[0] if isinstance(c_row, tuple) else c_row.get('name', 'Unassigned')
+
+            cur.execute(
+                '''INSERT INTO "Appointment"
+                   (student_name, student_id, appointment_date, appointment_time,
+                    counsellor, purpose, status, booking_ref, urgency, global_id,
+                    created_at, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, 'Scheduled', %s, 'Normal', %s, NOW(), NOW())''',
+                (full_name, str(student_id),
+                 preferred_date or datetime.now().strftime('%Y-%m-%d'),
+                 preferred_time or '09:00',
+                 counsellor_name,
+                 f"[Portal Booking] {reason or 'Counselling session'}",
+                 ref, str(uuid.uuid4())),
             )
             conn.commit()
+
+            # 4. Fire notifications to all staff
+            fire_staff_notifications(
+                conn,
+                f"New booking {ref} from {name_to_initials(full_name)} ({index_number}) — auto-accepted & scheduled",
+                '/admin/bookings',
+            )
+
             cur.close()
             conn.close()
             return redirect(url_for('booking_confirm', ref=ref))
+
         except Exception as e:
-            flash(f"Error: {e}", "error")
-    return render_template('intake.html')
+            logger.error(f"booking: {e}")
+            import traceback
+            traceback.print_exc()
+            return render_template('booking_portal.html',
+                                   error="Something went wrong. Please try again.")
+
+    return render_template('booking_portal.html')
+
 
 @app.route("/booking/confirm/<ref>")
 def booking_confirm(ref):
-    return render_template('dashboard.html')
+    """Public confirmation page after booking submission."""
+    booking = None
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute(
+            'SELECT * FROM "BookingRequest" WHERE reference = %s', (ref,)
+        )
+        booking = cur.fetchone()
+        if booking:
+            for k, v in booking.items():
+                if isinstance(v, (datetime, date)):
+                    booking[k] = v.strftime('%Y-%m-%d %H:%M')
+        cur.close()
+        conn.close()
+    except Exception as e:
+        logger.error(f"booking_confirm: {e}")
+    return render_template('booking_confirmation.html', ref=ref, booking=booking)
 
 @app.route("/toggle_auto_report", methods=["GET", "POST"])
 @login_required
