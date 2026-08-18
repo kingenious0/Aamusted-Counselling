@@ -55,7 +55,7 @@
     console.log('[PreCache] Starting background page cache...');
 
     try {
-      const cache = await caches.open('aamusted-v5-pages');
+      const cache = await caches.open('aamusted-v7-pages');
       let cached = 0;
       let skipped = 0;
 
