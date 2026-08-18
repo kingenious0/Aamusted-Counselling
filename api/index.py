@@ -505,8 +505,9 @@ def push_changes():
                     vals = [clean[c] for c in cols]
                     placeholders = ', '.join(['%s'] * len(cols))
                     upd = ', '.join([f'"{c}" = EXCLUDED."{c}"' for c in cols if c != conflict])
+                    col_list = ', '.join([f'"{c}"' for c in cols])
                     cur.execute(
-                        f'INSERT INTO "{table}" ({", ".join([f\'"{c}"\' for c in cols])}) '
+                        f'INSERT INTO "{table}" ({col_list}) '
                         f'VALUES ({placeholders}) ON CONFLICT ("{conflict}") DO UPDATE SET {upd}',
                         tuple(vals),
                     )
@@ -589,9 +590,11 @@ def portal_booking():
         ]
         cols = [c for c in data if c in KNOWN]
         vals = [data[c] for c in cols]
+        col_list = ', '.join([f'"{c}"' for c in cols])
+        val_ph = ', '.join(['%s'] * len(cols))
         cur.execute(
-            f'INSERT INTO "BookingRequest" ({", ".join([f\'"{c}"\' for c in cols])}) '
-            f'VALUES ({", ".join(["%s"]*len(cols))}) RETURNING reference',
+            f'INSERT INTO "BookingRequest" ({col_list}) '
+            f'VALUES ({val_ph}) RETURNING reference',
             vals,
         )
         ref = cur.fetchone()[0]
