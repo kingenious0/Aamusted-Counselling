@@ -630,40 +630,153 @@ def index():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    stats = {'total_students': 0, 'total_appointments': 0, 'pending_bookings': 0, 'total_sessions': 0, 'total_referrals': 0, 'total_users': 0}
-    recent_activity = []
-    booking_count = 0
     try:
+        user_role = session.get('role', 'Counsellor')
+        user_name = session.get('full_name', 'Counsellor')
+
+        stats = {
+            'total_students': 0,
+            'total_appointments': 0,
+            'total_sessions': 0,
+            'total_referrals': 0,
+            'pending_bookings': 0,
+        }
+        today_appts = []
+        pending_bookings = []
+        recent_activity = []
+        unread_count = 0
+
         conn = get_db()
-        cur = conn.cursor()
-        queries = [
-            ('total_students', 'SELECT COUNT(*) FROM "Student" WHERE is_deleted = FALSE'),
-            ('total_appointments', 'SELECT COUNT(*) FROM "Appointment" WHERE is_deleted = FALSE'),
-            ('total_sessions', 'SELECT COUNT(*) FROM "session" WHERE is_deleted = FALSE'),
-            ('total_referrals', 'SELECT COUNT(*) FROM "Referral" WHERE is_deleted = FALSE'),
-        ]
-        for key, sql in queries:
+        cur = dict_cursor(conn)
+
+        try:
+            cur.execute('SELECT COUNT(*) AS cnt FROM "Student" WHERE is_deleted = FALSE')
+            stats['total_students'] = cur.fetchone()['cnt']
+        except Exception:
+            conn.rollback()
+        try:
+            cur.execute('SELECT COUNT(*) AS cnt FROM "Appointment" WHERE is_deleted = FALSE')
+            stats['total_appointments'] = cur.fetchone()['cnt']
+        except Exception:
+            conn.rollback()
+        try:
+            cur.execute('SELECT COUNT(*) AS cnt FROM "session" WHERE is_deleted = FALSE')
+            stats['total_sessions'] = cur.fetchone()['cnt']
+        except Exception:
+            conn.rollback()
+        try:
+            cur.execute('SELECT COUNT(*) AS cnt FROM "Referral" WHERE is_deleted = FALSE')
+            stats['total_referrals'] = cur.fetchone()['cnt']
+        except Exception:
+            conn.rollback()
+
+        try:
+            cur.execute("SELECT COUNT(*) AS cnt FROM \"BookingRequest\" WHERE status = 'Pending'")
+            stats['pending_bookings'] = cur.fetchone()['cnt']
+        except Exception:
+            conn.rollback()
+
+        try:
+            cur.execute("""
+                SELECT a.*, s.name AS student_name, s.id AS student_record_id, s.case_number
+                FROM "Appointment" a
+                JOIN "Student" s ON a.student_id = s.id
+                WHERE a.date = CURRENT_DATE AND a.is_deleted = FALSE
+                ORDER BY a.time ASC
+            """)
+            today_appts = cur.fetchall()
+        except Exception:
+            conn.rollback()
+
+        if user_role in ('Secretary', 'Admin'):
             try:
-                cur.execute(sql)
-                stats[key] = cur.fetchone()[0]
+                cur.execute("""
+                    SELECT a.*, s.name AS student_name, s.id AS student_record_id, s.case_number
+                    FROM "Appointment" a
+                    JOIN "Student" s ON a.student_id = s.id
+                    WHERE a.status = 'Scheduled' AND a.is_deleted = FALSE
+                    ORDER BY a.date ASC, a.time ASC
+                """)
+                pending_bookings = cur.fetchall()
             except Exception:
-                pass
+                conn.rollback()
+            try:
+                cur.execute("""
+                    SELECT a.*, s.name AS student_name, s.id AS student_record_id, s.case_number
+                    FROM "Appointment" a
+                    JOIN "Student" s ON a.student_id = s.id
+                    WHERE a.status = 'Sent to Counsellor' AND a.is_deleted = FALSE
+                    ORDER BY a.created_at DESC LIMIT 5
+                """)
+                recent_activity = cur.fetchall()
+            except Exception:
+                conn.rollback()
+        elif user_role in ('Counsellor', 'Counselor'):
+            try:
+                cur.execute("""
+                    SELECT a.*, s.name AS student_name, s.id AS student_record_id, s.case_number
+                    FROM "Appointment" a
+                    JOIN "Student" s ON a.student_id = s.id
+                    WHERE (a.status = 'Sent to Counsellor' OR a.status = 'Checked In')
+                      AND a.is_deleted = FALSE
+                    ORDER BY a.date ASC, a.time ASC
+                """)
+                pending_bookings = cur.fetchall()
+            except Exception:
+                conn.rollback()
+            try:
+                cur.execute("""
+                    SELECT a.*, s.name AS student_name, s.id AS student_record_id, s.case_number
+                    FROM "Appointment" a
+                    JOIN "Student" s ON a.student_id = s.id
+                    WHERE a.status = 'In Session' AND a.is_deleted = FALSE
+                    ORDER BY a.time ASC
+                """)
+                today_appts = cur.fetchall()
+            except Exception:
+                conn.rollback()
+
         try:
-            cur.execute("SELECT COUNT(*) FROM users")
-            stats['total_users'] = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) AS cnt FROM \"Notification\" WHERE is_read = FALSE")
+            unread_count = cur.fetchone()['cnt']
         except Exception:
-            pass
-        try:
-            cur.execute('SELECT COUNT(*) FROM "BookingRequest" WHERE status = \'Pending\' AND is_deleted = FALSE')
-            booking_count = cur.fetchone()[0]
-            stats['pending_bookings'] = booking_count
-        except Exception:
-            pass
+            conn.rollback()
+
         cur.close()
         conn.close()
-    except Exception:
-        pass
-    return render_template('dashboard.html', stats=stats, booking_count=booking_count, recent_activity=recent_activity)
+
+        now_hour = datetime.now().hour
+        if now_hour < 12:
+            time_greeting = "Good morning"
+        elif now_hour < 17:
+            time_greeting = "Good afternoon"
+        else:
+            time_greeting = "Good evening"
+
+        role_label_map = {
+            'Secretary': 'Desk Administrator',
+            'Admin': 'System Administrator',
+            'Counsellor': 'Counsellor',
+            'Counselor': 'Counsellor',
+        }
+        display_name = user_name
+        if user_name.strip().lower() in ('secretary', 'admin', 'counsellor', 'counselor'):
+            display_name = role_label_map.get(user_role, user_name)
+        greeting = f"{time_greeting}, {display_name}"
+
+        return render_template(
+            'dashboard.html',
+            role=user_role,
+            greeting=greeting,
+            stats=stats,
+            today_appts=today_appts,
+            pending_bookings=pending_bookings,
+            recent_activity=recent_activity,
+            unread_count=unread_count,
+        )
+    except Exception as e:
+        logger.error(f"dashboard error: {e}")
+        return redirect(url_for('login'))
 
 
 @app.route('/admin/bookings')
@@ -838,15 +951,24 @@ def students():
         cur = dict_cursor(conn)
         if search:
             cur.execute(
-                """SELECT * FROM "Student"
-                   WHERE is_deleted = FALSE AND (
-                       name ILIKE %s OR case_number ILIKE %s OR
-                       index_number ILIKE %s OR department ILIKE %s
-                   ) ORDER BY created_at DESC""",
+                """SELECT s.*, COUNT(ss.id) AS session_count
+                   FROM "Student" s
+                   LEFT JOIN "session" ss ON ss.student_id = s.id::text AND ss.is_deleted = FALSE
+                   WHERE s.is_deleted = FALSE AND (
+                       s.name ILIKE %s OR s.case_number ILIKE %s OR
+                       s.index_number ILIKE %s OR s.department ILIKE %s
+                   )
+                   GROUP BY s.id ORDER BY s.created_at DESC""",
                 (f'%{search}%', f'%{search}%', f'%{search}%', f'%{search}%'),
             )
         else:
-            cur.execute('SELECT * FROM "Student" WHERE is_deleted = FALSE ORDER BY created_at DESC')
+            cur.execute('''
+                SELECT s.*, COUNT(ss.id) AS session_count
+                FROM "Student" s
+                LEFT JOIN "session" ss ON ss.student_id = s.id::text AND ss.is_deleted = FALSE
+                WHERE s.is_deleted = FALSE
+                GROUP BY s.id ORDER BY s.created_at DESC
+            ''')
         students_list = cur.fetchall()
         for s in students_list:
             for k, v in s.items():
@@ -2710,6 +2832,243 @@ def get_session(session_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@app.route('/student_profile/<int:id>')
+@login_required
+def student_profile(id):
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+
+        cur.execute('SELECT * FROM "Student" WHERE id = %s', (id,))
+        student = cur.fetchone()
+        if not student:
+            cur.close()
+            conn.close()
+            flash('Student not found', 'error')
+            return redirect(url_for('students'))
+
+        for k, v in student.items():
+            if isinstance(v, (datetime, date)):
+                student[k] = v.strftime('%Y-%m-%d %H:%M' if hasattr(v, 'hour') else '%Y-%m-%d')
+
+        year = student.get('created_at', '')[:4] if student.get('created_at') else str(datetime.now().year)
+        case_number = student.get('case_number') or f"GCC-{year}-{student['id']:04d}"
+
+        sessions = []
+        try:
+            cur.execute("""
+                SELECT sess.id, sess.session_type, sess.notes, sess.created_at,
+                       a.date, a.time, a.status
+                FROM "session" sess
+                LEFT JOIN "Appointment" a ON sess.appointment_id = a.id
+                WHERE a.student_id = %s AND sess.is_deleted = FALSE
+                ORDER BY sess.created_at DESC
+            """, (id,))
+            sessions = cur.fetchall()
+            for s in sessions:
+                for k2, v2 in s.items():
+                    if isinstance(v2, (datetime, date)):
+                        s[k2] = v2.strftime('%Y-%m-%d %H:%M' if hasattr(v2, 'hour') else '%Y-%m-%d')
+        except Exception:
+            conn.rollback()
+
+        referrals = []
+        try:
+            cur.execute("""
+                SELECT r.id, r.referred_by, r.contact, r.reasons, r.action_taken, r.outcome, r.created_at
+                FROM "Referral" r
+                JOIN "session" sess ON r.session_id = sess.id
+                JOIN "Appointment" a ON sess.appointment_id = a.id
+                WHERE a.student_id = %s
+                ORDER BY r.created_at DESC
+            """, (id,))
+            referrals = cur.fetchall()
+            for r in referrals:
+                for k2, v2 in r.items():
+                    if isinstance(v2, (datetime, date)):
+                        r[k2] = v2.strftime('%Y-%m-%d')
+        except Exception:
+            conn.rollback()
+
+        dass21_scores = []
+        try:
+            cur.execute("""
+                SELECT depression_score, anxiety_score, stress_score, completion_date, created_at
+                FROM "DASS21"
+                WHERE student_id = %s
+                ORDER BY created_at DESC
+            """, (id,))
+            dass21_scores = cur.fetchall()
+            for d in dass21_scores:
+                for k2, v2 in d.items():
+                    if isinstance(v2, (datetime, date)):
+                        d[k2] = v2.strftime('%Y-%m-%d')
+        except Exception:
+            conn.rollback()
+
+        appointments = []
+        try:
+            cur.execute("""
+                SELECT * FROM "Appointment"
+                WHERE student_id = %s AND is_deleted = FALSE
+                ORDER BY date DESC, time DESC
+            """, (id,))
+            appointments = cur.fetchall()
+            for a in appointments:
+                for k2, v2 in a.items():
+                    if isinstance(v2, (datetime, date)):
+                        a[k2] = v2.strftime('%Y-%m-%d %H:%M' if hasattr(v2, 'hour') else '%Y-%m-%d')
+        except Exception:
+            conn.rollback()
+
+        case_notes = []
+        try:
+            cur.execute("""
+                SELECT * FROM "CaseManagement"
+                WHERE student_id = %s
+                ORDER BY created_at DESC
+            """, (id,))
+            case_notes = cur.fetchall()
+            for cn in case_notes:
+                for k2, v2 in cn.items():
+                    if isinstance(v2, (datetime, date)):
+                        cn[k2] = v2.strftime('%Y-%m-%d')
+        except Exception:
+            conn.rollback()
+
+        cur.close()
+        conn.close()
+
+        return render_template(
+            'student_profile.html',
+            student=student,
+            case_number=case_number,
+            sessions=sessions,
+            referrals=referrals,
+            dass21_scores=dass21_scores,
+            appointments=appointments,
+            case_notes=case_notes,
+        )
+    except Exception as e:
+        logger.error(f"student_profile: {e}")
+        flash('Error loading student profile.', 'error')
+        return redirect(url_for('students'))
+
+
+@app.route('/add_student', methods=['GET', 'POST'])
+@login_required
+def add_student():
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        if request.method == 'POST':
+            name_raw = request.form.get('name', '').strip()
+            name = name_to_initials(name_raw)
+            age = request.form.get('age')
+            gender = request.form.get('gender')
+            index_number = request.form.get('index_number')
+            department = request.form.get('department')
+            programme_base = request.form.get('programme')
+            programme_other = request.form.get('programme_other')
+            programme = programme_other if programme_base == 'Other' else programme_base
+            contact = request.form.get('contact')
+            parent_contact = request.form.get('parent_contact')
+            hall_of_residence = request.form.get('hall_of_residence')
+            faculty = request.form.get('faculty', '')
+            email = request.form.get('email', '')
+
+            try:
+                case_num = generate_case_number(conn)
+                cur.execute(
+                    """INSERT INTO "Student"
+                       (name, case_number, age, gender, index_number, department, faculty,
+                        programme, contact, parent_contact, hall_of_residence, email, global_id)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                       RETURNING id""",
+                    (name, case_num, int(age) if age else None, gender, index_number, department, faculty,
+                     programme, contact, parent_contact, hall_of_residence, email, str(uuid.uuid4())),
+                )
+                conn.commit()
+                cur.close()
+                conn.close()
+                flash(f'Client registered! Case Number: {case_num}', 'success')
+                return redirect(url_for('students'))
+            except Exception as e:
+                conn.rollback()
+                cur.close()
+                conn.close()
+                logger.error(f"add_student insert: {e}")
+                flash(f'Error saving student: {e}', 'error')
+                return redirect(url_for('add_student'))
+        else:
+            cur.close()
+            conn.close()
+            return render_template('add_student.html', student=None)
+    except Exception as e:
+        logger.error(f"add_student: {e}")
+        flash('Error loading form.', 'error')
+        return redirect(url_for('students'))
+
+
+@app.route('/edit_student/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_student(id):
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+
+        if request.method == 'POST':
+            name_raw = request.form.get('name', '').strip()
+            name = name_to_initials(name_raw)
+            age = request.form.get('age')
+            gender = request.form.get('gender')
+            index_number = request.form.get('index_number')
+            department = request.form.get('department')
+            programme_base = request.form.get('programme')
+            programme_other = request.form.get('programme_other')
+            programme = programme_other if programme_base == 'Other' else programme_base
+            contact = request.form.get('contact')
+            parent_contact = request.form.get('parent_contact')
+            hall_of_residence = request.form.get('hall_of_residence')
+            faculty = request.form.get('faculty', '')
+            email = request.form.get('email', '')
+
+            try:
+                cur.execute("""
+                    UPDATE "Student"
+                    SET name=%s, age=%s, gender=%s, index_number=%s, department=%s, faculty=%s,
+                        programme=%s, contact=%s, parent_contact=%s, hall_of_residence=%s, email=%s, updated_at=NOW()
+                    WHERE id=%s
+                """, (name, int(age) if age else None, gender, index_number, department, faculty,
+                      programme, contact, parent_contact, hall_of_residence, email, id))
+                conn.commit()
+                cur.close()
+                conn.close()
+                flash('Client record updated successfully!', 'success')
+                return redirect(url_for('students'))
+            except Exception as e:
+                conn.rollback()
+                cur.close()
+                conn.close()
+                logger.error(f"edit_student update: {e}")
+                flash(f'Error updating student: {e}', 'error')
+                return redirect(url_for('edit_student', id=id))
+        else:
+            cur.execute('SELECT * FROM "Student" WHERE id = %s', (id,))
+            student = cur.fetchone()
+            cur.close()
+            conn.close()
+            if not student:
+                flash('Student not found', 'error')
+                return redirect(url_for('students'))
+            return render_template('add_student.html', student=student)
+    except Exception as e:
+        logger.error(f"edit_student: {e}")
+        flash('Error loading form.', 'error')
+        return redirect(url_for('students'))
+
 @app.route("/admin/forms")
 @login_required
 def admin_forms():
@@ -2773,3 +3132,20 @@ def reset_password():
     except Exception as e:
         flash(f"Error resetting password: {e}", "error")
     return redirect(url_for('admin_users'))
+
+
+@app.errorhandler(500)
+def internal_error(e):
+    logger.error(f"500 error: {e}")
+    if request.path.startswith('/api/'):
+        return jsonify({"error": "Internal server error"}), 500
+    flash("An internal error occurred. Please try again.", "error")
+    return redirect(url_for('dashboard'))
+
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    logger.error(f"Unhandled exception: {e}")
+    if request.path.startswith('/api/'):
+        return jsonify({"error": str(e)}), 500
+    return redirect(url_for('dashboard'))

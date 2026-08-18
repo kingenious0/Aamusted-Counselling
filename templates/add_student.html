@@ -1,287 +1,251 @@
-{% extends "base_modern.html" %}
-
-{% block title %}Register Student - AAMUSTED{% endblock %}
-
+{% set active_page = 'students' %}
+{% extends 'base.html' %}
+{% block title %}{% if student %}Edit Client{% else %}Register Client{% endif %} - AAMUSTED Counselling{% endblock %}
+{% block heading %}<i class="fas fa-user-plus me-2" style="color:#16a34a"></i>{% if student %}Edit Client Record{% else %}Client Registration{% endif %}{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
-    <!-- Main Form Section -->
     <div class="col-lg-8 mb-4">
-        <div class="d-flex align-items-center mb-4">
-            <a href="javascript:history.back()" class="btn btn-light shadow-sm rounded-circle me-3">
-                <i class="bi bi-arrow-left"></i>
-            </a>
-            <div>
-                <h2 class="fw-bold mb-0">{% if student %}Edit Client Record{% else %}Client Registration{% endif %}
-                </h2>
-                <p class="text-muted mb-0">{% if student %}Update existing{% else %}Register new{% endif %} client
-                    profile in the registry.</p>
-            </div>
-        </div>
+        <div class="card-dark">
+            <div class="p-4">
+                <form method="POST" action="{{ url_for('add_student') if not student else url_for('edit_student', id=student.id) }}" class="needs-validation" novalidate>
 
-        <div class="card card-glass border-0 shadow-lg">
-            <div class="card-body p-4 p-md-5">
-                <form method="POST" action="{{ url_for('add_student') }}" class="needs-validation" novalidate>
-                    {% if student %}
-                    <input type="hidden" name="edit_id" value="{{ student.id }}">
-                    {% endif %}
-
-                    <h5 class="text-primary fw-bold text-uppercase small letter-spacing-1 mb-4">Personal Details</h5>
+                    <h5 style="color:#2563eb; font-weight:700; font-size:14px; text-transform:uppercase; letter-spacing:1px; margin-bottom:16px;">Personal Details</h5>
 
                     <div class="row g-4 mb-4">
                         <div class="col-md-12">
-                            <label for="name" class="form-label text-muted small fw-bold text-uppercase">Client Initials
-                                <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;">Privacy</span></label>
-                            <input type="text" class="form-control form-control-lg bg-light border-0" id="name"
-                                name="name" required value="{{ student.name if student }}" placeholder="e.g. A.O. or Ama Osei (auto-converted)">
-                            <div class="form-text text-muted" style="font-size:0.75rem;">
-                                <i class="bi bi-shield-check text-success me-1"></i>
-                                <strong>GTEC Compliant:</strong> Full names are automatically converted to initials (e.g. "A.O.") and never stored. Only enter initials if preferred.
-                            </div>
-                            <div class="invalid-feedback">Please provide the client's initials.</div>
+                            <label for="name" class="form-label" style="font-size:13px;">Client Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required
+                                value="{{ student.name if student else '' }}" placeholder="e.g. Ama Osei (auto-converted to initials)">
+                            <div class="form-text" style="font-size:12px; color:#6b7280;">Full names are automatically converted to initials (e.g. "A.O.") for privacy.</div>
                         </div>
 
-                        <div class="col-md-6">
-                            <label for="age" class="form-label text-muted small fw-bold text-uppercase">Age</label>
-                            <input type="number" class="form-control bg-light border-0" id="age" name="age" min="16"
-                                max="100" value="{{ student.age if student }}">
+                        <div class="col-md-4">
+                            <label for="age" class="form-label" style="font-size:13px;">Age</label>
+                            <input type="number" class="form-control" id="age" name="age" min="16" max="100"
+                                value="{{ student.age if student else '' }}">
                         </div>
 
-                        <div class="col-md-6">
-                            <label for="gender"
-                                class="form-label text-muted small fw-bold text-uppercase">Gender</label>
-                            <select class="form-select bg-light border-0" id="gender" name="gender">
-                                <option value="">Select Gender...</option>
-                                <option value="Male" {% if student and student.gender=='Male' %}selected{% endif %}>Male
-                                </option>
-                                <option value="Female" {% if student and student.gender=='Female' %}selected{% endif %}>
-                                    Female</option>
-                                <option value="Other" {% if student and student.gender=='Other' %}selected{% endif %}>
-                                    Other</option>
+                        <div class="col-md-4">
+                            <label for="gender" class="form-label" style="font-size:13px;">Gender</label>
+                            <select class="form-select" id="gender" name="gender">
+                                <option value="">Select...</option>
+                                <option value="Male" {% if student and student.gender == 'Male' %}selected{% endif %}>Male</option>
+                                <option value="Female" {% if student and student.gender == 'Female' %}selected{% endif %}>Female</option>
+                                <option value="Other" {% if student and student.gender == 'Other' %}selected{% endif %}>Other</option>
                             </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="email" class="form-label" style="font-size:13px;">Email</label>
+                            <input type="email" class="form-control" id="email" name="email"
+                                value="{{ student.email if student else '' }}" placeholder="student@email.com">
                         </div>
                     </div>
 
-                    <hr class="text-muted opacity-10 my-4">
+                    <hr style="border-color:#e2d9c8; margin:24px 0;">
 
-                    <h5 class="text-primary fw-bold text-uppercase small letter-spacing-1 mb-4">Academic Info</h5>
+                    <h5 style="color:#2563eb; font-weight:700; font-size:14px; text-transform:uppercase; letter-spacing:1px; margin-bottom:16px;">Academic Information</h5>
 
                     <div class="row g-4 mb-4">
                         <div class="col-md-6">
-                            <label for="index_number" class="form-label text-muted small fw-bold text-uppercase">Index
-                                Number <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control bg-light border-0" id="index_number"
-                                name="index_number" required placeholder="e.g., 5234120392"
-                                value="{{ student.index_number if student }}">
+                            <label for="index_number" class="form-label" style="font-size:13px;">Index Number <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="index_number" name="index_number" required
+                                value="{{ student.index_number if student else '' }}" placeholder="e.g. 5234120392">
                         </div>
 
                         <div class="col-md-6">
-                            <label for="hall_of_residence"
-                                class="form-label text-muted small fw-bold text-uppercase">Hall of Residence</label>
-                            <select class="form-select bg-light border-0" id="hall_of_residence" name="hall_of_residence">
+                            <label for="hall_of_residence" class="form-label" style="font-size:13px;">Hall of Residence</label>
+                            <select class="form-select" id="hall_of_residence" name="hall_of_residence">
                                 <option value="">Select Hall...</option>
-                                <option value="Autonomy Hall" {% if student and student.hall_of_residence=='Autonomy Hall' %}selected{% endif %}>Autonomy Hall</option>
-                                <option value="Atwima Hall" {% if student and student.hall_of_residence=='Atwima Hall' %}selected{% endif %}>Atwima Hall</option>
-                                <option value="Opoku Ware II" {% if student and student.hall_of_residence=='Opoku Ware II' %}selected{% endif %}>Opoku Ware II</option>
-                                <option value="Off-Campus" {% if student and student.hall_of_residence=='Off-Campus' %}selected{% endif %}>Off-Campus</option>
+                                <option value="Autonomy Hall" {% if student and student.hall_of_residence == 'Autonomy Hall' %}selected{% endif %}>Autonomy Hall</option>
+                                <option value="Atwima Hall" {% if student and student.hall_of_residence == 'Atwima Hall' %}selected{% endif %}>Atwima Hall</option>
+                                <option value="Opoku Ware II" {% if student and student.hall_of_residence == 'Opoku Ware II' %}selected{% endif %}>Opoku Ware II</option>
+                                <option value="Off-Campus" {% if student and student.hall_of_residence == 'Off-Campus' %}selected{% endif %}>Off-Campus</option>
                             </select>
                         </div>
 
                         <div class="col-md-6">
-                            <label for="programme" class="form-label text-muted small fw-bold text-uppercase">Programme
-                                <span class="text-danger">*</span></label>
-                            <select class="form-select bg-light border-0" id="programme" name="programme" onchange="handleProgrammeChange(this)" required>
+                            <label for="programme" class="form-label" style="font-size:13px;">Programme <span class="text-danger">*</span></label>
+                            <select class="form-select" id="programme" name="programme" onchange="handleProgrammeChange(this)" required>
                                 <optgroup label="ACCOUNTING EDUCATION">
-                                    <option value="B.Sc. Procurement and Supply Chain Management" data-dept="ACCOUNTING EDUCATION" {% if student and student.programme=='B.Sc. Procurement and Supply Chain Management' %}selected{% endif %}>B.Sc. Procurement and Supply Chain Management</option>
-                                    <option value="2-year Diploma in Business Administration, Accounting" data-dept="ACCOUNTING EDUCATION" {% if student and student.programme=='2-year Diploma in Business Administration, Accounting' %}selected{% endif %}>2-year Diploma in Business Administration, Accounting</option>
-                                    <option value="B.Ed. Business Studies (Accounting)" data-dept="ACCOUNTING EDUCATION" {% if student and student.programme=='B.Ed. Business Studies (Accounting)' %}selected{% endif %}>B.Ed. Business Studies (Accounting)</option>
-                                    <option value="B.Sc Computerised Accounting" data-dept="ACCOUNTING EDUCATION" {% if student and student.programme=='B.Sc Computerised Accounting' %}selected{% endif %}>B.Sc Computerised Accounting</option>
-                                    <option value="B.Sc. Accounting" data-dept="ACCOUNTING EDUCATION" {% if student and student.programme=='B.Sc. Accounting' %}selected{% endif %}>B.Sc. Accounting</option>
-                                    <option value="B.Sc. Admin Accounting" data-dept="ACCOUNTING EDUCATION" {% if student and student.programme=='B.Sc. Admin Accounting' %}selected{% endif %}>B.Sc. Admin Accounting</option>
-                                    <option value="B.Sc. Banking and Finance" data-dept="ACCOUNTING EDUCATION" {% if student and student.programme=='B.Sc. Banking and Finance' %}selected{% endif %}>B.Sc. Banking and Finance</option>
+                                    <option value="B.Sc. Procurement and Supply Chain Management" data-dept="ACCOUNTING EDUCATION" {% if student and student.programme == 'B.Sc. Procurement and Supply Chain Management' %}selected{% endif %}>B.Sc. Procurement and Supply Chain Management</option>
+                                    <option value="2-year Diploma in Business Administration, Accounting" data-dept="ACCOUNTING EDUCATION" {% if student and student.programme == '2-year Diploma in Business Administration, Accounting' %}selected{% endif %}>2-year Diploma in Business Administration, Accounting</option>
+                                    <option value="B.Ed. Business Studies (Accounting)" data-dept="ACCOUNTING EDUCATION" {% if student and student.programme == 'B.Ed. Business Studies (Accounting)' %}selected{% endif %}>B.Ed. Business Studies (Accounting)</option>
+                                    <option value="B.Sc Computerised Accounting" data-dept="ACCOUNTING EDUCATION" {% if student and student.programme == 'B.Sc Computerised Accounting' %}selected{% endif %}>B.Sc Computerised Accounting</option>
+                                    <option value="B.Sc. Accounting" data-dept="ACCOUNTING EDUCATION" {% if student and student.programme == 'B.Sc. Accounting' %}selected{% endif %}>B.Sc. Accounting</option>
+                                    <option value="B.Sc. Admin Accounting" data-dept="ACCOUNTING EDUCATION" {% if student and student.programme == 'B.Sc. Admin Accounting' %}selected{% endif %}>B.Sc. Admin Accounting</option>
+                                    <option value="B.Sc. Banking and Finance" data-dept="ACCOUNTING EDUCATION" {% if student and student.programme == 'B.Sc. Banking and Finance' %}selected{% endif %}>B.Sc. Banking and Finance</option>
                                 </optgroup>
                                 <optgroup label="CONSTRUCTION AND WOOD">
-                                    <option value="B.Sc. Plumbing, Gas and Sanitary Technology" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme=='B.Sc. Plumbing, Gas and Sanitary Technology' %}selected{% endif %}>B.Sc. Plumbing, Gas and Sanitary Technology</option>
-                                    <option value="B.Sc. Wood Technology with Education" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme=='B.Sc. Wood Technology with Education' %}selected{% endif %}>B.Sc. Wood Technology with Education</option>
-                                    <option value="2-Year Diploma in Construction Technology" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme=='2-Year Diploma in Construction Technology' %}selected{% endif %}>2-Year Diploma in Construction Technology</option>
-                                    <option value="2-year Diploma in Wood Technology" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme=='2-year Diploma in Wood Technology' %}selected{% endif %}>2-year Diploma in Wood Technology</option>
-                                    <option value="B.Ed. STEM (Engineering with Manufacturing)" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme=='B.Ed. STEM (Engineering with Manufacturing)' %}selected{% endif %}>B.Ed. STEM (Engineering with Manufacturing)</option>
-                                    <option value="B.Ed. Applied Technology (Building Construction and Wood)" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme=='B.Ed. Applied Technology (Building Construction and Wood)' %}selected{% endif %}>B.Ed. Applied Technology (Building Construction and Wood)</option>
-                                    <option value="B.Ed. Design and Communication Technology" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme=='B.Ed. Design and Communication Technology' %}selected{% endif %}>B.Ed. Design and Communication Technology</option>
-                                    <option value="B.Sc. Civil Engineering" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme=='B.Sc. Civil Engineering' %}selected{% endif %}>B.Sc. Civil Engineering</option>
-                                    <option value="B.Sc. Construction Technology and Management with Education" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme=='B.Sc. Construction Technology and Management with Education' %}selected{% endif %}>B.Sc. Construction Technology and Management with Education</option>
+                                    <option value="B.Sc. Plumbing, Gas and Sanitary Technology" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme == 'B.Sc. Plumbing, Gas and Sanitary Technology' %}selected{% endif %}>B.Sc. Plumbing, Gas and Sanitary Technology</option>
+                                    <option value="B.Sc. Wood Technology with Education" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme == 'B.Sc. Wood Technology with Education' %}selected{% endif %}>B.Sc. Wood Technology with Education</option>
+                                    <option value="2-Year Diploma in Construction Technology" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme == '2-Year Diploma in Construction Technology' %}selected{% endif %}>2-Year Diploma in Construction Technology</option>
+                                    <option value="2-year Diploma in Wood Technology" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme == '2-year Diploma in Wood Technology' %}selected{% endif %}>2-year Diploma in Wood Technology</option>
+                                    <option value="B.Ed. STEM (Engineering with Manufacturing)" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme == 'B.Ed. STEM (Engineering with Manufacturing)' %}selected{% endif %}>B.Ed. STEM (Engineering with Manufacturing)</option>
+                                    <option value="B.Ed. Applied Technology (Building Construction and Wood)" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme == 'B.Ed. Applied Technology (Building Construction and Wood)' %}selected{% endif %}>B.Ed. Applied Technology (Building Construction and Wood)</option>
+                                    <option value="B.Ed. Design and Communication Technology" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme == 'B.Ed. Design and Communication Technology' %}selected{% endif %}>B.Ed. Design and Communication Technology</option>
+                                    <option value="B.Sc. Civil Engineering" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme == 'B.Sc. Civil Engineering' %}selected{% endif %}>B.Sc. Civil Engineering</option>
+                                    <option value="B.Sc. Construction Technology and Management with Education" data-dept="CONSTRUCTION AND WOOD" {% if student and student.programme == 'B.Sc. Construction Technology and Management with Education' %}selected{% endif %}>B.Sc. Construction Technology and Management with Education</option>
                                 </optgroup>
                                 <optgroup label="ECONOMICS EDUCATION">
-                                    <option value="B.Sc. Economics" data-dept="ECONOMICS EDUCATION" {% if student and student.programme=='B.Sc. Economics' %}selected{% endif %}>B.Sc. Economics</option>
-                                    <option value="2-year Diploma in Economics" data-dept="ECONOMICS EDUCATION" {% if student and student.programme=='2-year Diploma in Economics' %}selected{% endif %}>2-year Diploma in Economics</option>
-                                    <option value="B.Ed. Economics" data-dept="ECONOMICS EDUCATION" {% if student and student.programme=='B.Ed. Economics' %}selected{% endif %}>B.Ed. Economics</option>
+                                    <option value="B.Sc. Economics" data-dept="ECONOMICS EDUCATION" {% if student and student.programme == 'B.Sc. Economics' %}selected{% endif %}>B.Sc. Economics</option>
+                                    <option value="2-year Diploma in Economics" data-dept="ECONOMICS EDUCATION" {% if student and student.programme == '2-year Diploma in Economics' %}selected{% endif %}>2-year Diploma in Economics</option>
+                                    <option value="B.Ed. Economics" data-dept="ECONOMICS EDUCATION" {% if student and student.programme == 'B.Ed. Economics' %}selected{% endif %}>B.Ed. Economics</option>
                                 </optgroup>
                                 <optgroup label="ELECTRICALS AND ELECTRONICS">
-                                    <option value="B.Sc. Electrical and Electronics Engineering" data-dept="ELECTRICALS AND ELECTRONICS" {% if student and student.programme=='B.Sc. Electrical and Electronics Engineering' %}selected{% endif %}>B.Sc. Electrical and Electronics Engineering</option>
-                                    <option value="B.Sc. Electrical and Electronics Engineering Technology Education" data-dept="ELECTRICALS AND ELECTRONICS" {% if student and student.programme=='B.Sc. Electrical and Electronics Engineering Technology Education' %}selected{% endif %}>B.Sc. Electrical and Electronics Engineering Technology Education</option>
-                                    <option value="2-Year Diploma in Electrical and Electronics Engineering Technology" data-dept="ELECTRICALS AND ELECTRONICS" {% if student and student.programme=='2-Year Diploma in Electrical and Electronics Engineering Technology' %}selected{% endif %}>2-Year Diploma in Electrical and Electronics Engineering Technology</option>
-                                    <option value="B.Sc. Biomedical Equipment Engineering" data-dept="ELECTRICALS AND ELECTRONICS" {% if student and student.programme=='B.Sc. Biomedical Equipment Engineering' %}selected{% endif %}>B.Sc. Biomedical Equipment Engineering</option>
-                                    <option value="B.Ed. Applied Technology (Electrical and Electronics)" data-dept="ELECTRICALS AND ELECTRONICS" {% if student and student.programme=='B.Ed. Applied Technology (Electrical and Electronics)' %}selected{% endif %}>B.Ed. Applied Technology (Electrical and Electronics)</option>
-                                    <option value="B.Ed. STEM (Engineering with Biomedical Science)" data-dept="ELECTRICALS AND ELECTRONICS" {% if student and student.programme=='B.Ed. STEM (Engineering with Biomedical Science)' %}selected{% endif %}>B.Ed. STEM (Engineering with Biomedical Science)</option>
-                                    <option value="B.Ed. STEM (Engineering with Robotics)" data-dept="ELECTRICALS AND ELECTRONICS" {% if student and student.programme=='B.Ed. STEM (Engineering with Robotics)' %}selected{% endif %}>B.Ed. STEM (Engineering with Robotics)</option>
+                                    <option value="B.Sc. Electrical and Electronics Engineering" data-dept="ELECTRICALS AND ELECTRONICS" {% if student and student.programme == 'B.Sc. Electrical and Electronics Engineering' %}selected{% endif %}>B.Sc. Electrical and Electronics Engineering</option>
+                                    <option value="B.Sc. Electrical and Electronics Engineering Technology Education" data-dept="ELECTRICALS AND ELECTRONICS" {% if student and student.programme == 'B.Sc. Electrical and Electronics Engineering Technology Education' %}selected{% endif %}>B.Sc. Electrical and Electronics Engineering Technology Education</option>
+                                    <option value="2-Year Diploma in Electrical and Electronics Engineering Technology" data-dept="ELECTRICALS AND ELECTRONICS" {% if student and student.programme == '2-Year Diploma in Electrical and Electronics Engineering Technology' %}selected{% endif %}>2-Year Diploma in Electrical and Electronics Engineering Technology</option>
+                                    <option value="B.Sc. Biomedical Equipment Engineering" data-dept="ELECTRICALS AND ELECTRONICS" {% if student and student.programme == 'B.Sc. Biomedical Equipment Engineering' %}selected{% endif %}>B.Sc. Biomedical Equipment Engineering</option>
+                                    <option value="B.Ed. Applied Technology (Electrical and Electronics)" data-dept="ELECTRICALS AND ELECTRONICS" {% if student and student.programme == 'B.Ed. Applied Technology (Electrical and Electronics)' %}selected{% endif %}>B.Ed. Applied Technology (Electrical and Electronics)</option>
                                 </optgroup>
                                 <optgroup label="FASHION AND TEXTILES">
-                                    <option value="B.Sc. Fashion Design and Textiles Education" data-dept="FASHION AND TEXTILES" {% if student and student.programme=='B.Sc. Fashion Design and Textiles Education' %}selected{% endif %}>B.Sc. Fashion Design and Textiles Education</option>
-                                    <option value="2-year Diploma in Fashion Design and Textiles" data-dept="FASHION AND TEXTILES" {% if student and student.programme=='2-year Diploma in Fashion Design and Textiles' %}selected{% endif %}>2-year Diploma in Fashion Design and Textiles</option>
-                                    <option value="B.Ed. Home Economics (Clothing and Textiles)" data-dept="FASHION AND TEXTILES" {% if student and student.programme=='B.Ed. Home Economics (Clothing and Textiles)' %}selected{% endif %}>B.Ed. Home Economics (Clothing and Textiles)</option>
+                                    <option value="B.Sc. Fashion Design and Textiles Education" data-dept="FASHION AND TEXTILES" {% if student and student.programme == 'B.Sc. Fashion Design and Textiles Education' %}selected{% endif %}>B.Sc. Fashion Design and Textiles Education</option>
+                                    <option value="2-year Diploma in Fashion Design and Textiles" data-dept="FASHION AND TEXTILES" {% if student and student.programme == '2-year Diploma in Fashion Design and Textiles' %}selected{% endif %}>2-year Diploma in Fashion Design and Textiles</option>
+                                    <option value="B.Ed. Home Economics (Clothing and Textiles)" data-dept="FASHION AND TEXTILES" {% if student and student.programme == 'B.Ed. Home Economics (Clothing and Textiles)' %}selected{% endif %}>B.Ed. Home Economics (Clothing and Textiles)</option>
                                 </optgroup>
                                 <optgroup label="HOSPITALITY AND TOURISM">
-                                    <option value="2-year Diploma in Catering and Hospitality" data-dept="HOSPITALITY AND TOURISM" {% if student and student.programme=='2-year Diploma in Catering and Hospitality' %}selected{% endif %}>2-year Diploma in Catering and Hospitality</option>
-                                    <option value="B.Ed. Home Economics (Food and Nutrition)" data-dept="HOSPITALITY AND TOURISM" {% if student and student.programme=='B.Ed. Home Economics (Food and Nutrition)' %}selected{% endif %}>B.Ed. Home Economics (Food and Nutrition)</option>
-                                    <option value="B.Sc. Catering and Hospitality Education" data-dept="HOSPITALITY AND TOURISM" {% if student and student.programme=='B.Sc. Catering and Hospitality Education' %}selected{% endif %}>B.Sc. Catering and Hospitality Education</option>
+                                    <option value="2-year Diploma in Catering and Hospitality" data-dept="HOSPITALITY AND TOURISM" {% if student and student.programme == '2-year Diploma in Catering and Hospitality' %}selected{% endif %}>2-year Diploma in Catering and Hospitality</option>
+                                    <option value="B.Ed. Home Economics (Food and Nutrition)" data-dept="HOSPITALITY AND TOURISM" {% if student and student.programme == 'B.Ed. Home Economics (Food and Nutrition)' %}selected{% endif %}>B.Ed. Home Economics (Food and Nutrition)</option>
+                                    <option value="B.Sc. Catering and Hospitality Education" data-dept="HOSPITALITY AND TOURISM" {% if student and student.programme == 'B.Sc. Catering and Hospitality Education' %}selected{% endif %}>B.Sc. Catering and Hospitality Education</option>
                                 </optgroup>
                                 <optgroup label="HUMAN RESOURCE">
-                                    <option value="2-year Diploma in Human Resource Management" data-dept="HUMAN RESOURCE" {% if student and student.programme=='2-year Diploma in Human Resource Management' %}selected{% endif %}>2-year Diploma in Human Resource Management</option>
-                                    <option value="B.B.A. Human Resource Management" data-dept="HUMAN RESOURCE" {% if student and student.programme=='B.B.A. Human Resource Management' %}selected{% endif %}>B.B.A. Human Resource Management</option>
+                                    <option value="2-year Diploma in Human Resource Management" data-dept="HUMAN RESOURCE" {% if student and student.programme == '2-year Diploma in Human Resource Management' %}selected{% endif %}>2-year Diploma in Human Resource Management</option>
+                                    <option value="B.B.A. Human Resource Management" data-dept="HUMAN RESOURCE" {% if student and student.programme == 'B.B.A. Human Resource Management' %}selected{% endif %}>B.B.A. Human Resource Management</option>
                                 </optgroup>
                                 <optgroup label="IEDEI">
-                                    <option value="B.Sc. Entrepreneurship Education" data-dept="IEDEI" {% if student and student.programme=='B.Sc. Entrepreneurship Education' %}selected{% endif %}>B.Sc. Entrepreneurship Education</option>
-                                    <option value="B.Sc. Marketing and Entrepreneurship" data-dept="IEDEI" {% if student and student.programme=='B.Sc. Marketing and Entrepreneurship' %}selected{% endif %}>B.Sc. Marketing and Entrepreneurship</option>
+                                    <option value="B.Sc. Entrepreneurship Education" data-dept="IEDEI" {% if student and student.programme == 'B.Sc. Entrepreneurship Education' %}selected{% endif %}>B.Sc. Entrepreneurship Education</option>
+                                    <option value="B.Sc. Marketing and Entrepreneurship" data-dept="IEDEI" {% if student and student.programme == 'B.Sc. Marketing and Entrepreneurship' %}selected{% endif %}>B.Sc. Marketing and Entrepreneurship</option>
                                 </optgroup>
                                 <optgroup label="INFORMATION TECHNOLOGY EDUCATION">
-                                    <option value="B.Sc. Information Technology" data-dept="INFORMATION TECHNOLOGY EDUCATION" {% if student and student.programme=='B.Sc. Information Technology' %}selected{% endif %}>B.Sc. Information Technology</option>
-                                    <option value="B.Ed. Computing with Internet of Things (IOT)" data-dept="INFORMATION TECHNOLOGY EDUCATION" {% if student and student.programme=='B.Ed. Computing with Internet of Things (IOT)' %}selected{% endif %}>B.Ed. Computing with Internet of Things (IOT)</option>
-                                    <option value="B.Ed. Computing with Artificial Intelligence (AI)" data-dept="INFORMATION TECHNOLOGY EDUCATION" {% if student and student.programme=='B.Ed. Computing with Artificial Intelligence (AI)' %}selected{% endif %}>B.Ed. Computing with Artificial Intelligence (AI)</option>
-                                    <option value="B.Ed. Computing with Artificial Intelligence" data-dept="INFORMATION TECHNOLOGY EDUCATION" {% if student and student.programme=='B.Ed. Computing with Artificial Intelligence' %}selected{% endif %}>B.Ed. Computing with Artificial Intelligence</option>
-                                    <option value="B.Ed. Information Technology" data-dept="INFORMATION TECHNOLOGY EDUCATION" {% if student and student.programme=='B.Ed. Information Technology' %}selected{% endif %}>B.Ed. Information Technology</option>
-                                    <option value="B.Sc. Cyber Security and Digital Forensics" data-dept="INFORMATION TECHNOLOGY EDUCATION" {% if student and student.programme=='B.Sc. Cyber Security and Digital Forensics' %}selected{% endif %}>B.Sc. Cyber Security and Digital Forensics</option>
+                                    <option value="B.Sc. Information Technology" data-dept="INFORMATION TECHNOLOGY EDUCATION" {% if student and student.programme == 'B.Sc. Information Technology' %}selected{% endif %}>B.Sc. Information Technology</option>
+                                    <option value="B.Ed. Computing with Internet of Things (IOT)" data-dept="INFORMATION TECHNOLOGY EDUCATION" {% if student and student.programme == 'B.Ed. Computing with Internet of Things (IOT)' %}selected{% endif %}>B.Ed. Computing with Internet of Things (IOT)</option>
+                                    <option value="B.Ed. Computing with Artificial Intelligence (AI)" data-dept="INFORMATION TECHNOLOGY EDUCATION" {% if student and student.programme == 'B.Ed. Computing with Artificial Intelligence (AI)' %}selected{% endif %}>B.Ed. Computing with Artificial Intelligence (AI)</option>
+                                    <option value="B.Ed. Computing with Artificial Intelligence" data-dept="INFORMATION TECHNOLOGY EDUCATION" {% if student and student.programme == 'B.Ed. Computing with Artificial Intelligence' %}selected{% endif %}>B.Ed. Computing with Artificial Intelligence</option>
+                                    <option value="B.Ed. Information Technology" data-dept="INFORMATION TECHNOLOGY EDUCATION" {% if student and student.programme == 'B.Ed. Information Technology' %}selected{% endif %}>B.Ed. Information Technology</option>
+                                    <option value="B.Sc. Cyber Security and Digital Forensics" data-dept="INFORMATION TECHNOLOGY EDUCATION" {% if student and student.programme == 'B.Sc. Cyber Security and Digital Forensics' %}selected{% endif %}>B.Sc. Cyber Security and Digital Forensics</option>
                                 </optgroup>
-                                <optgroup label="INTERDISPLINARY STUDIES">
-                                    <option value="B.Ed Early Grade (Early Childhood)" data-dept="INTERDISPLINARY STUDIES" {% if student and student.programme=='B.Ed Early Grade (Early Childhood)' %}selected{% endif %}>B.Ed Early Grade (Early Childhood)</option>
-                                    <option value="B.Ed Junior High" data-dept="INTERDISPLINARY STUDIES" {% if student and student.programme=='B.Ed Junior High' %}selected{% endif %}>B.Ed Junior High</option>
-                                    <option value="B.Ed Upper Primary" data-dept="INTERDISPLINARY STUDIES" {% if student and student.programme=='B.Ed Upper Primary' %}selected{% endif %}>B.Ed Upper Primary</option>
-                                    <option value="B.Ed. Geography" data-dept="INTERDISPLINARY STUDIES" {% if student and student.programme=='B.Ed. Geography' %}selected{% endif %}>B.Ed. Geography</option>
-                                    <option value="B.Ed. Physical Education and Health" data-dept="INTERDISPLINARY STUDIES" {% if student and student.programme=='B.Ed. Physical Education and Health' %}selected{% endif %}>B.Ed. Physical Education and Health</option>
-                                    <option value="B.Ed. Social Studies" data-dept="INTERDISPLINARY STUDIES" {% if student and student.programme=='B.Ed. Social Studies' %}selected{% endif %}>B.Ed. Social Studies</option>
+                                <optgroup label="INTERDISCIPLINARY STUDIES">
+                                    <option value="B.Ed Early Grade (Early Childhood)" data-dept="INTERDISCIPLINARY STUDIES" {% if student and student.programme == 'B.Ed Early Grade (Early Childhood)' %}selected{% endif %}>B.Ed Early Grade (Early Childhood)</option>
+                                    <option value="B.Ed Junior High" data-dept="INTERDISCIPLINARY STUDIES" {% if student and student.programme == 'B.Ed Junior High' %}selected{% endif %}>B.Ed Junior High</option>
+                                    <option value="B.Ed Upper Primary" data-dept="INTERDISCIPLINARY STUDIES" {% if student and student.programme == 'B.Ed Upper Primary' %}selected{% endif %}>B.Ed Upper Primary</option>
+                                    <option value="B.Ed. Geography" data-dept="INTERDISCIPLINARY STUDIES" {% if student and student.programme == 'B.Ed. Geography' %}selected{% endif %}>B.Ed. Geography</option>
+                                    <option value="B.Ed. Physical Education and Health" data-dept="INTERDISCIPLINARY STUDIES" {% if student and student.programme == 'B.Ed. Physical Education and Health' %}selected{% endif %}>B.Ed. Physical Education and Health</option>
+                                    <option value="B.Ed. Social Studies" data-dept="INTERDISCIPLINARY STUDIES" {% if student and student.programme == 'B.Ed. Social Studies' %}selected{% endif %}>B.Ed. Social Studies</option>
                                 </optgroup>
                                 <optgroup label="LANGUAGES EDUCATION">
-                                    <option value="B.Ed. Arabic" data-dept="LANGUAGES EDUCATION" {% if student and student.programme=='B.Ed. Arabic' %}selected{% endif %}>B.Ed. Arabic</option>
-                                    <option value="B.Ed. English." data-dept="LANGUAGES EDUCATION" {% if student and student.programme=='B.Ed. English.' %}selected{% endif %}>B.Ed. English.</option>
-                                    <option value="B.Ed. French" data-dept="LANGUAGES EDUCATION" {% if student and student.programme=='B.Ed. French' %}selected{% endif %}>B.Ed. French</option>
-                                    <option value="B.Ed. Ghanaian Language" data-dept="LANGUAGES EDUCATION" {% if student and student.programme=='B.Ed. Ghanaian Language' %}selected{% endif %}>B.Ed. Ghanaian Language</option>
+                                    <option value="B.Ed. Arabic" data-dept="LANGUAGES EDUCATION" {% if student and student.programme == 'B.Ed. Arabic' %}selected{% endif %}>B.Ed. Arabic</option>
+                                    <option value="B.Ed. English." data-dept="LANGUAGES EDUCATION" {% if student and student.programme == 'B.Ed. English.' %}selected{% endif %}>B.Ed. English.</option>
+                                    <option value="B.Ed. French" data-dept="LANGUAGES EDUCATION" {% if student and student.programme == 'B.Ed. French' %}selected{% endif %}>B.Ed. French</option>
+                                    <option value="B.Ed. Ghanaian Language" data-dept="LANGUAGES EDUCATION" {% if student and student.programme == 'B.Ed. Ghanaian Language' %}selected{% endif %}>B.Ed. Ghanaian Language</option>
                                 </optgroup>
                                 <optgroup label="MANAGEMENT EDUCATION">
-                                    <option value="B.Sc. Marketing" data-dept="MANAGEMENT EDUCATION" {% if student and student.programme=='B.Sc. Marketing' %}selected{% endif %}>B.Sc. Marketing</option>
-                                    <option value="2-year Diploma in Office Management and Computer Applications" data-dept="MANAGEMENT EDUCATION" {% if student and student.programme=='2-year Diploma in Office Management and Computer Applications' %}selected{% endif %}>2-year Diploma in Office Management and Computer Applications</option>
-                                    <option value="B.B.A. Management" data-dept="MANAGEMENT EDUCATION" {% if student and student.programme=='B.B.A. Management' %}selected{% endif %}>B.B.A. Management</option>
-                                    <option value="B.Ed. Business Studies (Management)" data-dept="MANAGEMENT EDUCATION" {% if student and student.programme=='B.Ed. Business Studies (Management)' %}selected{% endif %}>B.Ed. Business Studies (Management)</option>
-                                    <option value="2-year Diploma in Business Administration, Management" data-dept="MANAGEMENT EDUCATION" {% if student and student.programme=='2-year Diploma in Business Administration, Management' %}selected{% endif %}>2-year Diploma in Business Administration, Management</option>
+                                    <option value="B.Sc. Marketing" data-dept="MANAGEMENT EDUCATION" {% if student and student.programme == 'B.Sc. Marketing' %}selected{% endif %}>B.Sc. Marketing</option>
+                                    <option value="2-year Diploma in Office Management and Computer Applications" data-dept="MANAGEMENT EDUCATION" {% if student and student.programme == '2-year Diploma in Office Management and Computer Applications' %}selected{% endif %}>2-year Diploma in Office Management and Computer Applications</option>
+                                    <option value="B.B.A. Management" data-dept="MANAGEMENT EDUCATION" {% if student and student.programme == 'B.B.A. Management' %}selected{% endif %}>B.B.A. Management</option>
+                                    <option value="B.Ed. Business Studies (Management)" data-dept="MANAGEMENT EDUCATION" {% if student and student.programme == 'B.Ed. Business Studies (Management)' %}selected{% endif %}>B.Ed. Business Studies (Management)</option>
+                                    <option value="2-year Diploma in Business Administration, Management" data-dept="MANAGEMENT EDUCATION" {% if student and student.programme == '2-year Diploma in Business Administration, Management' %}selected{% endif %}>2-year Diploma in Business Administration, Management</option>
                                 </optgroup>
                                 <optgroup label="MATHEMATICS EDUCATION">
-                                    <option value="B.Ed. Mathematics" data-dept="MATHEMATICS EDUCATION" {% if student and student.programme=='B.Ed. Mathematics' %}selected{% endif %}>B.Ed. Mathematics</option>
+                                    <option value="B.Ed. Mathematics" data-dept="MATHEMATICS EDUCATION" {% if student and student.programme == 'B.Ed. Mathematics' %}selected{% endif %}>B.Ed. Mathematics</option>
                                 </optgroup>
                                 <optgroup label="MECHANICAL AND AUTOMOTIVE">
-                                    <option value="B.Sc. Mechanical Engineering Technology" data-dept="MECHANICAL AND AUTOMOTIVE" {% if student and student.programme=='B.Sc. Mechanical Engineering Technology' %}selected{% endif %}>B.Sc. Mechanical Engineering Technology</option>
-                                    <option value="B.Sc. Mechanical Engineering Technology Education" data-dept="MECHANICAL AND AUTOMOTIVE" {% if student and student.programme=='B.Sc. Mechanical Engineering Technology Education' %}selected{% endif %}>B.Sc. Mechanical Engineering Technology Education</option>
-                                    <option value="B.Sc. Welding and Fabrication Technology with Education" data-dept="MECHANICAL AND AUTOMOTIVE" {% if student and student.programme=='B.Sc. Welding and Fabrication Technology with Education' %}selected{% endif %}>B.Sc. Welding and Fabrication Technology with Education</option>
-                                    <option value="2-year in Diploma in Architecture and Digital Construction" data-dept="MECHANICAL AND AUTOMOTIVE" {% if student and student.programme=='2-year in Diploma in Architecture and Digital Construction' %}selected{% endif %}>2-year in Diploma in Architecture and Digital Construction</option>
-                                    <option value="Applied Technology (Automotive and Mechanical) B.Ed." data-dept="MECHANICAL AND AUTOMOTIVE" {% if student and student.programme=='Applied Technology (Automotive and Mechanical) B.Ed.' %}selected{% endif %}>Applied Technology (Automotive and Mechanical) B.Ed.</option>
-                                    <option value="B.Sc. Automotive Engineering Technology Education" data-dept="MECHANICAL AND AUTOMOTIVE" {% if student and student.programme=='B.Sc. Automotive Engineering Technology Education' %}selected{% endif %}>B.Sc. Automotive Engineering Technology Education</option>
+                                    <option value="B.Sc. Mechanical Engineering Technology" data-dept="MECHANICAL AND AUTOMOTIVE" {% if student and student.programme == 'B.Sc. Mechanical Engineering Technology' %}selected{% endif %}>B.Sc. Mechanical Engineering Technology</option>
+                                    <option value="B.Sc. Mechanical Engineering Technology Education" data-dept="MECHANICAL AND AUTOMOTIVE" {% if student and student.programme == 'B.Sc. Mechanical Engineering Technology Education' %}selected{% endif %}>B.Sc. Mechanical Engineering Technology Education</option>
+                                    <option value="B.Sc. Welding and Fabrication Technology with Education" data-dept="MECHANICAL AND AUTOMOTIVE" {% if student and student.programme == 'B.Sc. Welding and Fabrication Technology with Education' %}selected{% endif %}>B.Sc. Welding and Fabrication Technology with Education</option>
+                                    <option value="2-year in Diploma in Architecture and Digital Construction" data-dept="MECHANICAL AND AUTOMOTIVE" {% if student and student.programme == '2-year in Diploma in Architecture and Digital Construction' %}selected{% endif %}>2-year in Diploma in Architecture and Digital Construction</option>
+                                    <option value="Applied Technology (Automotive and Mechanical) B.Ed." data-dept="MECHANICAL AND AUTOMOTIVE" {% if student and student.programme == 'Applied Technology (Automotive and Mechanical) B.Ed.' %}selected{% endif %}>Applied Technology (Automotive and Mechanical) B.Ed.</option>
+                                    <option value="B.Sc. Automotive Engineering Technology Education" data-dept="MECHANICAL AND AUTOMOTIVE" {% if student and student.programme == 'B.Sc. Automotive Engineering Technology Education' %}selected{% endif %}>B.Sc. Automotive Engineering Technology Education</option>
                                 </optgroup>
                                 <optgroup label="CBT">
-                                    <option value="Diploma in Education (Competency-Based Training) CBT" data-dept="(COMPETENCY-BASED TRAINING) CBT" {% if student and student.programme=='Diploma in Education (Competency-Based Training) CBT' %}selected{% endif %}>Diploma in Education (Competency-Based Training) CBT</option>
+                                    <option value="Diploma in Education (Competency-Based Training) CBT" data-dept="(COMPETENCY-BASED TRAINING) CBT" {% if student and student.programme == 'Diploma in Education (Competency-Based Training) CBT' %}selected{% endif %}>Diploma in Education (Competency-Based Training) CBT</option>
                                 </optgroup>
                                 <option value="Other" {% if student and student.programme == 'Other' %}selected{% endif %}>Other</option>
                             </select>
                         </div>
 
                         <div class="col-md-6">
-                            <label for="department"
-                                class="form-label text-muted small fw-bold text-uppercase">Department <span
-                                    class="text-danger">*</span></label>
-                            <select class="form-select bg-light border-0" id="department" name="department" required>
+                            <label for="department" class="form-label" style="font-size:13px;">Department <span class="text-danger">*</span></label>
+                            <select class="form-select" id="department" name="department" required>
                                 <option value="">Select Department...</option>
-                                <option value="ACCOUNTING EDUCATION" {% if student and student.department=='ACCOUNTING EDUCATION' %}selected{% endif %}>ACCOUNTING EDUCATION</option>
-                                <option value="CONSTRUCTION AND WOOD" {% if student and student.department=='CONSTRUCTION AND WOOD' %}selected{% endif %}>CONSTRUCTION AND WOOD</option>
-                                <option value="ECONOMICS EDUCATION" {% if student and student.department=='ECONOMICS EDUCATION' %}selected{% endif %}>ECONOMICS EDUCATION</option>
-                                <option value="ELECTRICALS AND ELECTRONICS" {% if student and student.department=='ELECTRICALS AND ELECTRONICS' %}selected{% endif %}>ELECTRICALS AND ELECTRONICS</option>
-                                <option value="FASHION AND TEXTILES" {% if student and student.department=='FASHION AND TEXTILES' %}selected{% endif %}>FASHION AND TEXTILES</option>
-                                <option value="HOSPITALITY AND TOURISM" {% if student and student.department=='HOSPITALITY AND TOURISM' %}selected{% endif %}>HOSPITALITY AND TOURISM</option>
-                                <option value="HUMAN RESOURCE" {% if student and student.department=='HUMAN RESOURCE' %}selected{% endif %}>HUMAN RESOURCE</option>
-                                <option value="IEDEI" {% if student and student.department=='IEDEI' %}selected{% endif %}>IEDEI</option>
-                                <option value="INFORMATION TECHNOLOGY EDUCATION" {% if student and student.department=='INFORMATION TECHNOLOGY EDUCATION' %}selected{% endif %}>INFORMATION TECHNOLOGY EDUCATION</option>
-                                <option value="INTERDISPLINARY STUDIES" {% if student and student.department=='INTERDISPLINARY STUDIES' %}selected{% endif %}>INTERDISPLINARY STUDIES</option>
-                                <option value="LANGUAGES EDUCATION" {% if student and student.department=='LANGUAGES EDUCATION' %}selected{% endif %}>LANGUAGES EDUCATION</option>
-                                <option value="MANAGEMENT EDUCATION" {% if student and student.department=='MANAGEMENT EDUCATION' %}selected{% endif %}>MANAGEMENT EDUCATION</option>
-                                <option value="MATHEMATICS EDUCATION" {% if student and student.department=='MATHEMATICS EDUCATION' %}selected{% endif %}>MATHEMATICS EDUCATION</option>
-                                <option value="MECHANICAL AND AUTOMOTIVE" {% if student and student.department=='MECHANICAL AND AUTOMOTIVE' %}selected{% endif %}>MECHANICAL AND AUTOMOTIVE</option>
-                                <option value="(COMPETENCY-BASED TRAINING) CBT" {% if student and student.department=='(COMPETENCY-BASED TRAINING) CBT' %}selected{% endif %}>CBT</option>
-                                <option value="Other" {% if student and student.department=='Other' %}selected{% endif %}>Other</option>
+                                <option value="ACCOUNTING EDUCATION" {% if student and student.department == 'ACCOUNTING EDUCATION' %}selected{% endif %}>ACCOUNTING EDUCATION</option>
+                                <option value="CONSTRUCTION AND WOOD" {% if student and student.department == 'CONSTRUCTION AND WOOD' %}selected{% endif %}>CONSTRUCTION AND WOOD</option>
+                                <option value="ECONOMICS EDUCATION" {% if student and student.department == 'ECONOMICS EDUCATION' %}selected{% endif %}>ECONOMICS EDUCATION</option>
+                                <option value="ELECTRICALS AND ELECTRONICS" {% if student and student.department == 'ELECTRICALS AND ELECTRONICS' %}selected{% endif %}>ELECTRICALS AND ELECTRONICS</option>
+                                <option value="FASHION AND TEXTILES" {% if student and student.department == 'FASHION AND TEXTILES' %}selected{% endif %}>FASHION AND TEXTILES</option>
+                                <option value="HOSPITALITY AND TOURISM" {% if student and student.department == 'HOSPITALITY AND TOURISM' %}selected{% endif %}>HOSPITALITY AND TOURISM</option>
+                                <option value="HUMAN RESOURCE" {% if student and student.department == 'HUMAN RESOURCE' %}selected{% endif %}>HUMAN RESOURCE</option>
+                                <option value="IEDEI" {% if student and student.department == 'IEDEI' %}selected{% endif %}>IEDEI</option>
+                                <option value="INFORMATION TECHNOLOGY EDUCATION" {% if student and student.department == 'INFORMATION TECHNOLOGY EDUCATION' %}selected{% endif %}>INFORMATION TECHNOLOGY EDUCATION</option>
+                                <option value="INTERDISCIPLINARY STUDIES" {% if student and student.department == 'INTERDISCIPLINARY STUDIES' %}selected{% endif %}>INTERDISCIPLINARY STUDIES</option>
+                                <option value="LANGUAGES EDUCATION" {% if student and student.department == 'LANGUAGES EDUCATION' %}selected{% endif %}>LANGUAGES EDUCATION</option>
+                                <option value="MANAGEMENT EDUCATION" {% if student and student.department == 'MANAGEMENT EDUCATION' %}selected{% endif %}>MANAGEMENT EDUCATION</option>
+                                <option value="MATHEMATICS EDUCATION" {% if student and student.department == 'MATHEMATICS EDUCATION' %}selected{% endif %}>MATHEMATICS EDUCATION</option>
+                                <option value="MECHANICAL AND AUTOMOTIVE" {% if student and student.department == 'MECHANICAL AND AUTOMOTIVE' %}selected{% endif %}>MECHANICAL AND AUTOMOTIVE</option>
+                                <option value="(COMPETENCY-BASED TRAINING) CBT" {% if student and student.department == '(COMPETENCY-BASED TRAINING) CBT' %}selected{% endif %}>CBT</option>
+                                <option value="Other" {% if student and student.department == 'Other' %}selected{% endif %}>Other</option>
                             </select>
                         </div>
                     </div>
 
-                    <!-- Hidden input for Other Programme -->
                     <div id="other_programme_wrapper" class="mb-4" style="{% if student and student.programme == 'Other' %}display: block;{% else %}display: none;{% endif %}">
-                        <label for="programme_other" class="form-label text-primary small fw-bold">Specify Programme</label>
-                        <input type="text" class="form-control bg-light border-0" id="programme_other" name="programme_other" value="{{ student.programme if student and student.programme == 'Other' }}">
+                        <label for="programme_other" class="form-label" style="font-size:13px;">Specify Programme</label>
+                        <input type="text" class="form-control" id="programme_other" name="programme_other"
+                            value="{{ student.programme if student and student.programme == 'Other' else '' }}">
                     </div>
 
-                    <hr class="text-muted opacity-10 my-4">
+                    <hr style="border-color:#e2d9c8; margin:24px 0;">
 
-                    <h5 class="text-primary fw-bold text-uppercase small letter-spacing-1 mb-4">Contact Information</h5>
+                    <h5 style="color:#2563eb; font-weight:700; font-size:14px; text-transform:uppercase; letter-spacing:1px; margin-bottom:16px;">Contact Information</h5>
 
-                    <div class="row g-4">
+                    <div class="row g-4 mb-4">
                         <div class="col-md-6">
-                            <label for="contact" class="form-label text-muted small fw-bold text-uppercase">Student
-                                Phone/Email</label>
-                            <input type="text" class="form-control bg-light border-0" id="contact" name="contact"
-                                placeholder="024XXXXXXX" value="{{ student.contact if student }}">
+                            <label for="contact" class="form-label" style="font-size:13px;">Student Phone</label>
+                            <input type="text" class="form-control" id="contact" name="contact"
+                                value="{{ student.contact if student else '' }}" placeholder="024XXXXXXX">
                         </div>
 
                         <div class="col-md-6">
-                            <label for="parent_contact"
-                                class="form-label text-muted small fw-bold text-uppercase">Guardian Contact</label>
-                            <input type="text" class="form-control bg-light border-0" id="parent_contact"
-                                name="parent_contact" placeholder="Parent's Number"
-                                value="{{ student.parent_contact if student }}">
+                            <label for="parent_contact" class="form-label" style="font-size:13px;">Guardian Contact</label>
+                            <input type="text" class="form-control" id="parent_contact" name="parent_contact"
+                                value="{{ student.parent_contact if student else '' }}" placeholder="Parent's Number">
                         </div>
                     </div>
 
-                    <div class="mt-5 d-flex gap-3">
-                        <button type="submit" class="btn btn-primary btn-lg px-5 shadow-sm btn-hover-lift">
+                    <div class="d-flex gap-3 mt-4">
+                        <button type="submit" class="btn btn-primary px-5" style="border-radius:10px; font-weight:600;">
                             {% if student %}Save Changes{% else %}Create Student Profile{% endif %}
                         </button>
-                        <a href="{{ url_for('students') }}" class="btn btn-light btn-lg border">Cancel</a>
+                        <a href="{{ url_for('students') }}" class="btn btn-outline-secondary px-4">Cancel</a>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- Sidebar / Guidance -->
     <div class="col-lg-4">
-        <div class="card bg-primary bg-opacity-10 border-0 mb-4 mt-lg-5">
-            <div class="card-body p-4">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="icon-square bg-primary text-white rounded-3 me-3 p-2">
-                        <i class="bi bi-shield-check fs-4"></i>
-                    </div>
-                    <h5 class="fw-bold mb-0 text-primary">Data Privacy</h5>
-                </div>
-                <p class="small text-muted mb-0">
-                    <strong>GTEC Data Privacy:</strong> All client information is stored securely with field-level encryption.
-                    Only initials are stored — full names are <em>never</em> retained. Access is restricted to authorised
-                    counselling staff only.
-                </p>
-            </div>
+        <div class="card-dark">
+            <h5 style="font-weight:700; font-size:15px; margin-bottom:12px;">
+                <i class="fas fa-shield-alt me-2" style="color:#2563eb;"></i>Data Privacy
+            </h5>
+            <p style="font-size:13px; color:#6b7280; margin:0;">
+                All client information is stored securely. Full names are automatically converted to initials for privacy. Access is restricted to authorised counselling staff only.
+            </p>
         </div>
 
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white border-0 fw-bold">Registration Checklist</div>
-            <ul class="list-group list-group-flush small">
-                <li class="list-group-item border-0 text-muted ps-4">
-                    <i class="bi bi-check2-circle text-success me-2"></i> Verify Index Number format
+        <div class="card-dark">
+            <h5 style="font-weight:700; font-size:15px; margin-bottom:12px;">
+                <i class="fas fa-list-check me-2" style="color:#16a34a;"></i>Registration Checklist
+            </h5>
+            <ul style="list-style:none; padding:0; margin:0;">
+                <li style="font-size:13px; color:#6b7280; padding:4px 0;">
+                    <i class="fas fa-check-circle me-2" style="color:#16a34a;"></i>Verify Index Number format
                 </li>
-                <li class="list-group-item border-0 text-muted ps-4">
-                    <i class="bi bi-check2-circle text-success me-2"></i> Collect next of kin contact
+                <li style="font-size:13px; color:#6b7280; padding:4px 0;">
+                    <i class="fas fa-check-circle me-2" style="color:#16a34a;"></i>Collect next of kin contact
                 </li>
-                <li class="list-group-item border-0 text-muted ps-4">
-                    <i class="bi bi-check2-circle text-success me-2"></i> Confirm current program
+                <li style="font-size:13px; color:#6b7280; padding:4px 0;">
+                    <i class="fas fa-check-circle me-2" style="color:#16a34a;"></i>Confirm current programme
                 </li>
             </ul>
         </div>
@@ -291,21 +255,6 @@
 
 {% block scripts %}
 <script>
-    // Modern Form Logic
-    (function () {
-        'use strict';
-        const forms = document.querySelectorAll('.needs-validation');
-        Array.from(forms).forEach(function (form) {
-            form.addEventListener('submit', function (event) {
-                if (!form.checkValidity()) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                }
-                form.classList.add('was-validated');
-            }, false);
-        });
-    })();
-
     function handleProgrammeChange(select) {
         const deptSelect = document.getElementById('department');
         const otherWrapper = document.getElementById('other_programme_wrapper');

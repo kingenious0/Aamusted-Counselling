@@ -1,483 +1,353 @@
-{% extends "base_modern.html" %}
-
-{% block title %}Clinical Profile: {{ student.case_number or student.id }} - AAMUSTED{% endblock %}
-
+{% set active_page = 'students' %}
+{% extends 'base.html' %}
+{% block title %}Clinical Profile: {{ student.case_number or student.id }} - AAMUSTED Counselling{% endblock %}
+{% block heading %}<i class="fas fa-user me-2" style="color:#2563eb;"></i>Student Profile{% endblock %}
 {% block content %}
 <div class="mb-3">
-    <a href="javascript:history.back()" class="btn btn-sm btn-light border shadow-sm text-secondary fw-medium px-3 py-2 rounded-pill d-inline-flex align-items-center">
-        <i class="bi bi-arrow-left text-primary me-2"></i> Back
+    <a href="/students" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;">
+        <i class="fas fa-arrow-left me-1"></i>Back to Registry
     </a>
 </div>
 
 <div class="row">
     <!-- Left Column: Student Bio & Identity -->
     <div class="col-lg-4 mb-4">
-        <!-- Main Identity Card -->
-        <div class="card card-glass border-0 shadow-sm mb-4">
-            <div class="card-body text-center p-4">
-                <div class="avatar-circle-lg bg-primary bg-opacity-10 text-primary mx-auto mb-3 fw-bold d-flex align-items-center justify-content-center"
-                    style="width: 120px; height: 120px; border-radius: 50%; font-size: 3rem; letter-spacing: -2px;">
-                    {{ (student.case_number or 'GCC0')[-4:] }}
-                </div>
-                <h4 class="fw-bold mb-1">{{ student.case_number or 'No Code' }}</h4>
-                {% if session.get('role') in ['Admin', 'Counsellor', 'Counselor'] %}
-                <p class="text-dark fw-medium mb-1"><i class="bi bi-person-fill me-1 text-muted"></i>{{ student.name }}</p>
+        <div class="card-dark text-center">
+            <div style="width:100px; height:100px; border-radius:50%; background:rgba(37,99,235,0.1); color:#2563eb; font-size:2.5rem; font-weight:700; display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+                {{ student.case_number[-4:] if student.case_number else '0000' }}
+            </div>
+            <h4 style="font-weight:700; margin-bottom:4px;">{{ student.case_number or 'No Code' }}</h4>
+            <p style="font-weight:600; font-size:15px; color:#1a202c; margin-bottom:4px;">{{ student.name or '-' }}</p>
+            <p style="font-size:12px; color:#6b7280; font-family:monospace;">{{ student.index_number or 'No Index' }}</p>
+
+            <div class="d-flex justify-content-center flex-wrap gap-2 mb-3">
+                <span class="badge badge-blue" style="padding:4px 10px; border-radius:20px;">{{ student.programme or 'General Arts' }}</span>
+                {% if student.gender %}
+                <span class="badge" style="background:rgba(139,92,246,0.15); color:#a78bfa; padding:4px 10px; border-radius:20px;">{{ student.gender }}</span>
                 {% endif %}
-                <p class="text-muted mb-3 font-monospace small bg-light d-inline-block px-2 py-1 rounded">{{ student.index_number or 'No Index' }}</p>
-
-                <div class="d-flex justify-content-center flex-wrap gap-2 mb-4">
-                    <span class="badge bg-light text-secondary border text-wrap" style="line-height:1.5;">{{ student.programme or 'General Arts' }}</span>
-                    {% if student.gender %}
-                    <span class="badge bg-light text-secondary border">{{ student.gender }}</span>
-                    {% endif %}
-                    {% if student.age %}
-                    <span class="badge bg-light text-secondary border">{{ student.age }} yrs</span>
-                    {% endif %}
-                </div>
-
-                <div class="d-grid gap-2">
-                    <button type="button" class="btn btn-success btn-hover-lift shadow-sm py-2 fw-bold" 
-                        onclick='handleStartSession({{ student.id }}, {{ student.name | tojson }})'>
-                        <i class="bi bi-play-circle-fill me-2"></i>Start Session
-                    </button>
-                    <a href="/appointment?student_id={{ student.id }}" class="btn btn-primary btn-hover-lift shadow-sm py-2">
-                        <i class="bi bi-calendar-plus me-2"></i>Schedule Session
-                    </a>
-                </div>
+                {% if student.age %}
+                <span class="badge" style="background:rgba(245,158,11,0.15); color:#fbbf24; padding:4px 10px; border-radius:20px;">{{ student.age }} yrs</span>
+                {% endif %}
             </div>
-            <div class="card-footer bg-light bg-opacity-50 border-0 p-3">
-                <div class="row text-center small text-muted g-0">
-                    <div class="col">
-                        <strong class="d-block text-dark h5 mb-0">{{ sessions|length }}</strong>
-                        Sessions
-                    </div>
-                    <div class="col border-start">
-                        <strong class="d-block text-dark h5 mb-0">{{ referrals|length }}</strong>
-                        Referrals
-                    </div>
-                </div>
+
+            <div class="d-grid gap-2">
+                <a href="/appointment?student_id={{ student.id }}" class="btn btn-success" style="border-radius:10px; font-weight:600;">
+                    <i class="fas fa-calendar-plus me-1"></i>Schedule Appointment
+                </a>
+                <a href="/create_session?student_id={{ student.id }}" class="btn btn-primary" style="border-radius:10px; font-weight:600;">
+                    <i class="fas fa-notes-medical me-1"></i>Create Session
+                </a>
             </div>
         </div>
 
-        <!-- Demographics & Contact -->
-        <div class="card card-glass border-0 shadow-sm mb-4">
-            <div class="card-header bg-transparent border-bottom-0 pt-4 px-4 pb-0 fw-bold text-uppercase small text-muted" style="letter-spacing: 1px;">
-                Contact Details
-            </div>
-            <div class="card-body p-4 pt-3">
-                <ul class="list-unstyled mb-0 small">
-                    <li class="mb-3 d-flex align-items-start">
-                        <i class="bi bi-telephone text-primary me-3 fs-5 opacity-75"></i>
-                        <div>
-                            <span class="d-block text-muted mb-1">Phone Number</span>
-                            <span class="fw-medium text-dark">{{ student.contact or 'N/A' }}</span>
-                        </div>
-                    </li>
-                    <li class="mb-3 d-flex align-items-start">
-                        <i class="bi bi-envelope text-primary me-3 fs-5 opacity-75"></i>
-                        <div>
-                            <span class="d-block text-muted mb-1">Email Address</span>
-                            <span class="fw-medium text-dark text-break">{{ student.email or 'N/A' }}</span>
-                        </div>
-                    </li>
-                    <li class="mb-3 d-flex align-items-start">
-                        <i class="bi bi-building text-primary me-3 fs-5 opacity-75"></i>
-                        <div>
-                            <span class="d-block text-muted mb-1">Hall of Residence</span>
-                            <span class="fw-medium text-dark">{{ student.hall_of_residence or 'N/A' }}</span>
-                        </div>
-                    </li>
-                    <li class="d-flex align-items-start">
-                        <i class="bi bi-calendar3 text-primary me-3 fs-5 opacity-75"></i>
-                        <div>
-                            <span class="d-block text-muted mb-1">Registered On</span>
-                            <span class="fw-medium text-dark">{{ student.created_at }}</span>
-                        </div>
-                    </li>
-                </ul>
-            </div>
+        <div class="card-dark">
+            <h5 style="font-weight:700; font-size:14px; text-transform:uppercase; letter-spacing:1px; color:#6b7280; margin-bottom:12px;">Contact Details</h5>
+            <ul style="list-style:none; padding:0; margin:0;">
+                <li style="padding:8px 0; border-bottom:1px solid #e2d9c8;">
+                    <small style="color:#6b7280; display:block;">Phone Number</small>
+                    <span style="font-weight:500;">{{ student.contact or 'N/A' }}</span>
+                </li>
+                <li style="padding:8px 0; border-bottom:1px solid #e2d9c8;">
+                    <small style="color:#6b7280; display:block;">Email</small>
+                    <span style="font-weight:500;">{{ student.email or 'N/A' }}</span>
+                </li>
+                <li style="padding:8px 0; border-bottom:1px solid #e2d9c8;">
+                    <small style="color:#6b7280; display:block;">Hall of Residence</small>
+                    <span style="font-weight:500;">{{ student.hall_of_residence or 'N/A' }}</span>
+                </li>
+                <li style="padding:8px 0; border-bottom:1px solid #e2d9c8;">
+                    <small style="color:#6b7280; display:block;">Department</small>
+                    <span style="font-weight:500;">{{ student.department or 'N/A' }}</span>
+                </li>
+                <li style="padding:8px 0;">
+                    <small style="color:#6b7280; display:block;">Registered On</small>
+                    <span style="font-weight:500;">{{ student.created_at }}</span>
+                </li>
+            </ul>
         </div>
 
-        <!-- Actions -->
-        <div class="d-grid gap-2">
-            <button class="btn btn-light border shadow-sm text-start py-2 px-3 btn-hover-lift" onclick="printProfile()">
-                <i class="bi bi-printer me-3 text-secondary"></i> Print Profile Summary
-            </button>
-            <button class="btn btn-light border shadow-sm text-start py-2 px-3 btn-hover-lift" onclick="exportHistory()">
-                <i class="bi bi-file-earmark-spreadsheet me-3 text-success"></i> Export History (CSV)
-            </button>
+        <div class="card-dark">
+            <div class="d-flex justify-content-around text-center">
+                <div>
+                    <div style="font-size:24px; font-weight:700; color:#1a202c;">{{ sessions|length }}</div>
+                    <small style="color:#6b7280;">Sessions</small>
+                </div>
+                <div>
+                    <div style="font-size:24px; font-weight:700; color:#1a202c;">{{ referrals|length }}</div>
+                    <small style="color:#6b7280;">Referrals</small>
+                </div>
+                <div>
+                    <div style="font-size:24px; font-weight:700; color:#1a202c;">{{ dass21_scores|length }}</div>
+                    <small style="color:#6b7280;">Assessments</small>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Right Column: Clinical Data -->
     <div class="col-lg-8">
-        <div class="card card-glass border-0 shadow-lg h-100">
-            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
-                <ul class="nav nav-pills card-header-pills bg-light rounded-pill p-1 d-inline-flex" id="studentTabs"
-                    role="tablist">
-                    <li class="nav-item">
-                        <a class="nav-link rounded-pill active px-4" id="session-tab" data-bs-toggle="tab"
-                            href="#session" role="tab">
-                            Sessions
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link rounded-pill px-4" id="assessments-tab" data-bs-toggle="tab"
-                            href="#assessments" role="tab">
-                            Assessments
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link rounded-pill px-4" id="referrals-tab" data-bs-toggle="tab" href="#referrals"
-                            role="tab">
-                            Referrals
-                        </a>
-                    </li>
-                </ul>
-            </div>
+        <div class="card-dark">
+            <ul class="nav nav-pills mb-4" id="profileTabs" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#sessions" type="button"
+                        style="border-radius:10px; font-weight:600; font-size:13px;">
+                        <i class="fas fa-comments me-1"></i>Sessions
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#assessments" type="button"
+                        style="border-radius:10px; font-weight:600; font-size:13px;">
+                        <i class="fas fa-clipboard-check me-1"></i>Assessments
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#referrals" type="button"
+                        style="border-radius:10px; font-weight:600; font-size:13px;">
+                        <i class="fas fa-share me-1"></i>Referrals
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#appointments" type="button"
+                        style="border-radius:10px; font-weight:600; font-size:13px;">
+                        <i class="fas fa-calendar me-1"></i>Appointments
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#casenotes" type="button"
+                        style="border-radius:10px; font-weight:600; font-size:13px;">
+                        <i class="fas fa-folder-open me-1"></i>Case Notes
+                    </button>
+                </li>
+            </ul>
 
-            <div class="card-body p-4">
-                <div class="tab-content" id="studentTabsContent">
-
-                    <!-- Sessions Tab -->
-                    <div class="tab-pane fade show active" id="session" role="tabpanel">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="fw-bold mb-0">Session History</h5>
-                            <span class="badge bg-primary bg-opacity-10 text-primary">{{ sessions|length }}
-                                Records</span>
-                        </div>
-
-                        {% if sessions %}
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle table-borderless">
-                                <thead class="border-bottom text-uppercase small text-muted">
-                                    <tr>
-                                        <th>Date & Time</th>
-                                        <th>Counsellor</th>
-                                        <th>Type</th>
-                                        <th>Status</th>
-                                        <th class="text-end">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for s in sessions %}
-                                    <tr class="border-bottom row-hover">
-                                        <td class="fw-medium">{{ s.date }} <span class="text-muted small ms-1">{{ s.time
-                                                }}</span></td>
-                                        <td>{{ s.Counsellor_name }}</td>
-                                        <td><span class="badge bg-light text-dark border">{{ s.session_type or 'General'
-                                                }}</span></td>
-                                        <td>
-                                            {% if s.status == 'Completed' %}
-                                            <i class="bi bi-check-circle-fill text-success me-1"></i> Completed
-                                            {% elif s.status == 'Scheduled' %}
-                                            <i class="bi bi-clock-fill text-warning me-1"></i> Scheduled
-                                            {% else %}
-                                            {{ s.status }}
-                                            {% endif %}
-                                        </td>
-                                        <td class="text-end">
-                                            <a href="{{ url_for('print_session', session_id=s.id) }}" target="_blank"
-                                                class="btn btn-sm btn-light">
-                                                <i class="bi bi-file-text"></i> Details
-                                            </a>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        {% else %}
-                        <div class="text-center py-5 text-muted opacity-50">
-                            <i class="bi bi-calendar-x display-4"></i>
-                            <p class="mt-2">No sessions recorded yet.</p>
-                        </div>
-                        {% endif %}
+            <div class="tab-content" id="profileTabContent">
+                <!-- Sessions Tab -->
+                <div class="tab-pane fade show active" id="sessions" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 style="font-weight:700; margin:0;">Session History</h6>
+                        <span class="badge badge-blue" style="padding:4px 10px;">{{ sessions|length }} Records</span>
                     </div>
-
-                    <!-- Assessments Tab -->
-                    <div class="tab-pane fade" id="assessments" role="tabpanel">
-                        <h5 class="fw-bold mb-4">Psychometric Assessments</h5>
-
-                        <!-- DASS-21 -->
-                        <div class="card bg-light border-0 mb-4">
-                            <div class="card-body">
-                                <h6 class="fw-bold mb-3 text-secondary text-uppercase small letter-spacing-1">DASS-21
-                                    Screening</h6>
-                                {% if dass21_scores %}
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-borderless mb-0">
-                                        <thead>
-                                            <tr class="text-muted border-bottom">
-                                                <th>Date</th>
-                                                <th>Depression</th>
-                                                <th>Anxiety</th>
-                                                <th>Stress</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for score in dass21_scores %}
-                                            <tr class="border-bottom bg-white rounded-3">
-                                                <td class="ps-2 py-2">{{ score.completion_date }}</td>
-                                                <td class="py-2">
-                                                    <span
-                                                        class="badge rounded-pill {% if score.depression_score >= 21 %}bg-danger{% elif score.depression_score >= 14 %}bg-warning text-dark{% else %}bg-success{% endif %}">
-                                                        {{ score.depression_score }}
-                                                    </span>
-                                                </td>
-                                                <td class="py-2">
-                                                    <span
-                                                        class="badge rounded-pill {% if score.anxiety_score >= 15 %}bg-danger{% elif score.anxiety_score >= 10 %}bg-warning text-dark{% else %}bg-success{% endif %}">
-                                                        {{ score.anxiety_score }}
-                                                    </span>
-                                                </td>
-                                                <td class="py-2">
-                                                    <span
-                                                        class="badge rounded-pill {% if score.stress_score >= 34 %}bg-danger{% elif score.stress_score >= 26 %}bg-warning text-dark{% else %}bg-success{% endif %}">
-                                                        {{ score.stress_score }}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
-                                {% else %}
-                                <p class="small text-muted mb-0">No DASS-21 records found.</p>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <!-- OQ-45.2 -->
-                        <div class="card bg-light border-0">
-                            <div class="card-body">
-                                <h6 class="fw-bold mb-3 text-secondary text-uppercase small letter-spacing-1">OQ-45.2
-                                    Outcome</h6>
-                                {% if oq_scores %}
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-borderless mb-0">
-                                        <thead>
-                                            <tr class="text-muted border-bottom">
-                                                <th>Date</th>
-                                                <th>Total Score</th>
-                                                <th>Context</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for score in oq_scores %}
-                                            <tr class="border-bottom bg-white">
-                                                <td class="ps-2 py-2">{{ score.completion_date }}</td>
-                                                <td class="py-2">
-                                                    <span
-                                                        class="badge rounded-pill {% if score.total_score >= 64 %}bg-danger{% elif score.total_score >= 55 %}bg-warning text-dark{% else %}bg-success{% endif %}">
-                                                        {{ score.total_score }}
-                                                    </span>
-                                                </td>
-                                                <td class="py-2 small text-muted">{{ score.session_date }}</td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
-                                {% else %}
-                                <p class="small text-muted mb-0">No OQ-45.2 records found.</p>
-                                {% endif %}
-                            </div>
-                        </div>
+                    {% if sessions %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Date & Time</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for s in sessions %}
+                                <tr>
+                                    <td>{{ s.date or '' }} <small class="text-muted">{{ s.time or '' }}</small></td>
+                                    <td><span class="badge" style="background:rgba(139,92,246,0.15); color:#a78bfa; padding:3px 8px;">{{ s.session_type or 'General' }}</span></td>
+                                    <td>
+                                        {% if s.status == 'Completed' %}
+                                        <span class="badge badge-green" style="padding:3px 8px;">Completed</span>
+                                        {% elif s.status == 'Scheduled' %}
+                                        <span class="badge badge-amber" style="padding:3px 8px;">Scheduled</span>
+                                        {% else %}
+                                        <span class="badge" style="background:rgba(107,114,128,0.15); color:#9ca3af; padding:3px 8px;">{{ s.status or '-' }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="/print_session/{{ s.id }}" class="btn btn-sm btn-outline-primary" style="border-radius:8px; font-size:12px;">
+                                            <i class="fas fa-file-alt me-1"></i>Details
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
-
-                    <!-- Referrals Tab -->
-                    <div class="tab-pane fade" id="referrals" role="tabpanel">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="fw-bold mb-0">Referral History</h5>
-                        </div>
-                        {% if referrals %}
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle table-borderless">
-                                <thead class="border-bottom text-uppercase small text-muted">
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Referred By</th>
-                                        <th>Reason</th>
-                                        <th class="text-end">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for referral in referrals %}
-                                    <tr class="border-bottom row-hover">
-                                        <td>{{ referral.created_at }}</td>
-                                        <td>{{ referral.referred_by }}</td>
-                                        <td>
-                                            <div class="text-truncate" style="max-width: 250px;">
-                                                {{ referral.reasons }}
-                                            </div>
-                                        </td>
-                                        <td class="text-end">
-                                            <a href="{{ url_for('print_referral', id=referral.id) }}" target="_blank"
-                                                class="btn btn-sm btn-light">
-                                                <i class="bi bi-printer"></i> Print
-                                            </a>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        {% else %}
-                        <div class="text-center py-5 text-muted opacity-50">
-                            <i class="bi bi-box-arrow-up-right display-4"></i>
-                            <p class="mt-2">No referrals recorded.</p>
-                        </div>
-                        {% endif %}
+                    {% else %}
+                    <div class="empty-state" style="padding:40px;">
+                        <i class="fas fa-calendar-times" style="font-size:36px; opacity:0.25;"></i>
+                        <p class="mt-2">No sessions recorded yet.</p>
                     </div>
+                    {% endif %}
+                </div>
 
+                <!-- Assessments Tab -->
+                <div class="tab-pane fade" id="assessments" role="tabpanel">
+                    <h6 style="font-weight:700; margin-bottom:12px;">DASS-21 Assessments</h6>
+                    {% if dass21_scores %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Depression</th>
+                                    <th>Anxiety</th>
+                                    <th>Stress</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for score in dass21_scores %}
+                                <tr>
+                                    <td>{{ score.completion_date }}</td>
+                                    <td>
+                                        <span class="badge {% if score.depression_score|default(0)|int >= 21 %}badge-red{% elif score.depression_score|default(0)|int >= 14 %}badge-amber{% else %}badge-green{% endif %}" style="padding:3px 10px; border-radius:20px;">
+                                            {{ score.depression_score or '-' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if score.anxiety_score|default(0)|int >= 15 %}badge-red{% elif score.anxiety_score|default(0)|int >= 10 %}badge-amber{% else %}badge-green{% endif %}" style="padding:3px 10px; border-radius:20px;">
+                                            {{ score.anxiety_score or '-' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if score.stress_score|default(0)|int >= 34 %}badge-red{% elif score.stress_score|default(0)|int >= 26 %}badge-amber{% else %}badge-green{% endif %}" style="padding:3px 10px; border-radius:20px;">
+                                            {{ score.stress_score or '-' }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="empty-state" style="padding:40px;">
+                        <i class="fas fa-clipboard" style="font-size:36px; opacity:0.25;"></i>
+                        <p class="mt-2">No DASS-21 records found.</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Referrals Tab -->
+                <div class="tab-pane fade" id="referrals" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 style="font-weight:700; margin:0;">Referral History</h6>
+                        <a href="/create_referral?student_id={{ student.id }}" class="btn btn-sm btn-success" style="border-radius:8px;">
+                            <i class="fas fa-plus me-1"></i>Add Referral
+                        </a>
+                    </div>
+                    {% if referrals %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Referred By</th>
+                                    <th>Reasons</th>
+                                    <th>Outcome</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in referrals %}
+                                <tr>
+                                    <td>{{ r.created_at }}</td>
+                                    <td>{{ r.referred_by or '-' }}</td>
+                                    <td style="max-width:250px;">{{ r.reasons or '-' }}</td>
+                                    <td>{{ r.outcome or '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="empty-state" style="padding:40px;">
+                        <i class="fas fa-share" style="font-size:36px; opacity:0.25;"></i>
+                        <p class="mt-2">No referrals found.</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Appointments Tab -->
+                <div class="tab-pane fade" id="appointments" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 style="font-weight:700; margin:0;">Appointment History</h6>
+                        <a href="/appointment?student_id={{ student.id }}" class="btn btn-sm btn-primary" style="border-radius:8px;">
+                            <i class="fas fa-plus me-1"></i>Schedule
+                        </a>
+                    </div>
+                    {% if appointments %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Purpose</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for a in appointments %}
+                                <tr>
+                                    <td>{{ a.date or '-' }}</td>
+                                    <td>{{ a.time or '-' }}</td>
+                                    <td>{{ a.purpose or '-' }}</td>
+                                    <td>
+                                        {% if a.status == 'Completed' %}
+                                        <span class="badge badge-green" style="padding:3px 8px;">Completed</span>
+                                        {% elif a.status == 'Scheduled' %}
+                                        <span class="badge badge-blue" style="padding:3px 8px;">Scheduled</span>
+                                        {% elif a.status == 'In Session' %}
+                                        <span class="badge badge-purple" style="padding:3px 8px;">In Session</span>
+                                        {% else %}
+                                        <span class="badge" style="background:rgba(107,114,128,0.15); color:#9ca3af; padding:3px 8px;">{{ a.status or '-' }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="empty-state" style="padding:40px;">
+                        <i class="fas fa-calendar" style="font-size:36px; opacity:0.25;"></i>
+                        <p class="mt-2">No appointments found.</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Case Notes Tab -->
+                <div class="tab-pane fade" id="casenotes" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 style="font-weight:700; margin:0;">Case Management Notes</h6>
+                        <a href="/create_case_note?student_id={{ student.id }}" class="btn btn-sm btn-info" style="border-radius:8px;">
+                            <i class="fas fa-plus me-1"></i>Add Note
+                        </a>
+                    </div>
+                    {% if case_notes %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Category</th>
+                                    <th>Notes</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cn in case_notes %}
+                                <tr>
+                                    <td>{{ cn.created_at or '-' }}</td>
+                                    <td>{{ cn.category or '-' }}</td>
+                                    <td style="max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ cn.notes or cn.note or '-' }}</td>
+                                    <td>
+                                        <a href="/print_case_note/{{ cn.id }}" class="btn btn-sm btn-outline-primary" style="border-radius:8px; font-size:12px;">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="empty-state" style="padding:40px;">
+                        <i class="fas fa-folder-open" style="font-size:36px; opacity:0.25;"></i>
+                        <p class="mt-2">No case notes found.</p>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<!-- Hidden Print Template -->
-<div id="printProfile" class="d-none">
-    <div style="font-family: 'Inter', sans-serif; color: #1e293b; padding: 15mm; background: white;">
-        <!-- Premium Header -->
-        <div style="text-align: center; border-bottom: 2px solid #1a365d; padding-bottom: 6mm; margin-bottom: 10mm;">
-            <h1 style="font-family: 'Playfair Display', serif; font-size: 20pt; color: #1a365d; margin-bottom: 1mm;">USTED</h1>
-            <h2 style="font-size: 10pt; text-transform: uppercase; letter-spacing: 2px; color: #64748b; margin-bottom: 4mm;">Guidance & Counselling Centre</h2>
-            <div style="background: #1a365d; color: white; display: inline-block; padding: 2mm 6mm; border-radius: 50px; font-size: 10pt; font-weight: 600; text-transform: uppercase;">Student Clinical Summary</div>
-        </div>
-
-        <h3 style="font-family: 'Playfair Display', serif; font-size: 14pt; color: #1a365d; border-bottom: 1px solid #e2e8f0; padding-bottom: 2mm; margin-bottom: 6mm;">Profile: {{ student.case_number or student.id }}</h3>
-        
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 10mm; font-size: 10pt;">
-            <tr>
-                <th style="text-align: left; padding: 3mm; background: #f8fafc; border: 1px solid #e2e8f0; width: 25%;">Student ID</th>
-                <td style="padding: 3mm; border: 1px solid #e2e8f0;">{{ student.professional_id or student.id }}</td>
-                <th style="text-align: left; padding: 3mm; background: #f8fafc; border: 1px solid #e2e8f0; width: 25%;">Index Number</th>
-                <td style="padding: 3mm; border: 1px solid #e2e8f0;">{{ student.index_number }}</td>
-            </tr>
-            <tr>
-                <th style="text-align: left; padding: 3mm; background: #f8fafc; border: 1px solid #e2e8f0;">Programme</th>
-                <td style="padding: 3mm; border: 1px solid #e2e8f0;">{{ student.programme }}</td>
-                <th style="text-align: left; padding: 3mm; background: #f8fafc; border: 1px solid #e2e8f0;">Contact</th>
-                <td style="padding: 3mm; border: 1px solid #e2e8f0;">{{ student.contact }}</td>
-            </tr>
-        </table>
-
-        <h3 style="font-family: 'Playfair Display', serif; font-size: 14pt; color: #1a365d; border-bottom: 1px solid #e2e8f0; padding-bottom: 2mm; margin-bottom: 6mm;">Recent Clinical History</h3>
-        
-        <table style="width: 100%; border-collapse: collapse; font-size: 9.5pt;">
-            <thead>
-                <tr style="background: #f1f5f9;">
-                    <th style="text-align: left; padding: 3mm; border: 1px solid #e2e8f0;">Date</th>
-                    <th style="text-align: left; padding: 3mm; border: 1px solid #e2e8f0;">Counselor</th>
-                    <th style="text-align: left; padding: 3mm; border: 1px solid #e2e8f0;">Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for s in sessions[:10] %}
-                <tr>
-                    <td style="padding: 3mm; border: 1px solid #e2e8f0;">{{ s.date }}</td>
-                    <td style="padding: 3mm; border: 1px solid #e2e8f0;">{{ s.Counsellor_name }}</td>
-                    <td style="padding: 3mm; border: 1px solid #e2e8f0;">{{ s.status }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-
-        <div style="text-align: center; margin-top: 20mm; font-size: 8pt; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 4mm;">
-            Generated by AAMUSTED Counselling Management System • Confidential Clinical Record
-        </div>
-    </div>
-</div>
-
-<script>
-    function printProfile() {
-        const content = document.getElementById('printProfile').innerHTML;
-        const win = window.open('', '', 'height=800,width=1000');
-        win.document.write('<html><head><title>Print Profile - {{ student.case_number or student.id }}</title>');
-        win.document.write('<link href="/static/css/inter.css" rel="stylesheet">');
-        win.document.write('<\/' + 'head><body onload="setTimeout(() => { window.print(); window.close(); }, 500)">' + content + '<\/' + 'body><\/' + 'html>');
-        win.document.close();
-    }
-
-    function exportHistory() {
-        let csvContent = "data:text/csv;charset=utf-8,Type,Date,Details\n";
-        {% for s in sessions %}
-        csvContent += "Session,{{ s.date }},{{ s.Counsellor_name }} - {{ s.session_type }}\n";
-        {% endfor %}
-
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "{{ student.case_number or student.id }}_clinical_history.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
-
-    function handleStartSession(studentId, studentName) {
-        // Show loading state
-        Swal.fire({
-            title: 'Checking Appointments...',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
-        // Check for today's appointment via API
-        fetch(`/api/check_appointment/${studentId}`)
-            .then(response => response.json())
-            .then(data => {
-                Swal.close();
-                
-                if (data.status === 'found') {
-                    // Appointment found! Inform user and go to create_session
-                    Swal.fire({
-                        title: 'Appointment Found',
-                        html: `<b>${studentName}</b> has a scheduled appointment today at <b>${data.time}</b>.<br><br>Proceed to session log?`,
-                        icon: 'info',
-                        showCancelButton: true,
-                        confirmButtonText: 'Yes, Start Session',
-                        cancelButtonText: 'Cancel',
-                        reverseButtons: true,
-                        customClass: { popup: 'rounded-4' }
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            window.location.href = `/create_session?appointment_id=${data.appointment_id}`;
-                        }
-                    });
-                } else if (data.status === 'not_found') {
-                    // No appointment found. Prompt for Walk-in or Schedule
-                    Swal.fire({
-                        title: 'No Appointment Found',
-                        html: `<b>${studentName}</b> has no appointment scheduled for today.<br><br>What would you like to do?`,
-                        icon: 'question',
-                        showCancelButton: true,
-                        showDenyButton: true,
-                        confirmButtonText: 'Start Walk-in Session',
-                        denyButtonText: 'Schedule Appointment First',
-                        cancelButtonText: 'Cancel',
-                        reverseButtons: true,
-                        customClass: { popup: 'rounded-4' }
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            // Go to create_session with student_id and walk-in mode
-                            window.location.href = `/create_session?student_id=${studentId}&mode=walkin`;
-                        } else if (result.isDenied) {
-                            // Go to schedule appointment page
-                            window.location.href = `/appointment?student_id=${studentId}`;
-                        }
-                    });
-                } else {
-                    Swal.fire('Error', 'Could not verify student status. Please try again.', 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                Swal.fire('Network Error', 'Failed to connect to the system.', 'error');
-            });
-    }
-</script>
 {% endblock %}
