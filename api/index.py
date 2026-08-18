@@ -30,11 +30,21 @@ _db_initialized = False
 
 def get_db():
     import psycopg2
+    import socket
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL is missing in Vercel environment variables")
-    if 'sslmode=' in DATABASE_URL:
-        return psycopg2.connect(DATABASE_URL)
-    return psycopg2.connect(DATABASE_URL, sslmode='require')
+
+    _orig_getaddrinfo = socket.getaddrinfo
+    def _ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+        return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+    socket.getaddrinfo = _ipv4_getaddrinfo
+
+    try:
+        if 'sslmode=' in DATABASE_URL:
+            return psycopg2.connect(DATABASE_URL)
+        return psycopg2.connect(DATABASE_URL, sslmode='require')
+    finally:
+        socket.getaddrinfo = _orig_getaddrinfo
 
 
 def dict_cursor(conn):
