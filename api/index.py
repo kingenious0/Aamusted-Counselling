@@ -617,6 +617,142 @@ def portal_booking():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/get_theme")
+def get_theme():
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT setting_name, setting_value FROM app_settings')
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        settings = {r['setting_name']: r['setting_value'] for r in rows}
+        return jsonify({
+            'theme': settings.get('active_theme') or settings.get('theme_color') or 'default',
+            'system_name': settings.get('system_name') or 'AAMUSTED Guidance & Counselling',
+            'logo_url': settings.get('logo_url') or '/static/aamusted system_logo.png',
+        })
+    except Exception:
+        return jsonify({
+            'theme': 'default',
+            'system_name': 'AAMUSTED Guidance & Counselling',
+            'logo_url': '/static/aamusted system_logo.png',
+        })
+
+
+@app.route("/api/admin/cloud_proxy/stats")
+@login_required
+def cloud_proxy_stats():
+    if session.get('role') != 'Admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    tables = [
+        'Student', 'Appointment', 'Referral', 'CaseManagement',
+        'OutcomeQuestionnaire', 'DASS21', 'Feedback', 'SessionIssue',
+        'Notification', 'Counsellor', 'BookingRequest',
+    ]
+    counts = {}
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        for t in tables:
+            try:
+                cur.execute(f'SELECT COUNT(*) FROM "{t}" WHERE is_deleted = FALSE')
+                counts[t] = cur.fetchone()[0]
+            except Exception:
+                counts[t] = 0
+        cur.close()
+        conn.close()
+    except Exception:
+        for t in tables:
+            counts[t] = 0
+    return jsonify({
+        'status': 'online',
+        'total_records': sum(counts.values()),
+        'tables': counts,
+    })
+
+
+@app.route("/api/sync/status")
+@login_required
+def get_sync_status():
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute("SELECT setting_value FROM app_settings WHERE setting_name = 'last_cloud_sync'")
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        last_sync = row['setting_value'] if row else None
+    except Exception:
+        last_sync = None
+    return jsonify({
+        'status': 'active',
+        'last_sync': last_sync,
+        'mode': 'cloud',
+    })
+
+
+@app.route("/api/sync/check_alerts")
+@login_required
+def check_alerts():
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute("SELECT setting_value FROM app_settings WHERE setting_name = 'pending_booking_alert'")
+        row = cur.fetchone()
+        has_alert = row and row.get('setting_value') == 'true'
+        if has_alert:
+            cur.execute("UPDATE app_settings SET setting_value = 'false' WHERE setting_name = 'pending_booking_alert'")
+            conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"new_booking": has_alert})
+    except Exception:
+        return jsonify({"new_booking": False})
+
+
+@app.route("/api/offline/pull", methods=["POST"])
+@login_required
+def offline_pull():
+    data = request.get_json(silent=True) or {}
+    last_sync = data.get('last_sync')
+    tables = [
+        'Student', 'Appointment', 'Referral', 'CaseManagement',
+        'OutcomeQuestionnaire', 'DASS21', 'Feedback', 'SessionIssue',
+        'Notification', 'Counsellor',
+    ]
+    result = {}
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        for t in tables:
+            try:
+                if last_sync:
+                    cur.execute(f'SELECT * FROM "{t}" WHERE updated_at > %s AND is_deleted = FALSE ORDER BY updated_at DESC LIMIT 500', (last_sync,))
+                else:
+                    cur.execute(f'SELECT * FROM "{t}" WHERE is_deleted = FALSE ORDER BY updated_at DESC LIMIT 500')
+                rows = cur.fetchall()
+                for r in rows:
+                    for k, v in r.items():
+                        if isinstance(v, (datetime, date)):
+                            r[k] = v.isoformat()
+                result[t] = rows
+            except Exception:
+                result[t] = []
+        cur.close()
+        conn.close()
+    except Exception:
+        for t in tables:
+            result[t] = []
+    return jsonify(result)
+
+
+@app.route("/appointments")
+@login_required
+def appointments_page():
+    return redirect(url_for('dashboard'))
+
+
 @app.route("/health", methods=["GET"])
 def health_check():
     db_status = "Disconnected"
