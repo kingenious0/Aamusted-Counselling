@@ -29,6 +29,8 @@ CORS(app)
 BRIDGE_API_KEY = os.environ.get("BRIDGE_API_KEY", "sb_bridge_AnEpYo_2026")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
+_db_initialized = False
+
 # ── Database ────────────────────────────────────────────────────────
 
 def get_db():
@@ -130,10 +132,18 @@ def init_db():
     except Exception as e:
         logger.error(f"init_db error: {e}")
 
-try:
-    init_db()
-except Exception:
-    pass
+# ── Lazy DB init (runs once on first request, not at import time) ───
+
+@app.before_request
+def _ensure_db():
+    global _db_initialized
+    if _db_initialized:
+        return
+    try:
+        init_db()
+        _db_initialized = True
+    except Exception as e:
+        logger.error(f"Lazy init_db error: {e}")
 
 # ── Context processor ───────────────────────────────────────────────
 
