@@ -87,7 +87,7 @@
                     <div class="row align-items-center g-3">
                         <div class="col-md-2">
                             <div class="fw-bold font-monospace text-primary small">{{ booking.reference }}</div>
-                            <span class="badge bg-success rounded-pill mt-1">Ready</span>
+                            <span class="badge bg-success rounded-pill mt-1">{{ booking.status or 'Ready' }}</span>
                         </div>
                         <div class="col-md-4">
                             <div class="d-flex align-items-center mb-1">

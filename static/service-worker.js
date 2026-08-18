@@ -2,7 +2,7 @@
 // AAMUSTED GCC - Offline-First Service Worker v4
 // ═══════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'aamusted-v5';
+const CACHE_VERSION = 'aamusted-v6';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const PAGE_CACHE   = `${CACHE_VERSION}-pages`;
 const API_CACHE    = `${CACHE_VERSION}-api`;
@@ -63,8 +63,14 @@ self.addEventListener('fetch', event => {
   const isNavigation = request.mode === 'navigate';
   const isAPI = url.pathname.startsWith('/api/') || url.pathname.startsWith('/sync/');
   const isStatic = url.pathname.startsWith('/static/');
+  const isAction = /\/admin\/bookings\/\d+\/(register|accept|decline)/.test(url.pathname);
 
   event.respondWith((async () => {
+
+    // ── ACTION ENDPOINTS: always network, never cache ──
+    if (isAction) {
+      return await fetch(request);
+    }
 
     // ── API: network-first ──
     if (isAPI) {

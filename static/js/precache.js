@@ -11,7 +11,6 @@
     '/dashboard',
     '/students',
     '/add_student',
-    '/appointments',
     '/manage_appointments',
     '/intake',
     '/admin/bookings',
@@ -56,7 +55,7 @@
     console.log('[PreCache] Starting background page cache...');
 
     try {
-      const cache = await caches.open('aamusted-v4-pages');
+      const cache = await caches.open('aamusted-v5-pages');
       let cached = 0;
       let skipped = 0;
 

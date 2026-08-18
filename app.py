@@ -2052,7 +2052,7 @@ def admin_reset_password():
         conn = get_db_connection()
         hashed_pw = generate_password_hash(new_password)
         conn.execute(
-            'UPDATE users SET password_hash = ? WHERE id = ?', (hashed_pw, user_id))
+            'UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (hashed_pw, user_id))
         conn.execute('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)',
                      (session.get('user_id'), 'PASSWORD_RESET', f"Reset password for user ID {user_id}"))
         conn.commit()
@@ -2080,7 +2080,7 @@ def admin_edit_user():
 
     try:
         conn = get_db_connection()
-        conn.execute('UPDATE users SET full_name = ? WHERE id = ?',
+        conn.execute('UPDATE users SET full_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
                      (full_name, user_id))
         conn.execute('INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)',
                      (session.get('user_id'), 'USER_UPDATE', f"Updated name for user ID {user_id} to {full_name}"))
@@ -2137,15 +2137,15 @@ def profile():
                     file.save(os.path.join(upload_dir, filename))
 
                     # Update DB (store relative path for static serving)
-                    conn.execute('UPDATE users SET profile_pic = ? WHERE id = ?',
-                                 (filename, session.get('user_id')))
+conn.execute('UPDATE users SET profile_pic = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                             (filename, session.get('user_id')))
 
                     session['profile_pic'] = filename
 
             # Update password if provided
             if new_password:
                 hashed_pw = generate_password_hash(new_password)
-                conn.execute('UPDATE users SET password_hash = ? WHERE id = ?',
+                conn.execute('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
                              (hashed_pw, session.get('user_id')))
                 flash('Profile and password updated successfully!', 'success')
             else:
