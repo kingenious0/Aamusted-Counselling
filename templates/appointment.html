@@ -14,7 +14,7 @@
                         <select name="student_name" class="form-select" required>
                             <option value="">Select Student...</option>
                             {% for student in students %}
-                            <option value="{{ student.name }}">{{ student.name }} ({{ student.case_number }})</option>
+                            <option value="{{ student.name }}" data-id="{{ student.id }}">{{ student.name }}{% if student.case_number %} ({{ student.case_number }}){% endif %}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -64,4 +64,13 @@
         </div>
     </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelector('select[name="student_name"]').addEventListener('change', function() {
+    var opt = this.options[this.selectedIndex];
+    var sidInput = document.querySelector('input[name="student_id"]');
+    sidInput.value = opt.dataset.id || '';
+});
+</script>
 {% endblock %}

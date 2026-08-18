@@ -284,9 +284,21 @@ def init_db():
         cur.execute("""
             CREATE TABLE IF NOT EXISTS "BookingRequest" (
                 id SERIAL PRIMARY KEY,
-                reference TEXT UNIQUE, student_name TEXT, student_id TEXT,
-                email TEXT, phone TEXT, program TEXT, level TEXT,
-                reason TEXT, preferred_date TEXT, preferred_time TEXT,
+                reference TEXT UNIQUE,
+                full_name TEXT,
+                student_name TEXT,
+                index_number TEXT,
+                student_id TEXT,
+                email TEXT,
+                phone TEXT,
+                department TEXT,
+                programme TEXT,
+                program TEXT,
+                level TEXT,
+                hall_of_residence TEXT,
+                reason TEXT,
+                preferred_date TEXT,
+                preferred_time TEXT,
                 status TEXT DEFAULT 'Pending',
                 is_deleted BOOLEAN DEFAULT FALSE,
                 global_id UUID DEFAULT gen_random_uuid(),
@@ -294,8 +306,31 @@ def init_db():
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        conn.commit()
     except Exception as e:
         logger.error(f"init_db BookingRequest: {e}")
+        conn.rollback()
+    # Add missing columns to existing BookingRequest tables
+    _booking_alter_cols = [
+        ('full_name', 'ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS full_name TEXT'),
+        ('index_number', 'ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS index_number TEXT'),
+        ('department', 'ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS department TEXT'),
+        ('programme', 'ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS programme TEXT'),
+        ('hall_of_residence', 'ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS hall_of_residence TEXT'),
+        ('student_name', 'ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS student_name TEXT'),
+        ('student_id', 'ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS student_id TEXT'),
+        ('program', 'ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS program TEXT'),
+        ('level', 'ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS level TEXT'),
+    ]
+    try:
+        for col_name, alter_sql in _booking_alter_cols:
+            try:
+                cur.execute(alter_sql)
+            except Exception:
+                pass
+        conn.commit()
+    except Exception as e:
+        logger.error(f"init_db BookingRequest alters: {e}")
         conn.rollback()
     try:
         cur.execute("""
