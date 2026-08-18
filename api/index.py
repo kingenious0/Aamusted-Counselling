@@ -5,7 +5,7 @@ import logging
 import uuid
 import random
 import string
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from functools import wraps
 
 from flask import Flask, request, jsonify, session, redirect, url_for, render_template, flash
@@ -3157,86 +3157,317 @@ def booking_confirm(ref):
         logger.error(f"booking_confirm: {e}")
     return render_template('booking_confirmation.html', ref=ref, booking=booking)
 
+def generate_docx_report(report_type='manual', date_from=None, date_to=None):
+    """Generate a professional DOCX report following the same structure as auto_report_writer.py"""
+    from docx import Document
+    from docx.shared import Inches, Pt, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    now = datetime.now()
+    end_date = now
+
+    if date_from and date_to:
+        start_date = datetime.strptime(date_from, '%Y-%m-%d')
+        end_date = datetime.strptime(date_to, '%Y-%m-%d')
+        period_name = f"Report ({start_date.strftime('%B %d')} - {end_date.strftime('%B %d, %Y')})"
+    elif report_type == 'daily':
+        start_date = now - timedelta(days=1)
+        period_name = start_date.strftime('%B %d, %Y')
+    elif report_type == 'monthly':
+        start_date = now - timedelta(days=30)
+        period_name = end_date.strftime('%B %Y')
+    else:
+        start_date = datetime(2023, 1, 1)
+        period_name = f"Comprehensive Report (up to {end_date.strftime('%B %Y')})"
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute('SELECT COUNT(*) FROM "Student" WHERE is_deleted = FALSE')
+    total_students = cur.fetchone()[0]
+
+    cur.execute('''SELECT status, COUNT(*) FROM "Appointment"
+                   WHERE is_deleted = FALSE AND created_at BETWEEN %s AND %s GROUP BY status''',
+                (start_date, end_date))
+    appt_data = cur.fetchall()
+    total_appointments = sum(r[1] for r in appt_data)
+    completed = next((r[1] for r in appt_data if r[0] and r[0].lower() in ('completed', 'complete')), 0)
+    scheduled = next((r[1] for r in appt_data if r[0] and r[0].lower() in ('scheduled',)), 0)
+    in_session = next((r[1] for r in appt_data if r[0] and 'session' in r[0].lower()), 0)
+
+    cur.execute('''SELECT COUNT(*) FROM "session"
+                   WHERE is_deleted = FALSE AND created_at BETWEEN %s AND %s''', (start_date, end_date))
+    total_sessions = cur.fetchone()[0]
+
+    cur.execute('''SELECT COUNT(DISTINCT student_id) FROM "session"
+                   WHERE is_deleted = FALSE AND created_at BETWEEN %s AND %s''', (start_date, end_date))
+    unique_students = cur.fetchone()[0]
+
+    cur.execute('''SELECT session_type, COUNT(*) FROM "session"
+                   WHERE is_deleted = FALSE AND created_at BETWEEN %s AND %s
+                   GROUP BY session_type''', (start_date, end_date))
+    session_types = cur.fetchall()
+
+    try:
+        cur.execute('''SELECT COUNT(*) FROM "Referral"
+                       WHERE is_deleted = FALSE AND created_at BETWEEN %s AND %s''', (start_date, end_date))
+        total_referrals = cur.fetchone()[0]
+    except Exception:
+        total_referrals = 0
+
+    cur.execute('''SELECT COALESCE(program, 'Unknown'), COUNT(*) FROM "Student"
+                   WHERE is_deleted = FALSE GROUP BY program ORDER BY COUNT(*) DESC LIMIT 5''')
+    top_programmes = cur.fetchall()
+
+    cur.execute('''SELECT notes FROM "session"
+                   WHERE is_deleted = FALSE AND notes IS NOT NULL AND notes != ''
+                   AND created_at BETWEEN %s AND %s''', (start_date, end_date))
+    session_notes = cur.fetchall()
+
+    keywords = ['stress', 'anxiety', 'depression', 'academic', 'relationship', 'family', 'career', 'financial', 'health']
+    common_issues = {}
+    for (note_text,) in session_notes:
+        if note_text:
+            for kw in keywords:
+                if kw in note_text.lower():
+                    common_issues[kw] = common_issues.get(kw, 0) + 1
+
+    cur.close()
+    conn.close()
+
+    document = Document()
+    style = document.styles['Normal']
+    font = style.font
+    font.name = 'Calibri'
+    font.size = Pt(11)
+
+    title = document.add_heading(f'AAMUSTED Guidance & Counselling Centre: {period_name} Activity Report', 0)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for run in title.runs:
+        run.font.size = Pt(20)
+        run.font.bold = True
+        run.font.color.rgb = RGBColor(13, 110, 253)
+
+    document.add_paragraph()
+    date_para = document.add_paragraph(f'Date of Submission: {now.strftime("%B %d, %Y")}')
+    date_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    recipient_para = document.add_paragraph('Prepared for: AAMUSTED Administration')
+    recipient_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    conf_para = document.add_paragraph('CONFIDENTIAL - INTERNAL USE ONLY')
+    conf_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for run in conf_para.runs:
+        run.font.size = Pt(10)
+        run.italic = True
+        run.font.color.rgb = RGBColor(128, 128, 128)
+
+    document.add_page_break()
+
+    completion_rate = (completed / total_appointments * 100) if total_appointments > 0 else 0
+    exec_summary = f"""This report provides an analysis of student engagement with the Guidance & Counselling Centre for the period of {start_date.strftime('%B %d, %Y')} to {end_date.strftime('%B %d, %Y')}. During this timeframe, the Centre facilitated {total_appointments} student appointments, completed {completed} counselling sessions, and served {unique_students} unique students. A total of {total_referrals} formal referral{'s were' if total_referrals != 1 else ' was'} made to external specialists. Key findings indicate {'robust' if completion_rate >= 80 else 'moderate' if completion_rate >= 60 else 'areas for improved'} student engagement."""
+
+    h = document.add_heading('Executive Summary', 1)
+    for run in h.runs:
+        run.font.color.rgb = RGBColor(13, 110, 253)
+    document.add_paragraph(exec_summary)
+
+    h = document.add_heading('1. Key Findings', 1)
+    for run in h.runs:
+        run.font.color.rgb = RGBColor(13, 110, 253)
+
+    document.add_heading('1.1 Appointment Statistics', level=2)
+    table = document.add_table(rows=1, cols=2)
+    table.style = 'Light Grid Accent 1'
+    table.rows[0].cells[0].text = 'Metric'
+    table.rows[0].cells[1].text = 'Count'
+    for cell in table.rows[0].cells:
+        for p in cell.paragraphs:
+            for r in p.runs:
+                r.font.bold = True
+    for metric, count in [('Total Appointments', total_appointments), ('Completed', completed), ('Scheduled', scheduled), ('In Session', in_session)]:
+        row = table.add_row()
+        row.cells[0].text = metric
+        row.cells[1].text = str(count)
+
+    document.add_heading('1.2 Session Statistics', level=2)
+    table = document.add_table(rows=1, cols=2)
+    table.style = 'Light Grid Accent 1'
+    table.rows[0].cells[0].text = 'Metric'
+    table.rows[0].cells[1].text = 'Count'
+    for cell in table.rows[0].cells:
+        for p in cell.paragraphs:
+            for r in p.runs:
+                r.font.bold = True
+    for metric, count in [('Total Sessions', total_sessions), ('Unique Students', unique_students), ('Referrals Made', total_referrals)]:
+        row = table.add_row()
+        row.cells[0].text = metric
+        row.cells[1].text = str(count)
+
+    if session_types:
+        document.add_heading('1.3 Session Types', level=2)
+        table = document.add_table(rows=1, cols=3)
+        table.style = 'Light Grid Accent 1'
+        for i, h_text in enumerate(['Type', 'Count', '%']):
+            table.rows[0].cells[i].text = h_text
+            for p in table.rows[0].cells[i].paragraphs:
+                for r in p.runs:
+                    r.font.bold = True
+        for stype, count in session_types:
+            row = table.add_row()
+            row.cells[0].text = stype or 'Not Specified'
+            row.cells[1].text = str(count)
+            row.cells[2].text = f"{count/total_sessions*100:.1f}%" if total_sessions > 0 else "0%"
+
+    if top_programmes:
+        document.add_heading('1.4 Top Programmes', level=2)
+        table = document.add_table(rows=1, cols=2)
+        table.style = 'Light Grid Accent 1'
+        table.rows[0].cells[0].text = 'Programme'
+        table.rows[0].cells[1].text = 'Students'
+        for cell in table.rows[0].cells:
+            for p in cell.paragraphs:
+                for r in p.runs:
+                    r.font.bold = True
+        for prog, count in top_programmes:
+            row = table.add_row()
+            row.cells[0].text = prog
+            row.cells[1].text = str(count)
+
+    h = document.add_heading('2. Analysis & Discussion', 1)
+    for run in h.runs:
+        run.font.color.rgb = RGBColor(13, 110, 253)
+
+    if total_appointments > 0:
+        document.add_paragraph(f"The appointment completion rate of {completion_rate:.1f}% demonstrates {'strong' if completion_rate >= 80 else 'moderate' if completion_rate >= 60 else 'areas for improvement in'} student engagement. The Centre facilitated {total_appointments} appointments serving {unique_students} unique students during this period.")
+
+    if common_issues:
+        top_issue = max(common_issues.items(), key=lambda x: x[1])
+        document.add_paragraph(f"Keyword analysis of session notes identified '{top_issue[0].title()}' as the most frequently cited concern, appearing in {top_issue[1]} session(s). This highlights a primary area where targeted interventions may be most effective.")
+
+    h = document.add_heading('3. Recommendations', 1)
+    for run in h.runs:
+        run.font.color.rgb = RGBColor(13, 110, 253)
+
+    recommendations = [
+        "Implement mid-semester wellness check-ins for proactive support",
+        "Facilitate targeted workshops on academic stress management around exams",
+        "Train peer counsellors to identify early warning signs",
+        "Monitor completion rates and refine follow-up protocols",
+        "Sustain collaboration with external referral partners"
+    ]
+    for i, rec in enumerate(recommendations, 1):
+        document.add_paragraph(f"{i}. {rec}", style='List Bullet')
+
+    h = document.add_heading('4. Conclusion', 1)
+    for run in h.runs:
+        run.font.color.rgb = RGBColor(13, 110, 253)
+    document.add_paragraph(f"This report presents a comprehensive analysis of the AAMUSTED Guidance & Counselling Centre's activities from {start_date.strftime('%B %d, %Y')} to {end_date.strftime('%B %d, %Y')}. The data demonstrates that the Centre {'is actively serving' if total_appointments > 0 else 'has capacity to serve'} the student population and maintains effective engagement.")
+
+    document.add_page_break()
+    h = document.add_heading('Appendices', 1)
+    for run in h.runs:
+        run.font.color.rgb = RGBColor(13, 110, 253)
+    document.add_paragraph(f"Report Generated: {now.strftime('%B %d, %Y at %I:%M %p')}\nReport Type: {report_type.title()}\nDate Range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}\nData Source: AAMUSTED Counselling Management System")
+
+    import io as _io
+    buffer = _io.BytesIO()
+    document.save(buffer)
+    buffer.seek(0)
+
+    return {
+        'buffer': buffer,
+        'title': f"AAMUSTED Guidance & Counselling Centre: {period_name} Activity Report",
+        'executive_summary': exec_summary,
+        'report_type': report_type,
+        'stats': {
+            'total_students': total_students,
+            'total_appointments': total_appointments,
+            'completed': completed,
+            'total_sessions': total_sessions,
+            'unique_students': unique_students,
+            'total_referrals': total_referrals,
+        }
+    }
+
+
 @app.route("/toggle_auto_report", methods=["GET", "POST"])
 @login_required
 def toggle_auto_report():
     return redirect(url_for('reports'))
 
+
 @app.route("/generate_report_now", methods=["POST"])
 @login_required
 def generate_report_now():
     try:
+        result = generate_docx_report('manual')
+
         conn = get_db()
         cur = conn.cursor()
-        now = datetime.utcnow()
-        cur.execute('''INSERT INTO reports (title, report_type, generated_by, summary, created_at, updated_at)
-                       VALUES (%s, %s, %s, %s, %s, %s)''',
-                    ('Quick Report - ' + now.strftime('%Y-%m-%d %H:%M'), 'Summary',
-                     session.get('full_name', session.get('username', '')),
-                     '{}', now, now))
+        cur.execute('''INSERT INTO reports (title, report_type, summary, generated_by, created_at, updated_at)
+                       VALUES (%s, %s, %s, %s, NOW(), NOW()) RETURNING id''',
+                    (result['title'], 'manual', result['executive_summary'],
+                     session.get('full_name', session.get('username', ''))))
+        report_id = cur.fetchone()[0]
         conn.commit()
         cur.close()
         conn.close()
-        flash("Report generated successfully!", "success")
+
+        import tempfile
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.docx')
+        result['buffer'].seek(0)
+        tmp.write(result['buffer'].read())
+        tmp.close()
+        session['last_report_path'] = tmp.name
+        session['last_report_id'] = report_id
+
+        flash(f"Report generated successfully! ({result['stats']['total_appointments']} appointments, {result['stats']['total_sessions']} sessions)", "success")
     except Exception as e:
+        logger.error(f"Report generation error: {e}")
         flash(f"Error generating report: {e}", "error")
     return redirect(url_for('reports'))
+
 
 @app.route("/generate_report_manual", methods=["POST"])
 @login_required
 def generate_report_manual():
+    report_type = request.form.get('report_type', 'manual')
+    date_from = request.form.get('date_from', '')
+    date_to = request.form.get('date_to', '')
+
     try:
-        date_from = request.form.get('date_from', '')
-        date_to = request.form.get('date_to', '')
-        report_type = request.form.get('report_type', 'Summary')
+        result = generate_docx_report(report_type, date_from or None, date_to or None)
+
         conn = get_db()
         cur = conn.cursor()
-        summary = {}
-        date_filter = ""
-        params = []
-        if date_from and date_to:
-            date_filter = "AND created_at BETWEEN %s AND %s"
-            params = [date_from, date_to]
-        try:
-            if report_type in ('Summary', 'Sessions', 'All'):
-                cur.execute(f'SELECT COUNT(*) FROM "session" WHERE is_deleted = FALSE {date_filter}', params)
-                summary['total_sessions'] = cur.fetchone()[0]
-            if report_type in ('Summary', 'Referrals', 'All'):
-                cur.execute(f'SELECT COUNT(*) FROM "Referral" WHERE is_deleted = FALSE {date_filter}', params)
-                summary['total_referrals'] = cur.fetchone()[0]
-            if report_type in ('Summary', 'DASS-21', 'All'):
-                cur.execute(f'SELECT COUNT(*) FROM "DASS21" WHERE is_deleted = FALSE {date_filter}', params)
-                summary['total_assessments'] = cur.fetchone()[0]
-            if report_type in ('Summary', 'Appointments', 'All'):
-                cur.execute(f'SELECT COUNT(*) FROM "Appointment" WHERE is_deleted = FALSE {date_filter}', params)
-                summary['total_appointments'] = cur.fetchone()[0]
-            if report_type in ('Summary', 'All'):
-                cur.execute(f'SELECT COUNT(*) FROM "Student" WHERE is_deleted = FALSE {date_filter}', params)
-                summary['total_students'] = cur.fetchone()[0]
-        except Exception:
-            pass
-        now = datetime.utcnow()
-        title = f"{report_type} Report"
-        if date_from and date_to:
-            title += f" ({date_from} to {date_to})"
-        import json
-        cur.execute('''INSERT INTO reports (title, report_type, generated_by, summary, created_at, updated_at)
-                       VALUES (%s, %s, %s, %s, %s, %s)''',
-                    (title, report_type,
-                     session.get('full_name', session.get('username', '')),
-                     json.dumps(summary), now, now))
+        cur.execute('''INSERT INTO reports (title, report_type, summary, generated_by, created_at, updated_at)
+                       VALUES (%s, %s, %s, %s, NOW(), NOW()) RETURNING id''',
+                    (result['title'], report_type, result['executive_summary'],
+                     session.get('full_name', session.get('username', ''))))
+        report_id = cur.fetchone()[0]
         conn.commit()
         cur.close()
         conn.close()
-        flash(f"{report_type} report generated successfully!", "success")
+
+        import tempfile
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.docx')
+        result['buffer'].seek(0)
+        tmp.write(result['buffer'].read())
+        tmp.close()
+        session['last_report_path'] = tmp.name
+        session['last_report_id'] = report_id
+
+        flash(f"Report generated successfully! ({result['stats']['total_appointments']} appointments, {result['stats']['total_sessions']} sessions)", "success")
     except Exception as e:
+        logger.error(f"Report generation error: {e}")
         flash(f"Error generating report: {e}", "error")
     return redirect(url_for('reports'))
+
 
 @app.route("/download_report_file/<int:report_id>")
 @login_required
 def download_report_file(report_id):
-    return redirect(url_for('reports'))
+    return redirect(url_for('download_report', report_id=report_id))
+
 
 @app.route("/view_report/<int:report_id>")
 @login_required
@@ -3260,11 +3491,10 @@ def view_report(report_id):
         return redirect(url_for('reports'))
     return render_template('view_report.html', report=report)
 
+
 @app.route("/download_report/<int:report_id>")
 @login_required
 def download_report(report_id):
-    import csv, io, json
-    from flask import Response
     try:
         conn = get_db()
         cur = dict_cursor(conn)
@@ -3272,32 +3502,56 @@ def download_report(report_id):
         report = cur.fetchone()
         cur.close()
         conn.close()
+
         if not report:
             flash("Report not found", "error")
             return redirect(url_for('reports'))
-        output = io.StringIO()
-        writer = csv.writer(output)
-        writer.writerow(['Field', 'Value'])
-        writer.writerow(['Title', report.get('title', '')])
-        writer.writerow(['Type', report.get('report_type', '')])
-        writer.writerow(['Generated By', report.get('generated_by', '')])
-        writer.writerow(['Created At', str(report.get('created_at', ''))])
-        summary = report.get('summary', '{}')
-        if isinstance(summary, str):
-            try:
-                summary = json.loads(summary)
-            except Exception:
-                pass
-        if isinstance(summary, dict):
-            for k, v in summary.items():
-                writer.writerow([k, v])
-        return Response(
-            output.getvalue(),
-            mimetype='text/csv',
-            headers={'Content-Disposition': f'attachment; filename=report_{report_id}.csv'}
-        )
+
+        result = generate_docx_report(report.get('report_type', 'manual'))
+
+        from flask import send_file
+        import tempfile
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.docx')
+        result['buffer'].seek(0)
+        tmp.write(result['buffer'].read())
+        tmp.close()
+
+        return send_file(tmp.name, as_attachment=True,
+                         download_name=f"report_{report_id}.docx",
+                         mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     except Exception as e:
-        flash(f"Download error: {e}", "error")
+        flash(f"Error: {e}", "error")
+        return redirect(url_for('reports'))
+
+
+@app.route("/download_report_csv/<int:report_id>")
+@login_required
+def download_report_csv(report_id):
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        cur.execute('SELECT * FROM reports WHERE id = %s AND is_deleted = FALSE', (report_id,))
+        report = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if not report:
+            flash("Report not found", "error")
+            return redirect(url_for('reports'))
+
+        import csv as _csv, io as _io
+        output = _io.StringIO()
+        writer = _csv.writer(output)
+        writer.writerow(['Metric', 'Value'])
+        result = generate_docx_report(report.get('report_type', 'manual'))
+        for k, v in result['stats'].items():
+            writer.writerow([k.replace('_', ' ').title(), v])
+
+        from flask import Response
+        return Response(output.getvalue(), mimetype='text/csv',
+                        headers={'Content-Disposition': f'attachment; filename=report_{report_id}.csv'})
+    except Exception as e:
+        flash(f"Error: {e}", "error")
         return redirect(url_for('reports'))
 
 @app.route("/delete_report/<int:report_id>", methods=["POST"])
