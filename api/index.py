@@ -1,40 +1,572 @@
 import os
 import logging
 import uuid
-from flask import Flask, request, jsonify
+import random
+import string
+from datetime import datetime, date
+from functools import wraps
+
+from flask import Flask, request, jsonify, session, redirect, url_for, render_template, flash
 from flask_cors import CORS
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from datetime import datetime
+from werkzeug.security import check_password_hash, generate_password_hash
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+basedir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+app = Flask(
+    __name__,
+    template_folder=os.path.join(basedir, 'templates'),
+    static_folder=os.path.join(basedir, 'static'),
+)
+app.secret_key = os.environ.get('SECRET_KEY', 'aamusted-gcc-secret-2026-xK9mP')
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = True
 CORS(app)
 
 BRIDGE_API_KEY = os.environ.get("BRIDGE_API_KEY", "sb_bridge_AnEpYo_2026")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-def get_db_connection():
+# ── Database ────────────────────────────────────────────────────────
+
+def get_db():
     if not DATABASE_URL:
-        raise ValueError("DATABASE_URL environment variable is missing in Vercel settings")
+        raise ValueError("DATABASE_URL is missing in Vercel environment variables")
     if 'sslmode=' in DATABASE_URL:
         return psycopg2.connect(DATABASE_URL)
     return psycopg2.connect(DATABASE_URL, sslmode='require')
 
+# ── Auth decorators ─────────────────────────────────────────────────
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            if request.path.startswith('/api/') or request.path.startswith('/sync/'):
+                return jsonify({'error': 'Unauthorized'}), 401
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if session.get('role') != 'Admin':
+            flash('Admin access required.', 'error')
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated
+
+# ── DB init (runs once per cold start) ──────────────────────────────
+
+def init_db():
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                full_name TEXT,
+                role TEXT NOT NULL DEFAULT 'Admin',
+                phone TEXT,
+                email TEXT,
+                profile_pic TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cur.execute("SELECT id FROM users WHERE username = 'admin'")
+        if not cur.fetchone():
+            cur.execute(
+                "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
+                ('admin', generate_password_hash('admin123'), 'System Admin', 'Admin')
+            )
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        logger.error(f"init_db error: {e}")
+
+try:
+    init_db()
+except Exception:
+    pass
+
+# ── Context processor ───────────────────────────────────────────────
+
+@app.context_processor
+def inject_globals():
+    settings = {}
+    latest_booking_count = 0
+    unread_count = 0
+    notifications = []
+    if 'user_id' in session:
+        try:
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute("SELECT setting_name, setting_value FROM app_settings")
+            for row in cur.fetchall():
+                settings[row[0]] = row[1]
+            cur.execute("SELECT COUNT(*) FROM \"BookingRequest\" WHERE status = 'Pending'")
+            latest_booking_count = cur.fetchone()[0]
+            cur.execute(
+                "SELECT COUNT(*) FROM \"Notification\" WHERE user_id = %s AND is_read = FALSE",
+                (session['user_id'],),
+            )
+            unread_count = cur.fetchone()[0]
+            cur.execute(
+                "SELECT * FROM \"Notification\" WHERE user_id = %s ORDER BY created_at DESC LIMIT 10",
+                (session['user_id'],),
+            )
+            notifications = [dict(r) for r in cur.fetchall()]
+            cur.close()
+            conn.close()
+        except Exception as e:
+            logger.error(f"context_processor: {e}")
+    return {
+        'settings': settings,
+        'latest_booking_count': latest_booking_count,
+        'unread_count': unread_count,
+        'notifications': notifications,
+    }
+
+# ── Auth routes ─────────────────────────────────────────────────────
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        try:
+            conn = get_db()
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT * FROM users WHERE username = %s", (username,))
+            user = cur.fetchone()
+            cur.close()
+            conn.close()
+            if user and check_password_hash(user['password_hash'], password):
+                session['user_id'] = user['id']
+                session['username'] = user['username']
+                session['full_name'] = user['full_name'] or user['username']
+                session['role'] = user['role']
+                return redirect(url_for('dashboard'))
+            flash('Invalid username or password.', 'error')
+        except Exception as e:
+            logger.error(f"login: {e}")
+            flash(f'Login error: {e}', 'error')
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+# ── Dashboard ───────────────────────────────────────────────────────
+
+@app.route('/')
+def index():
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    stats = {}
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM \"Student\" WHERE is_deleted = FALSE")
+        stats['total_students'] = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM \"Appointment\" WHERE is_deleted = FALSE")
+        stats['total_appointments'] = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM \"BookingRequest\" WHERE status = 'Pending'")
+        stats['pending_bookings'] = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM \"session\" WHERE is_deleted = FALSE")
+        stats['total_sessions'] = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+    except Exception as e:
+        logger.error(f"dashboard: {e}")
+    return render_template('dashboard.html', stats=stats)
+
+# ── Admin Bookings ──────────────────────────────────────────────────
+
+@app.route('/admin/bookings')
+@login_required
+@admin_required
+def admin_bookings():
+    tab = request.args.get('tab', 'recent')
+    bookings = []
+    recent_count = history_count = all_count = 0
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("SELECT COUNT(*) FROM \"BookingRequest\" WHERE status IN ('Pending','Accepted')")
+        recent_count = cur.fetchone()['count']
+        cur.execute("SELECT COUNT(*) FROM \"BookingRequest\" WHERE status = 'Declined'")
+        history_count = cur.fetchone()['count']
+        cur.execute("SELECT COUNT(*) FROM \"BookingRequest\"")
+        all_count = cur.fetchone()['count']
+
+        if tab == 'recent':
+            cur.execute(
+                'SELECT * FROM "BookingRequest" WHERE status IN (\'Pending\',\'Accepted\') ORDER BY created_at DESC'
+            )
+        elif tab == 'history':
+            cur.execute('SELECT * FROM "BookingRequest" WHERE status = \'Declined\' ORDER BY created_at DESC')
+        else:
+            cur.execute('SELECT * FROM "BookingRequest" ORDER BY created_at DESC')
+
+        bookings = cur.fetchall()
+        for b in bookings:
+            cur.execute('SELECT id FROM "Appointment" WHERE booking_ref = %s', (b['reference'],))
+            b['is_registered'] = cur.fetchone() is not None
+            name = b.get('full_name', '')
+            if name:
+                parts = name.split()
+                b['masked_name'] = (parts[0][0] + '.' + parts[-1][0] + '.') if len(parts) >= 2 else (name[0] + '.')
+            else:
+                b['masked_name'] = 'N/A'
+            for k, v in b.items():
+                if isinstance(v, (datetime, date)):
+                    b[k] = v.strftime('%Y-%m-%d')
+
+        cur.close()
+        conn.close()
+    except Exception as e:
+        logger.error(f"admin_bookings: {e}")
+
+    return render_template(
+        'admin_bookings.html',
+        bookings=bookings,
+        recent_count=recent_count,
+        history_count=history_count,
+        all_count=all_count,
+        current_tab=tab,
+    )
+
+@app.route('/admin/bookings/<ref>/register')
+@login_required
+@admin_required
+def register_booking(ref):
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute('SELECT * FROM "BookingRequest" WHERE reference = %s', (ref,))
+        booking = cur.fetchone()
+        if not booking:
+            return jsonify({'error': 'Booking not found'}), 404
+
+        cur.execute('SELECT id FROM "Appointment" WHERE booking_ref = %s', (ref,))
+        if cur.fetchone():
+            return jsonify({'error': 'Already registered'}), 400
+
+        name = booking.get('full_name', '')
+        parts = name.split()
+        masked_name = (parts[0][0] + '.' + parts[-1][0] + '.') if len(parts) >= 2 else (name[0] + '.' if name else 'N/A')
+
+        now = datetime.now()
+        month_abbr = now.strftime('%b').upper()
+        year_short = now.strftime('%y')
+        cur.execute('SELECT COUNT(*) FROM "Student" WHERE created_at >= %s', (now.replace(day=1),))
+        count = cur.fetchone()['count'] + 1
+        case_number = f"GCC/{month_abbr}/{year_short}/{count:03d}"
+
+        cur.execute(
+            """INSERT INTO "Student"
+               (name, case_number, index_number, department, programme,
+                contact, gender, age, email, hall_of_residence, global_id)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+               RETURNING id""",
+            (
+                masked_name, case_number,
+                booking.get('index_number'), booking.get('department'),
+                booking.get('programme'), booking.get('phone'),
+                booking.get('gender'), booking.get('age'),
+                booking.get('email'), booking.get('hall_of_residence'),
+                str(uuid.uuid4()),
+            ),
+        )
+        student_id = cur.fetchone()['id']
+
+        cur.execute(
+            """INSERT INTO "Appointment"
+               (student_id, date, time, purpose, status, booking_ref, urgency, global_id)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+               RETURNING id""",
+            (
+                student_id,
+                booking.get('preferred_date'),
+                booking.get('preferred_time'),
+                booking.get('reason'),
+                'Scheduled', ref, 'Normal',
+                str(uuid.uuid4()),
+            ),
+        )
+
+        cur.execute(
+            """UPDATE "BookingRequest"
+               SET status = 'Accepted', accepted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+               WHERE reference = %s""",
+            (ref,),
+        )
+
+        cur.execute(
+            """INSERT INTO "Notification" (user_id, message, type, link, global_id)
+               VALUES (1, %s, 'in_app', %s, %s)""",
+            (f'Booking {ref} registered as student {case_number}', '/admin/bookings', str(uuid.uuid4())),
+        )
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'status': 'success', 'student_id': student_id, 'case_number': case_number})
+
+    except Exception as e:
+        logger.error(f"register_booking: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/admin/bookings/<ref>/decline', methods=['POST'])
+@login_required
+@admin_required
+def decline_booking(ref):
+    try:
+        data = request.json or {}
+        reason = data.get('reason', '')
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            """UPDATE "BookingRequest"
+               SET status = 'Declined', decline_reason = %s, updated_at = CURRENT_TIMESTAMP
+               WHERE reference = %s""",
+            (reason, ref),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ── Client Registry ─────────────────────────────────────────────────
+
+@app.route('/students')
+@login_required
+def students():
+    search = request.args.get('search', '').strip()
+    students_list = []
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        if search:
+            cur.execute(
+                """SELECT * FROM "Student"
+                   WHERE is_deleted = FALSE AND (
+                       name ILIKE %s OR case_number ILIKE %s OR
+                       index_number ILIKE %s OR department ILIKE %s
+                   ) ORDER BY created_at DESC""",
+                (f'%{search}%', f'%{search}%', f'{search}%', f'%{search}%'),
+            )
+        else:
+            cur.execute('SELECT * FROM "Student" WHERE is_deleted = FALSE ORDER BY created_at DESC')
+        students_list = cur.fetchall()
+        for s in students_list:
+            for k, v in s.items():
+                if isinstance(v, (datetime, date)):
+                    s[k] = v.strftime('%Y-%m-%d')
+        cur.close()
+        conn.close()
+    except Exception as e:
+        logger.error(f"students: {e}")
+    return render_template('students.html', students=students_list, search=search)
+
+# ── Sync endpoints (unchanged) ──────────────────────────────────────
+
 def verify_api_key():
-    key = request.headers.get("X-API-KEY")
-    return key == BRIDGE_API_KEY
+    return request.headers.get("X-API-KEY") == BRIDGE_API_KEY
+
+@app.route("/sync/stats", methods=["GET"])
+def sync_stats():
+    if not verify_api_key():
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        tables = [
+            'Student','Appointment','session','Referral','CaseManagement',
+            'OutcomeQuestionnaire','DASS21','Feedback','SessionIssue',
+            'Notification','app_settings','BookingRequest',
+        ]
+        counts = {}
+        for t in tables:
+            try:
+                cur.execute(f'SELECT COUNT(*) FROM "{t}"')
+                counts[t] = cur.fetchone()[0]
+            except Exception:
+                conn.rollback()
+                counts[t] = -1
+        cur.close()
+        conn.close()
+        return jsonify({"status": "success", "counts": counts})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/sync/push", methods=["POST"])
+def push_changes():
+    if not verify_api_key():
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.json or {}
+    changes = data.get("changes", {})
+    table_name = data.get("table")
+    records = data.get("records")
+    cleanup_tables = data.get("cleanup_tables", [])
+    if table_name and records:
+        changes = {table_name: records}
+    if not isinstance(changes, dict):
+        return jsonify({"error": "Invalid format"}), 400
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        for t in cleanup_tables:
+            cur.execute(f'DELETE FROM "{t}"')
+        stats = {}
+        for table, record_list in changes.items():
+            stats[table] = 0
+            for record in record_list:
+                try:
+                    clean = {k: v for k, v in record.items() if k != 'id'}
+                    for k in ['is_deleted', 'is_read']:
+                        if k in clean:
+                            clean[k] = bool(clean[k])
+                    if table == 'app_settings':
+                        conflict = 'setting_name'
+                    elif table == 'BookingRequest':
+                        conflict = 'reference'
+                    else:
+                        conflict = 'global_id'
+                    incoming_ts = clean.get('updated_at', '1970-01-01 00:00:00')
+                    cur.execute(f'SELECT updated_at FROM "{table}" WHERE "{conflict}" = %s', (clean.get(conflict),))
+                    existing = cur.fetchone()
+                    if existing and existing[0] and incoming_ts and incoming_ts <= str(existing[0]):
+                        stats[table] += 1
+                        continue
+                    cols = list(clean.keys())
+                    vals = [clean[c] for c in cols]
+                    placeholders = ', '.join(['%s'] * len(cols))
+                    upd = ', '.join([f'"{c}" = EXCLUDED."{c}"' for c in cols if c != conflict])
+                    cur.execute(
+                        f'INSERT INTO "{table}" ({", ".join([f\'"{c}"\' for c in cols])}) '
+                        f'VALUES ({placeholders}) ON CONFLICT ("{conflict}") DO UPDATE SET {upd}',
+                        tuple(vals),
+                    )
+                    stats[table] += 1
+                except Exception as e:
+                    logger.error(f"push {table}: {e}")
+                    conn.rollback()
+                    continue
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"status": "success", "counts": stats}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/sync/pull", methods=["POST"])
+def pull_data():
+    if not verify_api_key():
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.json or {}
+    since = data.get("last_sync_timestamp")
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        tables = [
+            'Student','Appointment','session','Referral','CaseManagement',
+            'OutcomeQuestionnaire','DASS21','Feedback','SessionIssue',
+            'Notification','app_settings','BookingRequest',
+        ]
+        all_changes = {}
+        total = 0
+        for table in tables:
+            q = f'SELECT * FROM "{table}"'
+            if since and since != '1970-01-01 00:00:00':
+                cur.execute(q + ' WHERE updated_at > %s', (since,))
+            else:
+                cur.execute(q)
+            records = cur.fetchall()
+            if records:
+                sanitized = []
+                for r in records:
+                    d = dict(r)
+                    if not d.get('global_id') and table not in ('app_settings', 'BookingRequest'):
+                        d['global_id'] = f"cloud-{table}-{d.get('id')}"
+                    sanitized.append(d)
+                all_changes[table] = sanitized
+                total += len(sanitized)
+        cur.close()
+        conn.close()
+        for tbl in all_changes:
+            for rec in all_changes[tbl]:
+                for k, v in rec.items():
+                    if isinstance(v, datetime):
+                        rec[k] = v.strftime('%Y-%m-%d %H:%M:%S')
+        return jsonify({"changes": all_changes, "count": total, "server_time": datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ── Public booking portal ───────────────────────────────────────────
+
+@app.route("/api/submit_booking", methods=["POST"])
+def portal_booking():
+    data = request.json or {}
+    try:
+        if not data.get('reference'):
+            data['reference'] = 'BR-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        if not data.get('global_id'):
+            data['global_id'] = str(uuid.uuid4())
+        now = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        data['updated_at'] = now
+        data['created_at'] = now
+        data.setdefault('status', 'Pending')
+        conn = get_db()
+        cur = conn.cursor()
+        KNOWN = [
+            'reference','full_name','index_number','department','programme',
+            'phone','preferred_date','preferred_time','reason','status',
+            'email','hall_of_residence','gender','age',
+            'global_id','updated_at','created_at',
+        ]
+        cols = [c for c in data if c in KNOWN]
+        vals = [data[c] for c in cols]
+        cur.execute(
+            f'INSERT INTO "BookingRequest" ({", ".join([f\'"{c}"\' for c in cols])}) '
+            f'VALUES ({", ".join(["%s"]*len(cols))}) RETURNING reference',
+            vals,
+        )
+        ref = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"status": "success", "reference": ref}), 201
+    except Exception as e:
+        logger.error(f"portal_booking: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# ── Health check ────────────────────────────────────────────────────
 
 @app.route("/", methods=["GET"])
 def health_check():
     db_status = "Disconnected"
     db_error = None
-    
     try:
-        conn = get_db_connection()
+        conn = get_db()
         cur = conn.cursor()
         cur.execute("SELECT 1")
         cur.fetchone()
@@ -43,300 +575,45 @@ def health_check():
         db_status = "Connected"
     except Exception as e:
         db_error = str(e)
-        logger.error(f"Database connection error: {e}")
 
-    # Dynamic Migration (safely non-blocking)
     if db_status == "Connected":
         try:
-            conn = get_db_connection()
+            conn = get_db()
             cur = conn.cursor()
-            tables = ['Student', 'Appointment', 'session', 'Referral', 'CaseManagement', 'OutcomeQuestionnaire', 'DASS21', 'Feedback', 'SessionIssue', 'Notification', 'app_settings', 'BookingRequest']
-            for table in tables:
+            tables = [
+                'Student','Appointment','session','Referral','CaseManagement',
+                'OutcomeQuestionnaire','DASS21','Feedback','SessionIssue',
+                'Notification','app_settings','BookingRequest',
+            ]
+            for t in tables:
                 try:
-                    cur.execute(f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table.lower()}'")
+                    cur.execute(f"SELECT column_name FROM information_schema.columns WHERE table_name = '{t.lower()}'")
                     cols = [c[0] for c in cur.fetchall()]
                     if cols:
                         if 'is_deleted' not in cols:
-                            cur.execute(f'ALTER TABLE "{table}" ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE')
-                        if 'global_id' not in cols and table not in ['app_settings', 'BookingRequest']:
-                            cur.execute(f'ALTER TABLE "{table}" ADD COLUMN global_id UUID DEFAULT gen_random_uuid()')
+                            cur.execute(f'ALTER TABLE "{t}" ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE')
+                        if 'global_id' not in cols and t not in ('app_settings', 'BookingRequest'):
+                            cur.execute(f'ALTER TABLE "{t}" ADD COLUMN global_id UUID DEFAULT gen_random_uuid()')
                         if 'updated_at' not in cols:
-                            cur.execute(f'ALTER TABLE "{table}" ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP')
+                            cur.execute(f'ALTER TABLE "{t}" ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP')
                         if 'last_synced_at' not in cols:
-                            cur.execute(f'ALTER TABLE "{table}" ADD COLUMN last_synced_at TIMESTAMP WITH TIME ZONE')
-                except Exception as table_err:
-                    logger.warning(f"Skipping table {table} during migration: {table_err}")
+                            cur.execute(f'ALTER TABLE "{t}" ADD COLUMN last_synced_at TIMESTAMP WITH TIME ZONE')
+                except Exception:
                     conn.rollback()
                     continue
             conn.commit()
             cur.close()
             conn.close()
-        except Exception as e:
-            logger.error(f"Migration warning: {e}")
+        except Exception:
+            pass
 
-    accept_header = request.headers.get("Accept", "")
-    if "text/html" in accept_header:
-        color = "#28a745" if db_status == "Connected" else "#dc3545"
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>AAMUSTED Counselling - Cloud Sync Bridge</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }}
-                .card {{ background: #1e293b; padding: 32px; border-radius: 16px; border: 1px solid #334155; max-width: 540px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }}
-                .badge {{ display: inline-block; padding: 6px 14px; border-radius: 20px; font-weight: bold; background: {color}; color: #fff; font-size: 14px; }}
-                h1 {{ margin: 0 0 12px 0; font-size: 24px; color: #f8fafc; }}
-                p {{ color: #94a3b8; line-height: 1.5; font-size: 14px; }}
-                .stat-box {{ background: #0f172a; padding: 14px; border-radius: 8px; margin: 16px 0; border: 1px solid #334155; font-family: monospace; font-size: 13px; color: #38bdf8; }}
-            </style>
-        </head>
-        <body>
-            <div class="card">
-                <h1>🏛️ AAMUSTED GCC Cloud Bridge</h1>
-                <p>This is the serverless cloud synchronization engine connecting the desktop Progressive Web App to Supabase PostgreSQL.</p>
-                <div style="margin: 20px 0;">
-                    <span class="badge">● Cloud Bridge: Online</span>
-                    <span class="badge" style="margin-left: 8px;">● Supabase DB: {db_status}</span>
-                </div>
-                <div class="stat-box">
-                    Sync Endpoint: /sync/pull & /sync/push<br>
-                    Booking Endpoint: /api/submit_booking<br>
-                    {f"DB Error: {db_error}" if db_error else "Database: Connected & Ready"}
-                </div>
-                <p style="font-size: 12px; color: #64748b;">The full clinical management system runs locally as an offline-first desktop PWA on staff computers and syncs bidirectionally through this bridge.</p>
-            </div>
-        </body>
-        </html>
-        """
+    accept = request.headers.get("Accept", "")
+    if 'text/html' in accept and 'user_id' not in session:
+        return redirect(url_for('login'))
 
     return jsonify({
         "status": "online",
         "database": db_status,
         "database_error": db_error,
-        "environment": "Vercel",
-        "service": "AAMUSTED Counselling Cloud Bridge"
+        "service": "AAMUSTED Counselling System",
     })
-
-@app.route("/sync/stats", methods=["GET"])
-def sync_stats():
-    if not verify_api_key():
-        return jsonify({"error": "Unauthorized"}), 401
-    
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        tables = [
-            'Student', 'Appointment', 'session', 'Referral', 
-            'CaseManagement', 'OutcomeQuestionnaire', 'DASS21', 
-            'Feedback', 'SessionIssue', 'Notification', 'app_settings',
-            'BookingRequest'
-        ]
-        
-        counts = {}
-        for table in tables:
-            try:
-                cur.execute(f'SELECT COUNT(*) FROM "{table}"')
-                counts[table] = cur.fetchone()[0]
-            except Exception as e:
-                logger.error(f"Error counting table {table}: {e}")
-                cur.execute("ROLLBACK")
-                counts[table] = -1
-        
-        cur.close()
-        conn.close()
-        return jsonify({"status": "success", "counts": counts})
-        
-    except Exception as e:
-        logger.error(f"Stats error: {e}")
-        return jsonify({"error": str(e)}), 500
-
-@app.route("/sync/push", methods=["POST"])
-def push_changes():
-    if not verify_api_key():
-        return jsonify({"error": "Unauthorized"}), 401
-    
-    data = request.json or {}
-    changes = data.get("changes", {})
-    records = data.get("records")
-    table_name = data.get("table")
-    cleanup_tables = data.get("cleanup_tables", [])
-    
-    if table_name and records:
-        changes = {table_name: records}
-        
-    if not isinstance(changes, dict):
-        return jsonify({"error": "Invalid format"}), 400
-        
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        for table in cleanup_tables:
-            cur.execute(f'DELETE FROM "{table}"')
-            logger.info(f"Purged table {table}")
-
-        stats = {}
-        for table, record_list in changes.items():
-            stats[table] = 0
-            for record in record_list:
-                try:
-                    clean_record = {k: v for k, v in record.items() if k != 'id'}
-                    
-                    for k in ['is_deleted', 'is_read']:
-                        if k in clean_record:
-                            clean_record[k] = bool(clean_record[k])
-                    
-                    cols = list(clean_record.keys())
-                    vals = [clean_record[c] for c in cols]
-                    
-                    if table == "app_settings":
-                        conflict_target = "setting_name"
-                    elif table == "BookingRequest":
-                        conflict_target = "reference"
-                    else:
-                        conflict_target = "global_id"
-                    
-                    # LWW: Only overwrite if incoming record is newer
-                    incoming_ts = clean_record.get('updated_at', '1970-01-01 00:00:00')
-                    cur.execute(
-                        f'SELECT updated_at FROM "{table}" WHERE "{conflict_target}" = %s',
-                        (clean_record.get(conflict_target),)
-                    )
-                    existing = cur.fetchone()
-                    if existing and existing[0] and incoming_ts and incoming_ts <= str(existing[0]):
-                        stats[table] += 1  # Count as handled but skipped
-                        continue  # Local is newer or same — skip
-                    
-                    placeholders = ", ".join(["%s"] * len(cols))
-                    update_stmt = ", ".join([f'"{c}" = EXCLUDED."{c}"' for c in cols if c != conflict_target])
-                    
-                    query = f"""
-                        INSERT INTO "{table}" ({', '.join([f'"{c}"' for c in cols])})
-                        VALUES ({placeholders})
-                        ON CONFLICT ("{conflict_target}") DO UPDATE SET {update_stmt}
-                    """
-                    cur.execute(query, tuple(vals))
-                    stats[table] += 1
-                except Exception as rec_err:
-                    logger.error(f"Error in {table}: {rec_err}")
-                    conn.rollback()
-                    continue
-            
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({"status": "success", "counts": stats}), 200
-        
-    except Exception as e:
-        logger.error(f"Push error: {e}")
-        return jsonify({"error": str(e)}), 500
-
-@app.route("/sync/pull", methods=["POST"])
-def pull_data():
-    if not verify_api_key():
-        return jsonify({"error": "Unauthorized"}), 401
-    
-    data = request.json or {}
-    since = data.get("last_sync_timestamp")
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        tables = [
-            'Student', 'Appointment', 'session', 'Referral', 
-            'CaseManagement', 'OutcomeQuestionnaire', 'DASS21', 
-            'Feedback', 'SessionIssue', 'Notification', 'app_settings',
-            'BookingRequest'
-        ]
-        
-        all_changes = {}
-        total_count = 0
-        
-        for table in tables:
-            query = f'SELECT * FROM "{table}"'
-            if since and since != '1970-01-01 00:00:00':
-                query += " WHERE updated_at > %s"
-                cur.execute(query, (since,))
-            else:
-                cur.execute(query)
-                
-            records = cur.fetchall()
-            if records:
-                sanitized_records = []
-                for r in records:
-                    r_dict = dict(r)
-                    if not r_dict.get('global_id') and table not in ['app_settings', 'BookingRequest']:
-                        r_dict['global_id'] = f"cloud-{table}-{r_dict.get('id')}"
-                    sanitized_records.append(r_dict)
-                
-                all_changes[table] = sanitized_records
-                total_count += len(sanitized_records)
-                
-        cur.close()
-        conn.close()
-        
-        for table in all_changes:
-            for record in all_changes[table]:
-                for k, v in record.items():
-                    if isinstance(v, datetime):
-                        record[k] = v.strftime('%Y-%m-%d %H:%M:%S')
-
-        return jsonify({
-            "changes": all_changes,
-            "count": total_count,
-            "server_time": datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-        }), 200
-        
-    except Exception as e:
-        logger.error(f"Pull error: {e}")
-        return jsonify({"error": str(e)}), 500
-
-@app.route("/api/submit_booking", methods=["POST"])
-def portal_booking():
-    data = request.json or {}
-    try:
-        if not data.get('reference'):
-            import random
-            import string
-            data['reference'] = 'BR-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-
-        if not data.get('global_id'):
-            data['global_id'] = str(uuid.uuid4())
-        
-        now = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-        data['updated_at'] = now
-        data['created_at'] = now
-        if not data.get('status'):
-            data['status'] = 'Pending'
-
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        KNOWN_COLUMNS = [
-            'reference', 'full_name', 'index_number', 'department', 
-            'programme', 'phone', 'preferred_date', 'preferred_time', 
-            'reason', 'status', 'email', 'hall_of_residence',
-            'gender', 'age',
-            'global_id', 'updated_at', 'created_at'
-        ]
-        
-        columns = [c for c in data.keys() if c in KNOWN_COLUMNS]
-        values = [data[column] for column in columns]
-        placeholders = ", ".join(["%s"] * len(columns))
-        
-        query = f'INSERT INTO "BookingRequest" ({", ".join([f\'"{c}"\' for c in columns])}) VALUES ({placeholders}) RETURNING reference'
-        cur.execute(query, values)
-        ref = cur.fetchone()[0]
-        
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({"status": "success", "reference": ref}), 201
-        
-    except Exception as e:
-        logger.error(f"Portal error: {e}")
-        return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
-

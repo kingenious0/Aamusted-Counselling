@@ -1,318 +1,130 @@
-{% extends "base_modern.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Registry - AAMUSTED Counselling</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; }
+        .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: #1e293b; border-right: 1px solid #334155; padding: 20px 0; overflow-y: auto; z-index: 100; }
+        .sidebar-brand { padding: 0 20px 20px; border-bottom: 1px solid #334155; }
+        .sidebar-brand h4 { color: #f8fafc; font-size: 16px; margin: 0; font-weight: 700; }
+        .sidebar-brand small { color: #64748b; font-size: 12px; }
+        .sidebar-nav { padding: 12px 0; }
+        .sidebar-nav a { display: flex; align-items: center; padding: 10px 20px; color: #94a3b8; text-decoration: none; font-size: 14px; transition: all 0.2s; }
+        .sidebar-nav a:hover, .sidebar-nav a.active { background: rgba(37,99,235,0.15); color: #60a5fa; }
+        .sidebar-nav a i { width: 20px; margin-right: 10px; text-align: center; }
+        .sidebar-nav .badge { margin-left: auto; font-size: 11px; }
+        .main-content { margin-left: 260px; padding: 24px 32px; min-height: 100vh; }
+        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .topbar h2 { font-size: 22px; font-weight: 700; margin: 0; }
+        .card-dark { background: #1e293b; border: 1px solid #334155; border-radius: 14px; }
+        .search-box { background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 10px; padding: 10px 14px 10px 38px; width: 100%; }
+        .search-box:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.2); outline: none; }
+        .search-wrapper { position: relative; }
+        .search-wrapper i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #64748b; }
+        .table-dark-custom { color: #f8fafc; }
+        .table-dark-custom th { color: #94a3b8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; border-color: #334155; font-weight: 600; }
+        .table-dark-custom td { border-color: #334155; font-size: 14px; vertical-align: middle; }
+        .table-dark-custom tr:hover td { background: rgba(37,99,235,0.05); }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <h4><i class="fas fa-graduation-cap me-2"></i>AAMUSTED GCC</h4>
+            <small>Counselling Centre</small>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('dashboard') }}"><i class="fas fa-tachometer-alt"></i>Dashboard</a>
+            <a href="{{ url_for('admin_bookings') }}">
+                <i class="fas fa-calendar-check"></i>Bookings
+                {% if latest_booking_count > 0 %}<span class="badge bg-warning">{{ latest_booking_count }}</span>{% endif %}
+            </a>
+            <a href="{{ url_for('students') }}" class="active"><i class="fas fa-users"></i>Client Registry</a>
+            <a href="#"><i class="fas fa-chart-bar"></i>Reports</a>
+        </nav>
+        <nav class="sidebar-nav" style="border-top: 1px solid #334155; margin-top: 12px; padding-top: 12px;">
+            <a href="#"><i class="fas fa-cog"></i>Settings</a>
+            <a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i>Logout</a>
+        </nav>
+    </div>
 
-{% block title %}Registry - AAMUSTED Counselling{% endblock %}
-
-{% block content %}
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <h2 class="fw-bold mb-1">Student Registry</h2>
-                <p class="text-muted small">Central database of all registered students.</p>
+    <div class="main-content">
+        <div class="topbar">
+            <h2><i class="fas fa-users me-2 text-success"></i>Client Registry</h2>
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-muted" style="font-size:13px;">{{ session.get('full_name', '') }}</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-sign-out-alt"></i></a>
             </div>
+        </div>
 
-            <div class="d-flex gap-2">
-                <div class="dropdown">
-                    <button class="btn btn-light dropdown-toggle shadow-sm" type="button" data-bs-toggle="dropdown">
-                        <i class="bi bi-download me-1"></i> Export
-                    </button>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{{ url_for('export_students', format='excel') }}"><i
-                                    class="bi bi-file-earmark-excel me-2"></i> Excel (.xlsx)</a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('export_students', format='csv') }}"><i
-                                    class="bi bi-filetype-csv me-2"></i> CSV</a></li>
-                    </ul>
+        <div class="card-dark p-4 mb-4">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-8">
+                    <label class="form-label text-muted" style="font-size:13px;">Search students</label>
+                    <div class="search-wrapper">
+                        <i class="fas fa-search"></i>
+                        <input type="text" name="search" class="search-box" placeholder="Search by name, case number, index number, or department..." value="{{ search }}">
+                    </div>
                 </div>
-                <a href="{{ url_for('add_student') }}" class="btn btn-primary shadow-sm btn-hover-lift">
-                    <i class="bi bi-person-plus-fill me-1"></i> Register Student
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Filters -->
-<div class="card card-glass border-0 shadow-sm mb-4">
-    <div class="card-body p-3">
-        <div class="row g-2">
-            <div class="col-md-5">
-                <div class="input-group">
-                    <span class="input-group-text bg-light border-0"><i class="bi bi-search"></i></span>
-                    <input type="text" class="form-control bg-light border-0" id="searchInput"
-                        placeholder="Search by name, ID, or index number...">
+                <div class="col-md-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-search me-1"></i>Search</button>
+                    {% if search %}
+                    <a href="{{ url_for('students') }}" class="btn btn-outline-secondary"><i class="fas fa-times me-1"></i>Clear</a>
+                    {% endif %}
                 </div>
+            </form>
+        </div>
+
+        <div class="card-dark p-0">
+            <div class="p-4 pb-0">
+                <span class="text-muted" style="font-size:13px;">{{ students|length }} student{{ 's' if students|length != 1 }} found</span>
             </div>
-            <div class="col-md-4">
-                <select class="form-select bg-light border-0" id="filterProgram">
-                    <option value="">All Programs</option>
-                    {% for program in programs %}
-                    <option value="{{ program }}">{{ program }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3 text-end">
-                <button class="btn btn-light w-100" onclick="clearFilters()">Reset Filters</button>
+            <div class="p-4">
+                {% if students %}
+                <div class="table-responsive">
+                    <table class="table table-dark-custom">
+                        <thead>
+                            <tr>
+                                <th>Case No.</th>
+                                <th>Name</th>
+                                <th>Index No.</th>
+                                <th>Department</th>
+                                <th>Programme</th>
+                                <th>Gender</th>
+                                <th>Registered</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in students %}
+                            <tr>
+                                <td><code class="text-info">{{ s.case_number }}</code></td>
+                                <td>{{ s.name }}</td>
+                                <td>{{ s.index_number or '-' }}</td>
+                                <td>{{ s.department or '-' }}</td>
+                                <td>{{ s.programme or '-' }}</td>
+                                <td>{{ s.gender or '-' }}</td>
+                                <td class="text-muted" style="font-size:13px;">{{ s.created_at or '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-user-slash fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No students found.</p>
+                    {% if search %}
+                    <a href="{{ url_for('students') }}" class="btn btn-outline-primary btn-sm">Clear search</a>
+                    {% endif %}
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
-</div>
-
-<!-- Students List -->
-<div class="card card-glass border-0 shadow-lg">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle table-borderless mb-0" id="studentsTable" style="table-layout: auto; width: 100%;">
-                <thead class="bg-light bg-opacity-50 border-bottom">
-                    <tr class="text-uppercase text-muted small">
-                        <th class="ps-4" style="width: 200px;">Case / Student</th>
-                        <th style="width: 180px;">Prof. ID</th>
-                        <th style="width: 160px;">Contact Info</th>
-                        <th style="display: table-cell !important;">Prog / Dept</th>
-                        <th style="width: 80px; display: table-cell !important;">Sess.</th>
-                        <th class="text-end pe-4" style="width: 240px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for student in students %}
-                    <tr class="row-hover border-bottom">
-                        <td class="ps-4 py-3">
-                            <div class="d-flex align-items-center">
-                                <div class="avatar-circle bg-primary bg-opacity-10 text-primary fw-bold me-3" style="font-size:0.75rem;">
-                                    {{ (student.case_id or 'GCC')[-4:] }}
-                                </div>
-                                <div>
-                                    <h6 class="fw-bold mb-0 text-dark">{{ student.name }}</h6>
-                                    <div class="font-monospace text-primary" style="font-size: 0.7rem;">{{ student.case_id or 'Unassigned' }}</div>
-                                    <small class="text-muted" style="font-size: 0.7rem;">{{ student.index_number or 'No Index' }}</small>
-                                </div>
-                            </div>
-                        </td>
-                        <td>
-                            <span class="font-monospace text-secondary">{{ student.professional_id }}</span>
-                        </td>
-                        <td>
-                            {% if student.contact %}
-                            <div class="small"><i class="bi bi-telephone me-1 text-muted"></i>{{ student.contact }}
-                            </div>
-                            {% endif %}
-                            {% if student.email %}
-                            <div class="small text-muted"><i class="bi bi-envelope me-1"></i>{{ student.email }}</div>
-                            {% endif %}
-                        </td>
-                        <td style="display: table-cell !important; overflow: hidden;">
-                            <div class="badge bg-light text-dark fw-normal border text-start p-1" 
-                                 style="width: 100%; white-space: normal; display: block !important; font-size: 0.65rem; border-radius: 4px;">
-                                <div class="fw-bold">{{ student.programme or 'General' }}</div>
-                                <div class="text-muted" style="font-size: 0.6rem;">{{ student.department or 'N/A' }}</div>
-                            </div>
-                        </td>
-                        <td>
-                            {% if student.session_count > 0 %}
-                            <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3">{{
-                                student.session_count }} Sessions</span>
-                            {% else %}
-                            <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill px-3">New</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-end pe-4">
-                            <div class="d-flex align-items-center justify-content-end gap-1">
-                                <a href="{{ url_for('student_profile', id=student.id) }}" 
-                                   class="btn btn-sm btn-outline-primary rounded-pill px-2 py-1 shadow-sm border-2" 
-                                   style="font-size: 0.65rem;">
-                                    <i class="bi bi-person-lines-fill me-1"></i> Profile
-                                </a>
-                                
-                                <button type="button" 
-                                        onclick="handleStartSession({{ student.id }}, '{{ student.name[:2] + '***' }}')"
-                                        class="btn btn-sm btn-success rounded-pill px-2 py-1 fw-bold shadow-sm" 
-                                        style="font-size: 0.65rem; background: #2e7d32; border: none;">
-                                    <i class="bi bi-play-circle-fill me-1"></i> Start
-                                </button>
-
-                                <a href="/add_student?edit={{ student.id }}" 
-                                   class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1" 
-                                   style="font-size: 0.65rem;">
-                                    <i class="bi bi-pencil-square"></i>
-                                </a>
-
-                                <form action="/delete_student/{{ student.id }}" method="POST"
-                                      onsubmit="return GCC.confirmForm(event, 'Are you sure?', 'warning', 'Delete');"
-                                      class="d-inline">
-                                    <button type="submit" 
-                                            class="btn btn-link btn-sm text-danger p-0" 
-                                            style="font-size: 0.65rem;">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Empty State -->
-        {% if not students %}
-        <div class="text-center py-5">
-            <div class="mb-3">
-                <i class="bi bi-people text-muted opacity-25" style="font-size: 3rem;"></i>
-            </div>
-            <h6 class="text-muted">No students found</h6>
-            <a href="{{ url_for('add_student') }}" class="btn btn-sm btn-primary mt-2">Add First Student</a>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- Pagination (Simplified) -->
-    <div class="card-footer bg-transparent border-0 pt-3 pb-4">
-        <!-- Pagination logic here if needed, keeping simple for now -->
-        <div class="d-flex justify-content-between align-items-center small text-muted">
-            <div>Showing {{ students|length }} records</div>
-            <!-- Add real pagination if supported by backend later -->
-        </div>
-    </div>
-</div>
-
-<script>
-    function clearFilters() {
-        document.getElementById('searchInput').value = '';
-        const rows = document.querySelectorAll('#studentsTable tbody tr');
-        rows.forEach(row => row.style.display = '');
-    }
-
-    // Search functionality
-    let searchTimeout;
-    document.getElementById('searchInput').addEventListener('input', function () {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-            const searchTerm = this.value.toLowerCase();
-            const rows = document.querySelectorAll('#studentsTable tbody tr');
-            rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(searchTerm) ? '' : 'none';
-            });
-        }, 300);
-    });
-
-    // Program Filter
-    document.getElementById('filterProgram').addEventListener('change', function () {
-        const term = this.value.toLowerCase();
-        const rows = document.querySelectorAll('#studentsTable tbody tr');
-        rows.forEach(row => {
-            // Index 3 is Program column
-            const text = row.cells[3].textContent.toLowerCase();
-            if (!term || text.includes(term)) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-    });
-    
-    function handleStartSession(studentId, studentName) {
-        // Show loading state
-        Swal.fire({
-            title: 'Checking Appointments...',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
-        // Check for today's appointment via API
-        fetch(`/api/check_appointment/${studentId}`)
-            .then(response => response.json())
-            .then(data => {
-                Swal.close();
-                
-                if (data.status === 'found') {
-                    if (data.is_today) {
-                        // Regular flow for today - now with overdue checking
-                        const overdueClass = data.is_overdue ? 'bg-danger bg-opacity-10' : 'bg-light';
-                        const timeClass = data.is_overdue ? 'text-danger' : 'text-primary';
-                        const icon = data.is_overdue ? '<i class="bi bi-exclamation-triangle-fill me-1"></i>' : '';
-                        const statusTag = data.is_overdue ? '<span class="badge bg-danger rounded-pill ms-2" style="font-size:0.65rem;">Late</span>' : '';
-                        
-                        Swal.fire({
-                            title: data.is_overdue ? 'Overdue Appointment' : 'Appointment Found',
-                            html: `<div class="p-3 ${overdueClass} rounded-3 mb-3 border ${data.is_overdue ? 'border-danger border-opacity-25' : 'border-light'}">
-                                    <h6 class="fw-bold text-dark mb-1">${studentName} ${statusTag}</h6>
-                                    <span class="${timeClass} fw-bold" style="font-size: 1.1rem;">${icon}Today | ${data.time}</span>
-                                   </div>
-                                   ${data.is_overdue ? 'This appointment was scheduled for earlier today. Proceed to start session?' : 'Proceed to clinical session log?'}`,
-                            icon: data.is_overdue ? 'warning' : 'success',
-                            showCancelButton: true,
-                            confirmButtonText: 'Yes, Start Session',
-                            cancelButtonText: 'Cancel',
-                            reverseButtons: true,
-                            customClass: { popup: 'rounded-4 shadow-lg border-0' }
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                window.location.href = `/create_session?appointment_id=${data.appointment_id || data.id}`;
-                            }
-                        });
-                    } else {
-                        // Modal for future/past appointment
-                        Swal.fire({
-                            title: 'Schedule Mismatch Detected',
-                            html: `<div class="p-3 bg-light rounded-3 mb-3 text-center">
-                                    <p class="mb-0 text-muted" style="font-size:0.95rem;">
-                                        <strong>${studentName}</strong> has a scheduled appointment on
-                                    </p>
-                                    <div class="mt-2 text-primary fw-bold" style="font-size: 1.15rem;">
-                                        ${data.date.replace(/, \d{4}$/, '')} • ${data.time}
-                                    </div>
-                                   </div>
-                                   Do you want to start this session ahead of schedule?`,
-                            icon: 'info',
-                            showCancelButton: true,
-                            confirmButtonText: 'Start Session Now',
-                            cancelButtonText: 'Return to Dashboard',
-                            confirmButtonColor: '#0d6efd',
-                            cancelButtonColor: '#6c757d',
-                            reverseButtons: true,
-                            customClass: { 
-                                popup: 'rounded-4 shadow-lg border-0',
-                                confirmButton: 'btn btn-primary px-4 rounded-pill',
-                                cancelButton: 'btn btn-link text-muted text-decoration-none'
-                            }
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                window.location.href = `/create_session?appointment_id=${data.appointment_id || data.id}`;
-                            }
-                        });
-                    }
-                } else if (data.status === 'not_found') {
-                    // No appointment found. Prompt for Walk-in or Schedule
-                    Swal.fire({
-                        title: 'No Appointment Found',
-                        html: `This student (<b>${studentName}</b>) has no appointment scheduled for today.<br><br>What would you like to do?`,
-                        icon: 'question',
-                        showCancelButton: true,
-                        showDenyButton: true,
-                        confirmButtonText: 'Start Walk-in Session',
-                        denyButtonText: 'Schedule Appointment First',
-                        cancelButtonText: 'Cancel',
-                        reverseButtons: true,
-                        customClass: { popup: 'rounded-4' }
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            // Go to create_session with student_id and walk-in mode
-                            window.location.href = `/create_session?student_id=${studentId}&mode=walkin`;
-                        } else if (result.isDenied) {
-                            // Go to schedule appointment page
-                            window.location.href = `/appointment?student_id=${studentId}`;
-                        }
-                    });
-                } else {
-                    Swal.fire('Error', 'Could not verify student status. Please try again.', 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                Swal.fire('Network Error', 'Failed to connect to the system.', 'error');
-            });
-    }
-</script>
-{% endblock %}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
