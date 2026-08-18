@@ -1185,7 +1185,7 @@ def admin_user_add():
         flash("Unauthorized", "error")
         return redirect(url_for('dashboard'))
     if request.method == "GET":
-        return render_template('admin_users.html', users=[], show_add_form=True)
+        return redirect(url_for('admin_users'))
     try:
         from werkzeug.security import generate_password_hash
         conn = get_db()
@@ -1204,7 +1204,7 @@ def admin_user_add():
         conn.commit()
         cur.close()
         conn.close()
-        flash("User created successfully", "success")
+        flash(f"User '{username}' created successfully", "success")
     except Exception as e:
         flash(f"Error creating user: {e}", "error")
     return redirect(url_for('admin_users'))
