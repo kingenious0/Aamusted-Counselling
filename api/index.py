@@ -21,7 +21,7 @@ app = Flask(
 app.secret_key = os.environ.get('SECRET_KEY', 'aamusted-gcc-secret-2026-xK9mP')
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = True
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 BRIDGE_API_KEY = os.environ.get("BRIDGE_API_KEY", "sb_bridge_AnEpYo_2026")
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -439,6 +439,17 @@ def generate_booking_ref(conn):
         return f"BK-{year}-{str(last_num + 1).zfill(4)}"
     except Exception:
         return f"BK-{year}-{str(uuid.uuid4())[:4].upper()}"
+
+
+def generate_booking_ref_direct():
+    """Generate booking ref without requiring a connection argument."""
+    try:
+        conn = get_db()
+        ref = generate_booking_ref(conn)
+        conn.close()
+        return ref
+    except Exception:
+        return f"BK-{datetime.now().year}-{str(uuid.uuid4())[:4].upper()}"
 
 
 def generate_case_number(conn):
@@ -950,53 +961,82 @@ def pull_data():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/submit_booking", methods=["POST"])
+@app.route("/api/submit_booking", methods=["POST", "OPTIONS"])
 def portal_booking():
+    if request.method == "OPTIONS":
+        resp = jsonify({"ok": True})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        return resp
+
     data = request.json or {}
     try:
+        if not data:
+            resp = jsonify({"status": "error", "message": "Invalid data format — expected JSON"}), 400
+            resp[0].headers["Access-Control-Allow-Origin"] = "*"
+            return resp
+
+        full_name = data.get('full_name', '').strip()
+        index_number = data.get('index_number', '').strip()
+        department = data.get('department', '').strip()
+        programme = data.get('programme', '').strip()
+        phone = data.get('phone', '').strip()
+        email = data.get('email', '').strip()
+        hall_of_residence = data.get('hall_of_residence', '').strip()
+        preferred_date = data.get('preferred_date', '').strip()
+        preferred_time = data.get('preferred_time', 'Any')
+        reason = data.get('reason', '').strip()
+
+        missing_fields = []
+        if not full_name: missing_fields.append("Full Name")
+        if not index_number: missing_fields.append("Index Number")
+        if not phone: missing_fields.append("Phone Number")
+        if not department: missing_fields.append("Department")
+        if not programme: missing_fields.append("Programme")
+        if not preferred_time or preferred_time == 'Click to set time': missing_fields.append("Preferred Time")
+        if missing_fields:
+            resp = jsonify({'status': 'error', 'message': f"The following fields are required: {', '.join(missing_fields)}."})
+            resp.headers["Access-Control-Allow-Origin"] = "*"
+            return resp, 400
+
         if not data.get('reference'):
-            data['reference'] = 'BR-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            data['reference'] = generate_booking_ref_direct()
         if not data.get('global_id'):
             data['global_id'] = str(uuid.uuid4())
-        now = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-        data['updated_at'] = now
-        data['created_at'] = now
-        data.setdefault('status', 'Pending')
+
         conn = get_db()
         cur = conn.cursor()
-        KNOWN = [
-            'reference','full_name','index_number','department','programme',
-            'phone','preferred_date','preferred_time','reason','status',
-            'email','hall_of_residence','gender','age',
-            'global_id','updated_at','created_at',
-        ]
-        cols = [c for c in data if c in KNOWN]
-        vals = [data[c] for c in cols]
-        col_list = ', '.join([f'"{c}"' for c in cols])
-        val_ph = ', '.join(['%s'] * len(cols))
         cur.execute(
-            f'INSERT INTO "BookingRequest" ({col_list}) '
-            f'VALUES ({val_ph}) RETURNING reference',
-            vals,
+            '''INSERT INTO "BookingRequest"
+               (reference, full_name, index_number, department, programme, phone,
+                preferred_date, preferred_time, reason, status, email, hall_of_residence, global_id, created_at, updated_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pending', %s, %s, %s, NOW(), NOW())
+               RETURNING reference''',
+            (data['reference'], full_name, index_number, department, programme, phone,
+             preferred_date, preferred_time, reason, email, hall_of_residence, data['global_id']),
         )
         ref = cur.fetchone()[0]
         conn.commit()
 
-        # Fire in-app notifications to all staff
-        full_name = data.get('full_name', 'Unknown')
-        idx = data.get('index_number', '')
         fire_staff_notifications(
             conn,
-            f"New booking {ref} from {full_name} ({idx}) via API",
+            f"New booking request {ref} from {full_name} ({index_number})",
             '/admin/bookings',
         )
 
         cur.close()
         conn.close()
-        return jsonify({"status": "success", "reference": ref}), 201
+
+        resp = jsonify({'status': 'success', 'reference': ref, 'message': 'Booking submitted successfully!'})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp, 201
+
     except Exception as e:
-        logger.error(f"portal_booking: {e}")
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"portal_booking error: {e}")
+        resp = jsonify({'status': 'error', 'message': 'Something went wrong. Please try again.'})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp, 500
 
 
 @app.route("/api/get_theme")
