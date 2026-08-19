@@ -507,6 +507,12 @@ def init_db():
             'ALTER TABLE "session" ADD COLUMN IF NOT EXISTS student_name TEXT',
             'ALTER TABLE "session" ADD COLUMN IF NOT EXISTS student_id TEXT',
             'ALTER TABLE "session" ADD COLUMN IF NOT EXISTS counsellor TEXT',
+            'ALTER TABLE "session" ADD COLUMN IF NOT EXISTS session_date TEXT',
+            # DASS21
+            'ALTER TABLE "DASS21" ADD COLUMN IF NOT EXISTS completion_date TEXT',
+            # audit_logs
+            'ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS record_id INTEGER',
+            'ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS user_id INTEGER',
         ]
         for sql in _clinical_alters:
             try:
@@ -754,9 +760,9 @@ def dashboard():
             cur.execute("""
                 SELECT a.*, s.name AS student_name, s.id AS student_record_id, s.case_number
                 FROM "Appointment" a
-                JOIN "Student" s ON a.student_id = s.id
-                WHERE a.date = CURRENT_DATE AND a.is_deleted = FALSE
-                ORDER BY a.time ASC
+                JOIN "Student" s ON a.student_id::bigint = s.id
+                WHERE a.appointment_date = CURRENT_DATE AND a.is_deleted = FALSE
+                ORDER BY a.appointment_time ASC
             """)
             today_appts = cur.fetchall()
         except Exception:
@@ -767,20 +773,20 @@ def dashboard():
                 cur.execute("""
                     SELECT a.*, s.name AS student_name, s.id AS student_record_id, s.case_number
                     FROM "Appointment" a
-                    JOIN "Student" s ON a.student_id = s.id
+                    JOIN "Student" s ON a.student_id::bigint = s.id
                     WHERE a.status = 'Scheduled' AND a.is_deleted = FALSE
-                    ORDER BY a.date ASC, a.time ASC
+                    ORDER BY a.appointment_date ASC, a.appointment_time ASC
                 """)
                 pending_bookings = cur.fetchall()
             except Exception:
                 conn.rollback()
             try:
                 cur.execute("""
-                    SELECT a.*, s.name AS student_name, s.id AS student_record_id, s.case_number
-                    FROM "Appointment" a
-                    JOIN "Student" s ON a.student_id = s.id
-                    WHERE a.status = 'Sent to Counsellor' AND a.is_deleted = FALSE
-                    ORDER BY a.created_at DESC LIMIT 5
+                SELECT a.*, s.name AS student_name, s.id AS student_record_id, s.case_number
+                FROM "Appointment" a
+                JOIN "Student" s ON a.student_id::bigint = s.id
+                WHERE a.status = 'Sent to Counsellor' AND a.is_deleted = FALSE
+                ORDER BY a.created_at DESC LIMIT 5
                 """)
                 recent_activity = cur.fetchall()
             except Exception:
@@ -790,10 +796,10 @@ def dashboard():
                 cur.execute("""
                     SELECT a.*, s.name AS student_name, s.id AS student_record_id, s.case_number
                     FROM "Appointment" a
-                    JOIN "Student" s ON a.student_id = s.id
+                    JOIN "Student" s ON a.student_id::bigint = s.id
                     WHERE (a.status = 'Sent to Counsellor' OR a.status = 'Checked In')
                       AND a.is_deleted = FALSE
-                    ORDER BY a.date ASC, a.time ASC
+                    ORDER BY a.appointment_date ASC, a.appointment_time ASC
                 """)
                 pending_bookings = cur.fetchall()
             except Exception:
@@ -802,9 +808,9 @@ def dashboard():
                 cur.execute("""
                     SELECT a.*, s.name AS student_name, s.id AS student_record_id, s.case_number
                     FROM "Appointment" a
-                    JOIN "Student" s ON a.student_id = s.id
+                    JOIN "Student" s ON a.student_id::bigint = s.id
                     WHERE a.status = 'In Session' AND a.is_deleted = FALSE
-                    ORDER BY a.time ASC
+                    ORDER BY a.appointment_time ASC
                 """)
                 today_appts = cur.fetchall()
             except Exception:
@@ -3846,10 +3852,10 @@ def student_profile(id):
         try:
             cur.execute("""
                 SELECT sess.id, sess.session_type, sess.notes, sess.created_at,
-                       a.date, a.time, a.status
+                       a.appointment_date, a.appointment_time, a.status
                 FROM "session" sess
                 LEFT JOIN "Appointment" a ON sess.appointment_id = a.id
-                WHERE a.student_id = %s AND sess.is_deleted = FALSE
+                WHERE a.student_id::bigint = %s AND sess.is_deleted = FALSE
                 ORDER BY sess.created_at DESC
             """, (id,))
             sessions = cur.fetchall()
@@ -3863,9 +3869,9 @@ def student_profile(id):
         referrals = []
         try:
             cur.execute("""
-                SELECT r.id, r.referred_by, r.contact, r.reasons, r.action_taken, r.outcome, r.created_at
+                SELECT r.id, r.referred_by, r.contact, r.reason, r.action_taken, r.outcome, r.created_at
                 FROM "Referral" r
-                JOIN "session" sess ON r.session_id = sess.id
+                JOIN "session" sess ON r.session_id::integer = sess.id
                 JOIN "Appointment" a ON sess.appointment_id = a.id
                 WHERE a.student_id = %s
                 ORDER BY r.created_at DESC
@@ -3883,9 +3889,9 @@ def student_profile(id):
             cur.execute("""
                 SELECT depression_score, anxiety_score, stress_score, completion_date, created_at
                 FROM "DASS21"
-                WHERE student_id = %s
+                WHERE student_id = %s AND is_deleted = FALSE
                 ORDER BY created_at DESC
-            """, (id,))
+            """, (str(id),))
             dass21_scores = cur.fetchall()
             for d in dass21_scores:
                 for k2, v2 in d.items():
@@ -3898,8 +3904,8 @@ def student_profile(id):
         try:
             cur.execute("""
                 SELECT * FROM "Appointment"
-                WHERE student_id = %s AND is_deleted = FALSE
-                ORDER BY date DESC, time DESC
+                WHERE student_id::bigint = %s AND is_deleted = FALSE
+                ORDER BY appointment_date DESC, appointment_time DESC
             """, (id,))
             appointments = cur.fetchall()
             for a in appointments:
