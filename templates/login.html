@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In - AAMUSTED Counselling</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -13,102 +13,193 @@
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             min-height: 100vh;
             display: flex;
+            background: #f5f0e8;
+            overflow: hidden;
+        }
+
+        /* ── Left Panel ── */
+        .left-panel {
+            flex: 1;
+            background: linear-gradient(160deg, #1e3a5f 0%, #0f2440 60%, #0a1a30 100%);
+            display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, #d4eaf7 0%, #e8f4fb 25%, #c7e2f1 50%, #dbeef8 75%, #b8d9ed 100%);
+            padding: 60px;
             position: relative;
             overflow: hidden;
         }
 
-        body::before {
+        .left-panel::before {
             content: '';
             position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
+            top: -30%;
+            left: -20%;
+            width: 160%;
+            height: 160%;
             background:
-                radial-gradient(ellipse 600px 300px at 20% 30%, rgba(255,255,255,0.6) 0%, transparent 70%),
-                radial-gradient(ellipse 500px 250px at 75% 60%, rgba(255,255,255,0.5) 0%, transparent 70%),
-                radial-gradient(ellipse 800px 400px at 50% 80%, rgba(200,225,240,0.4) 0%, transparent 60%);
-            animation: drift 30s ease-in-out infinite alternate;
+                radial-gradient(ellipse 500px 250px at 30% 20%, rgba(255,255,255,0.06) 0%, transparent 70%),
+                radial-gradient(ellipse 400px 200px at 70% 70%, rgba(255,255,255,0.04) 0%, transparent 70%);
+            pointer-events: none;
         }
 
-        @keyframes drift {
-            0% { transform: translate(0, 0) rotate(0deg); }
-            100% { transform: translate(-20px, -10px) rotate(1deg); }
-        }
-
-        .arc {
+        .left-panel .arc {
             position: absolute;
-            width: 600px;
-            height: 600px;
-            border: 1.5px solid rgba(30,58,95,0.08);
+            width: 500px;
+            height: 500px;
+            border: 1px solid rgba(255,255,255,0.06);
             border-radius: 50%;
-            top: -200px;
-            left: 50%;
-            transform: translateX(-50%);
+            top: -150px;
+            right: -100px;
         }
-        .arc:nth-child(2) {
-            width: 900px;
-            height: 900px;
-            top: -350px;
-            border-color: rgba(30,58,95,0.05);
+        .left-panel .arc:nth-child(2) {
+            width: 700px;
+            height: 700px;
+            top: -250px;
+            right: -200px;
+            border-color: rgba(255,255,255,0.03);
         }
 
-        .login-card {
+        .brand-content {
             position: relative;
             z-index: 10;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 24px;
-            padding: 48px 40px 40px;
-            width: 100%;
-            max-width: 420px;
-            box-shadow:
-                0 4px 6px rgba(0,0,0,0.02),
-                0 12px 24px rgba(0,0,0,0.06),
-                0 24px 48px rgba(30,58,95,0.08);
             text-align: center;
+            max-width: 420px;
         }
 
-        .icon-circle {
-            width: 56px;
-            height: 56px;
-            border-radius: 16px;
-            background: #f0f4f8;
+        .brand-logo {
+            width: 80px;
+            height: 80px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 24px;
-            color: #1e3a5f;
-            font-size: 22px;
+            margin-bottom: 32px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .brand-logo i {
+            font-size: 36px;
+            color: #fff;
         }
 
-        .login-card h1 {
-            font-size: 24px;
+        .brand-content h1 {
+            font-size: 36px;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        .brand-content .tagline {
+            font-size: 16px;
+            color: rgba(255,255,255,0.6);
+            line-height: 1.6;
+            margin-bottom: 48px;
+        }
+
+        .features-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            text-align: left;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 18px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 14px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .feature-item .fi {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        .fi-blue  { background: rgba(59,130,246,0.15); color: #60a5fa; }
+        .fi-green { background: rgba(34,197,94,0.15);  color: #4ade80; }
+        .fi-amber { background: rgba(245,158,11,0.15); color: #fbbf24; }
+        .fi-purple{ background: rgba(168,85,247,0.15); color: #c084fc; }
+
+        .feature-item span {
+            font-size: 14px;
+            color: rgba(255,255,255,0.75);
+            font-weight: 500;
+        }
+
+        /* ── Right Panel ── */
+        .right-panel {
+            width: 520px;
+            min-width: 440px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 48px 60px;
+            background: #fff;
+            position: relative;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-card .welcome-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #f0f4f8;
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #1e3a5f;
+            margin-bottom: 28px;
+        }
+        .welcome-badge i { font-size: 12px; }
+
+        .login-card h2 {
+            font-size: 28px;
             font-weight: 700;
             color: #0f172a;
             margin-bottom: 8px;
+            letter-spacing: -0.3px;
         }
 
         .login-card .subtitle {
-            font-size: 14px;
+            font-size: 15px;
             color: #64748b;
-            line-height: 1.5;
-            margin-bottom: 32px;
+            margin-bottom: 36px;
         }
 
         .form-group {
             position: relative;
-            margin-bottom: 16px;
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 6px;
         }
 
         .form-group .icon {
             position: absolute;
-            left: 16px;
-            top: 50%;
-            transform: translateY(-50%);
+            left: 14px;
+            top: 38px;
             color: #94a3b8;
             font-size: 16px;
             pointer-events: none;
@@ -116,7 +207,7 @@
 
         .form-group input {
             width: 100%;
-            padding: 14px 16px 14px 46px;
+            padding: 13px 14px 13px 42px;
             border: 1.5px solid #e2e8f0;
             border-radius: 12px;
             font-size: 15px;
@@ -133,15 +224,12 @@
             box-shadow: 0 0 0 3px rgba(30,58,95,0.1);
         }
 
-        .form-group input::placeholder {
-            color: #94a3b8;
-        }
+        .form-group input::placeholder { color: #94a3b8; }
 
         .form-group .toggle-pw {
             position: absolute;
-            right: 16px;
-            top: 50%;
-            transform: translateY(-50%);
+            right: 14px;
+            top: 38px;
             color: #94a3b8;
             cursor: pointer;
             font-size: 16px;
@@ -149,60 +237,69 @@
             border: none;
             padding: 4px;
         }
+        .form-group .toggle-pw:hover { color: #64748b; }
 
-        .form-group .toggle-pw:hover {
+        .form-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 28px;
+        }
+
+        .form-row label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
             color: #64748b;
+            cursor: pointer;
+        }
+        .form-row label input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            accent-color: #1e3a5f;
         }
 
         .forgot-link {
-            display: block;
-            text-align: right;
             font-size: 13px;
             color: #1e3a5f;
             text-decoration: none;
-            margin-bottom: 24px;
-            font-weight: 500;
+            font-weight: 600;
         }
-
-        .forgot-link:hover {
-            color: #2563eb;
-            text-decoration: underline;
-        }
+        .forgot-link:hover { text-decoration: underline; }
 
         .btn-signin {
             width: 100%;
-            padding: 14px 24px;
-            background: #0f172a;
+            padding: 15px 24px;
+            background: #1e3a5f;
             color: #fff;
             border: none;
             border-radius: 12px;
-            font-size: 15px;
+            font-size: 16px;
             font-weight: 600;
             font-family: 'Inter', sans-serif;
             cursor: pointer;
             transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
 
         .btn-signin:hover {
-            background: #1e293b;
+            background: #0f2440;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(15,23,42,0.3);
+            box-shadow: 0 4px 16px rgba(30,58,95,0.3);
         }
 
-        .btn-signin:active {
-            transform: translateY(0);
-        }
-
-        .btn-signin:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
+        .btn-signin:active { transform: translateY(0); }
+        .btn-signin:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
         .divider {
             display: flex;
             align-items: center;
-            margin: 24px 0;
+            margin: 28px 0;
         }
         .divider::before, .divider::after {
             content: '';
@@ -216,11 +313,12 @@
             color: #94a3b8;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            white-space: nowrap;
         }
 
         .accounts-grid {
             display: grid;
-            gap: 8px;
+            gap: 10px;
         }
 
         .account-btn {
@@ -244,8 +342,8 @@
         }
 
         .account-btn .role-icon {
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
             border-radius: 10px;
             display: flex;
             align-items: center;
@@ -254,9 +352,9 @@
             flex-shrink: 0;
         }
 
-        .account-btn .role-icon.admin { background: rgba(30,58,95,0.1); color: #1e3a5f; }
-        .account-btn .role-icon.secretary { background: rgba(37,99,235,0.1); color: #2563eb; }
-        .account-btn .role-icon.counsellor { background: rgba(34,197,94,0.1); color: #16a34a; }
+        .role-icon.admin      { background: rgba(30,58,95,0.1);  color: #1e3a5f; }
+        .role-icon.secretary   { background: rgba(37,99,235,0.1); color: #2563eb; }
+        .role-icon.counsellor  { background: rgba(34,197,94,0.1); color: #16a34a; }
 
         .account-btn .role-info { text-align: left; flex: 1; }
         .account-btn .role-name { font-size: 13px; font-weight: 600; }
@@ -282,85 +380,141 @@
             margin-top: 28px;
             font-size: 11px;
             color: #94a3b8;
+            text-align: center;
         }
         .footer-text strong { color: #1e3a5f; }
+
+        /* ── Responsive ── */
+        @media (max-width: 960px) {
+            body { flex-direction: column; overflow: auto; }
+            .left-panel {
+                flex: none;
+                width: 100%;
+                min-height: 260px;
+                padding: 40px 30px;
+            }
+            .brand-content h1 { font-size: 28px; }
+            .features-list { display: none; }
+            .right-panel {
+                width: 100%;
+                min-width: 0;
+                padding: 40px 24px;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="arc"></div>
-    <div class="arc"></div>
-
-    <div class="login-card">
-        <div class="icon-circle">
-            <i class="fas fa-right-to-bracket"></i>
-        </div>
-
-        <h1>Sign in to AAMUSTED</h1>
-        <p class="subtitle">Access the Counselling Management System</p>
-
-        {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-        {% for cat, msg in messages %}
-        <div class="alert alert-danger">
-            <i class="fas fa-exclamation-circle"></i>
-            {{ msg }}
-        </div>
-        {% endfor %}
-        {% endif %}
-        {% endwith %}
-
-        <form method="POST" id="loginForm">
-            <div class="form-group">
-                <i class="fas fa-envelope icon"></i>
-                <input type="text" name="username" id="username" placeholder="Username" required autofocus autocomplete="username">
+    <!-- ── Left: Branding ── -->
+    <div class="left-panel">
+        <div class="arc"></div>
+        <div class="arc"></div>
+        <div class="brand-content">
+            <div class="brand-logo">
+                <i class="fas fa-graduation-cap"></i>
             </div>
-            <div class="form-group">
-                <i class="fas fa-lock icon"></i>
-                <input type="password" name="password" id="password" placeholder="Password" required autocomplete="current-password">
-                <button type="button" class="toggle-pw" onclick="togglePassword()">
-                    <i class="fas fa-eye" id="pwIcon"></i>
+            <h1>AAMUSTED GCC</h1>
+            <p class="tagline">Ghana Christian International High School<br>Counselling Management System</p>
+            <div class="features-list">
+                <div class="feature-item">
+                    <div class="fi fi-blue"><i class="fas fa-users"></i></div>
+                    <span>Student intake &amp; case management</span>
+                </div>
+                <div class="feature-item">
+                    <div class="fi fi-green"><i class="fas fa-calendar-check"></i></div>
+                    <span>Appointment scheduling &amp; tracking</span>
+                </div>
+                <div class="feature-item">
+                    <div class="fi fi-amber"><i class="fas fa-chart-line"></i></div>
+                    <span>Analytics &amp; outcome dashboards</span>
+                </div>
+                <div class="feature-item">
+                    <div class="fi fi-purple"><i class="fas fa-file-lines"></i></div>
+                    <span>Automated reports &amp; referrals</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Right: Login Form ── -->
+    <div class="right-panel">
+        <div class="login-card">
+            <div class="welcome-badge">
+                <i class="fas fa-arrow-right-to-bracket"></i>
+                Welcome back
+            </div>
+
+            <h2>Sign in to your account</h2>
+            <p class="subtitle">Enter your credentials to access the dashboard</p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for cat, msg in messages %}
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle"></i>
+                {{ msg }}
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <form method="POST" id="loginForm">
+                <div class="form-group">
+                    <label>Username</label>
+                    <i class="fas fa-user icon"></i>
+                    <input type="text" name="username" id="username" placeholder="Enter your username" required autofocus autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <i class="fas fa-lock icon"></i>
+                    <input type="password" name="password" id="password" placeholder="Enter your password" required autocomplete="current-password">
+                    <button type="button" class="toggle-pw" onclick="togglePassword()">
+                        <i class="fas fa-eye" id="pwIcon"></i>
+                    </button>
+                </div>
+
+                <div class="form-row">
+                    <label><input type="checkbox" checked> Remember me</label>
+                    <a href="#" class="forgot-link">Forgot password?</a>
+                </div>
+
+                <button type="submit" class="btn-signin" id="submitBtn">
+                    Sign In <i class="fas fa-arrow-right"></i>
                 </button>
+            </form>
+
+            <div class="divider">
+                <span>Quick access — demo accounts</span>
             </div>
 
-            <a href="#" class="forgot-link">Forgot password?</a>
+            <div class="accounts-grid">
+                <a class="account-btn" href="#" onclick="fillCredentials('admin','admin123')">
+                    <div class="role-icon admin"><i class="fas fa-shield-halved"></i></div>
+                    <div class="role-info">
+                        <div class="role-name">Admin</div>
+                        <div class="role-creds">admin / admin123</div>
+                    </div>
+                    <i class="fas fa-chevron-right" style="color:#94a3b8; font-size:12px;"></i>
+                </a>
+                <a class="account-btn" href="#" onclick="fillCredentials('secretary','secretary123')">
+                    <div class="role-icon secretary"><i class="fas fa-headset"></i></div>
+                    <div class="role-info">
+                        <div class="role-name">Secretary</div>
+                        <div class="role-creds">secretary / secretary123</div>
+                    </div>
+                    <i class="fas fa-chevron-right" style="color:#94a3b8; font-size:12px;"></i>
+                </a>
+                <a class="account-btn" href="#" onclick="fillCredentials('counsellor','counsellor123')">
+                    <div class="role-icon counsellor"><i class="fas fa-user-doctor"></i></div>
+                    <div class="role-info">
+                        <div class="role-name">Counsellor</div>
+                        <div class="role-creds">counsellor / counsellor123</div>
+                    </div>
+                    <i class="fas fa-chevron-right" style="color:#94a3b8; font-size:12px;"></i>
+                </a>
+            </div>
 
-            <button type="submit" class="btn-signin" id="submitBtn">
-                Get Started
-            </button>
-        </form>
-
-        <div class="divider">
-            <span>Quick access</span>
+            <p class="footer-text"><strong>AAMUSTED</strong> Ghana Christian International High School</p>
         </div>
-
-        <div class="accounts-grid">
-            <a class="account-btn" href="#" onclick="fillCredentials('admin','admin123')">
-                <div class="role-icon admin"><i class="fas fa-shield-halved"></i></div>
-                <div class="role-info">
-                    <div class="role-name">Admin</div>
-                    <div class="role-creds">admin / admin123</div>
-                </div>
-                <i class="fas fa-chevron-right" style="color:#94a3b8; font-size:12px;"></i>
-            </a>
-            <a class="account-btn" href="#" onclick="fillCredentials('secretary','secretary123')">
-                <div class="role-icon secretary"><i class="fas fa-headset"></i></div>
-                <div class="role-info">
-                    <div class="role-name">Secretary</div>
-                    <div class="role-creds">secretary / secretary123</div>
-                </div>
-                <i class="fas fa-chevron-right" style="color:#94a3b8; font-size:12px;"></i>
-            </a>
-            <a class="account-btn" href="#" onclick="fillCredentials('counsellor','counsellor123')">
-                <div class="role-icon counsellor"><i class="fas fa-user-doctor"></i></div>
-                <div class="role-info">
-                    <div class="role-name">Counsellor</div>
-                    <div class="role-creds">counsellor / counsellor123</div>
-                </div>
-                <i class="fas fa-chevron-right" style="color:#94a3b8; font-size:12px;"></i>
-            </a>
-        </div>
-
-        <p class="footer-text"><strong>AAMUSTED</strong> Ghana Christian International High School</p>
     </div>
 
     <script>

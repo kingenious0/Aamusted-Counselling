@@ -2372,8 +2372,13 @@ def appointment():
         cur = dict_cursor(conn)
         cur.execute('SELECT id, name, case_number, programme FROM "Student" WHERE is_deleted = FALSE ORDER BY name')
         students = cur.fetchall()
+        # Pull from Counsellor table + users with Counsellor role
         cur.execute('SELECT id, name FROM "Counsellor" ORDER BY name')
         counsellors = cur.fetchall()
+        cur.execute("SELECT id, full_name as name FROM users WHERE role IN ('Counsellor','Counselor') ORDER BY full_name")
+        for u in cur.fetchall():
+            if not any(c['name'] == u['name'] for c in counsellors):
+                counsellors.append(u)
         cur.close()
         conn.close()
     except Exception as e:
