@@ -59,11 +59,11 @@
                 </thead>
                 <tbody>
                     {% for a in appointments %}
-                    <tr tabindex="0" aria-label="Appointment with {{ a.student_name }} on {{ a.date }}">
+                    <tr tabindex="0" aria-label="Appointment with {{ a.student_name|to_initials }} on {{ a.date }}">
                         <td>{{ a.date }}</td>
                         <td>{{ a.time }}</td>
                         <td>
-                            <strong>{{ a.student_name }}</strong>
+                            <strong>{{ a.student_name|to_initials }}</strong>
                             {% if a.case_number %}<br><small style="color:var(--color-text-muted);">{{ a.case_number }}</small>{% endif %}
                         </td>
                         <td><span class="badge badge-blue">{{ a.type }}</span></td>
@@ -79,15 +79,15 @@
                             <a href="/appointment/update_status/{{ a.id }}/Completed"
                                class="btn btn-sm btn-outline-success"
                                title="Mark as completed"
-                               aria-label="Complete appointment with {{ a.student_name }}"
-                               onclick="event.preventDefault(); confirmAction('Complete Appointment', 'Mark this appointment with {{ a.student_name }} as completed?', '<i class=&quot;fas fa-check-circle&quot; style=&quot;color:var(--color-success)&quot;></i>', function() { Loading.show('Updating...'); window.location.href = '/appointment/update_status/{{ a.id }}/Completed'; });">
+                                aria-label="Complete appointment with {{ a.student_name|to_initials }}"
+                                onclick="event.preventDefault(); confirmAction('Complete Appointment', 'Mark this appointment with {{ a.student_name|to_initials }} as completed?', '<i class=&quot;fas fa-check-circle&quot; style=&quot;color:var(--color-success)&quot;></i>', function() { Loading.show('Updating...'); window.location.href = '/appointment/update_status/{{ a.id }}/Completed'; });">
                                 <i class="fas fa-check" aria-hidden="true"></i>
                             </a>
                             <a href="/appointment/update_status/{{ a.id }}/Cancelled"
                                class="btn btn-sm btn-outline-danger"
                                title="Cancel appointment"
-                               aria-label="Cancel appointment with {{ a.student_name }}"
-                               onclick="event.preventDefault(); confirmAction('Cancel Appointment', 'Are you sure you want to cancel this appointment with {{ a.student_name }}? This action cannot be undone.', '<i class=&quot;fas fa-exclamation-triangle&quot; style=&quot;color:var(--color-danger)&quot;></i>', function() { Loading.show('Cancelling...'); window.location.href = '/appointment/update_status/{{ a.id }}/Cancelled'; });">
+                                aria-label="Cancel appointment with {{ a.student_name|to_initials }}"
+                                onclick="event.preventDefault(); confirmAction('Cancel Appointment', 'Are you sure you want to cancel this appointment with {{ a.student_name|to_initials }}? This action cannot be undone.', '<i class=&quot;fas fa-exclamation-triangle&quot; style=&quot;color:var(--color-danger)&quot;></i>', function() { Loading.show('Cancelling...'); window.location.href = '/appointment/update_status/{{ a.id }}/Cancelled'; });">
                                 <i class="fas fa-times" aria-hidden="true"></i>
                             </a>
                             {% else %}

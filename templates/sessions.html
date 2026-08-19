@@ -67,7 +67,7 @@
                     {% for s in sessions %}
                     <tr>
                         <td>{{ s.session_date or s.date or '' }}</td>
-                        <td>{{ s.student_name_s or s.student_name or 'Walk-in' }}</td>
+                        <td>{{ ((s.student_name_s or s.student_name)|to_initials) if (s.student_name_s or s.student_name) else 'Walk-in' }}</td>
                         <td><span class="badge badge-blue">{{ s.session_type or 'Individual' }}</span></td>
                         <td>{{ s.counsellor or 'N/A' }}</td>
                         <td>

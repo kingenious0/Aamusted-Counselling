@@ -46,7 +46,7 @@
                     {% for a in assessments %}
                     <tr>
                         <td>{{ a.created_at or '' }}</td>
-                        <td>{{ a.student_name or '' }}</td>
+                        <td>{{ (a.student_name|to_initials) if a.student_name else '' }}</td>
                         <td>
                             <span class="badge {% if 'Extremely' in (a.depression_severity or '') %}badge-red{% elif 'Severe' in (a.depression_severity or '') %}badge-red{% elif 'Moderate' in (a.depression_severity or '') %}badge-amber{% else %}badge-green{% endif %}">
                                 {{ a.depression_score or 0 }} ({{ a.depression_severity or 'N/A' }})

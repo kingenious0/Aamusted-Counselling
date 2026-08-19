@@ -656,6 +656,18 @@ def to_clinical_id_filter(student):
         return "N/A"
 
 
+@app.template_filter('to_initials')
+def to_initials_filter(name):
+    """Jinja2 filter to convert full name to initials for privacy display."""
+    return name_to_initials(name)
+
+
+@app.template_filter('clinical_id')
+def clinical_id_filter(name, sid):
+    """Jinja2 filter: clinical_id(name, id) → clinical privacy ID."""
+    return get_clinical_id(name, sid)
+
+
 def send_frog_sms(phone, message, reference=''):
     """Send SMS via Frog (Wigal) API. Returns (success: bool, error: str|None)."""
     if not phone or not message:

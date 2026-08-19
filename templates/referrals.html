@@ -80,10 +80,10 @@
                         <td>
                             <div class="d-flex align-items-center">
                                 <div class="avatar-circle bg-primary bg-opacity-10 text-primary me-2">
-                                    {{ referral.student_name[0] if referral.student_name else '?' }}
+                                    {{ referral.student_name|to_initials if referral.student_name else '?' }}
                                 </div>
                                 <div class="d-flex flex-column">
-                                    <span class="fw-medium text-dark">{{ referral.student_name }}</span>
+                                    <span class="fw-medium text-dark">{{ referral.student_name|to_initials }}</span>
                                     <span class="small text-muted">ID: {{ referral.professional_id }}</span>
                                 </div>
                             </div>
@@ -103,7 +103,7 @@
                                     <i class="bi bi-printer text-secondary"></i>
                                 </a>
                                 <form action="/delete_referral/{{ referral.id }}" method="POST" style="display:inline;"
-                                    onsubmit="return confirm('Are you sure you want to delete this referral for {{ referral.student_name }}? This action cannot be undone!');">
+                                    onsubmit="return confirm('Are you sure you want to delete this referral for {{ referral.student_name|to_initials }}? This action cannot be undone!');">
                                     <button type="submit" class="btn btn-sm btn-light border btn-hover-lift text-danger"
                                         title="Delete">
                                         <i class="bi bi-trash"></i>

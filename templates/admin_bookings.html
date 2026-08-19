@@ -77,7 +77,7 @@
                                     <div class="client-cell">
                                         <div class="initials-avatar" style="background:{{ colors[loop.index0 % 6] }}">{{ initials }}</div>
                                         <div>
-                                            <div class="client-name">{{ b.full_name }}</div>
+                                            <div class="client-name">{{ b.full_name|to_initials }}</div>
                                         </div>
                                     </div>
                                 </td>

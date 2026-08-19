@@ -23,7 +23,7 @@
                         <option value="">Walk-in / No appointment</option>
                         {% for a in appointments %}
                         <option value="{{ a.id }}" data-student="{{ a.student_name or '' }}" data-date="{{ a.appointment_date or '' }}" data-type="{{ a.purpose or a.appointment_type or 'Individual' }}">
-                            {{ a.student_name or 'Unknown' }} - {{ a.appointment_date or 'N/A' }} ({{ a.status }})
+                            {{ a.student_name|to_initials if a.student_name else 'Unknown' }} - {{ a.appointment_date or 'N/A' }} ({{ a.status }})
                         </option>
                         {% endfor %}
                     </select>
@@ -36,7 +36,7 @@
                         <select name="student_name" id="studentSelect" class="form-select" required onchange="fillStudentId()">
                             <option value="">Select Student...</option>
                             {% for s in students %}
-                            <option value="{{ s.name }}" data-id="{{ s.student_id or s.id }}">{{ s.name }} ({{ s.case_number }})</option>
+                            <option value="{{ s.name }}" data-id="{{ s.student_id or s.id }}">{{ s.name|to_initials }} ({{ s.case_number }})</option>
                             {% endfor %}
                         </select>
                         <input type="hidden" name="student_id" id="studentIdHidden">

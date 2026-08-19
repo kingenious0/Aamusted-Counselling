@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DASS-21 Assessment - {{ dass21.student_name }}</title>
+    <title>DASS-21 Assessment - {{ dass21.student_name|to_initials }}</title>
     <link href="/static/css/inter.css" rel="stylesheet">
     <style>
         :root { --primary-color: #1a365d; --text-color: #2d3748; --border-color: #e2e8f0; }
@@ -134,7 +134,7 @@
         <div class="grid-2">
             <div>
                 <span class="field-label">Student Name</span>
-                <div class="field-value highlight">{{ dass21.student_name or 'N/A' }}</div>
+                <div class="field-value highlight">{{ dass21.student_name|to_initials if dass21.student_name else 'N/A' }}</div>
             </div>
             <div>
                 <span class="field-label">Student ID</span>

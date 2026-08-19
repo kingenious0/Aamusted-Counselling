@@ -72,7 +72,7 @@ Dashboard
                         {% for a in today_appts %}
                         <tr>
                             <td style="font-weight:500;">{{ a.time or '-' }}</td>
-                            <td>{{ a.student_name or '-' }}</td>
+                            <td>{{ (a.student_name|to_initials) if a.student_name else '-' }}</td>
                             <td>
                                 {% if a.status == 'In Session' %}
                                 <span class="badge badge-green" style="padding:4px 10px; border-radius:20px;">In Session</span>
@@ -113,7 +113,7 @@ Dashboard
                 <div class="list-group-item" style="background:transparent; border-color:#e2d9c8; padding:12px 0;">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
-                            <div style="font-weight:600; font-size:14px;">{{ b.student_name or b.get('full_name', '-') }}</div>
+                            <div style="font-weight:600; font-size:14px;">{{ (b.student_name|to_initials) if b.student_name else (b.get('full_name')|to_initials if b.get('full_name') else '-') }}</div>
                             <small class="text-muted">Case: {{ b.case_number or '-' }} &middot; {{ b.date or b.get('preferred_date', '-') }}</small>
                         </div>
                         {% if is_secretary or is_admin %}
@@ -188,7 +188,7 @@ Dashboard
                 {% for a in recent_activity %}
                 <div class="list-group-item" style="background:transparent; border-color:#e2d9c8; padding:8px 0;">
                     <small class="text-muted" style="font-size:12px;">{{ a.created_at or '' }}</small>
-                    <p class="mb-0" style="font-size:13px;">{{ a.student_name or '-' }} &rarr; {{ a.status }}</p>
+                    <p class="mb-0" style="font-size:13px;">{{ (a.student_name|to_initials) if a.student_name else '-' }} &rarr; {{ a.status }}</p>
                 </div>
                 {% endfor %}
             </div>

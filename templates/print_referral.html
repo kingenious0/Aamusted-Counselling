@@ -318,7 +318,7 @@
         <div class="grid-2">
             <div class="field-group">
                 <span class="field-label">Full Name of Client</span>
-                <div class="field-value highlight">{{ referral.student_name or 'N/A' }}</div>
+                <div class="field-value highlight">{{ referral.student_name|to_initials if referral.student_name else 'N/A' }}</div>
             </div>
             <div class="field-group">
                 <span class="field-label">Student / ID</span>

@@ -87,7 +87,7 @@
                             <div class="d-flex align-items-center">
                                 <div class="avatar-circle bg-primary bg-opacity-10 text-primary me-2">{{ initials }}</div>
                                 <div class="d-flex flex-column">
-                                    <span class="fw-bold text-dark">{{ appointment.student_name }}</span>
+                                    <span class="fw-bold text-dark">{{ appointment.student_name|to_initials }}</span>
                                     <span class="small text-muted font-monospace">{{ appointment.index_number }}</span>
                                 </div>
                             </div>

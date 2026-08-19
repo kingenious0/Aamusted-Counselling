@@ -39,7 +39,7 @@
                     {% for c in cases %}
                     <tr>
                         <td><code style="color:#60a5fa;">{{ c.case_number }}</code></td>
-                        <td>{{ c.student_name }}</td>
+                        <td>{{ c.student_name|to_initials }}</td>
                         <td>
                             <span class="badge {% if c.status == 'Active' %}badge-green{% elif c.status == 'Closed' %}badge-red{% else %}badge-amber{% endif %}">
                                 {{ c.status or 'Active' }}

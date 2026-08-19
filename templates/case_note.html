@@ -23,7 +23,7 @@
                         <select name="student_name" id="studentSelect" class="form-select" required onchange="fillStudentId()">
                             <option value="">Select Student...</option>
                             {% for s in students %}
-                            <option value="{{ s.name }}" data-id="{{ s.student_id or s.id }}">{{ s.name }} ({{ s.case_number }})</option>
+                            <option value="{{ s.name }}" data-id="{{ s.student_id or s.id }}">{{ s.name|to_initials }} ({{ s.case_number }})</option>
                             {% endfor %}
                         </select>
                         <input type="hidden" name="student_id" id="studentIdHidden">
@@ -33,7 +33,7 @@
                         <select name="session_id" class="form-select">
                             <option value="">Walk-in / No session</option>
                             {% for s in sessions %}
-                            <option value="{{ s.id }}">{{ s.student_name or 'Unknown' }} - {{ s.session_date or 'N/A' }}</option>
+                            <option value="{{ s.id }}">{{ s.student_name|to_initials if s.student_name else 'Unknown' }} - {{ s.session_date or 'N/A' }}</option>
                             {% endfor %}
                         </select>
                     </div>

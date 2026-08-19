@@ -49,7 +49,7 @@
                     {% for c in cases %}
                     <tr>
                         <td>{{ c.created_at or '' }}</td>
-                        <td>{{ c.student_name or '' }}</td>
+                        <td>{{ (c.student_name|to_initials) if c.student_name else '' }}</td>
                         <td><span style="max-width:150px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ c.client_appearance or c.appearance_problems or '' }}">{{ c.client_appearance or c.appearance_problems or '' }}</span></td>
                         <td><span style="max-width:150px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ c.presenting_problems or '' }}">{{ c.presenting_problems or '' }}</span></td>
                         <td><span style="max-width:150px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ c.interventions or '' }}">{{ c.interventions or '' }}</span></td>

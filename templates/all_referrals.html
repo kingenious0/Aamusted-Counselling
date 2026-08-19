@@ -55,7 +55,7 @@
                     {% for r in referrals %}
                     <tr>
                         <td>{{ r.created_at or '' }}</td>
-                        <td>{{ r.student_name or '' }}</td>
+                        <td>{{ (r.student_name|to_initials) if r.student_name else '' }}</td>
                         <td>{{ r.referred_by or '' }}</td>
                         <td>{{ r.contact or '' }}</td>
                         <td><span style="max-width:150px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ r.reason or r.reason_for_referral or '' }}">{{ r.reason or r.reason_for_referral or '' }}</span></td>

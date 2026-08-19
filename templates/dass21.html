@@ -21,7 +21,7 @@
                         <select name="student_name" id="studentSelect" class="form-select" required onchange="fillStudentId()">
                             <option value="">Choose a student...</option>
                             {% for s in students %}
-                            <option value="{{ s.name }}" data-id="{{ s.student_id or s.id }}">{{ s.name }} ({{ s.case_number }})</option>
+                            <option value="{{ s.name }}" data-id="{{ s.student_id or s.id }}">{{ s.name|to_initials }} ({{ s.case_number }})</option>
                             {% endfor %}
                         </select>
                         <input type="hidden" name="student_id" id="studentIdHidden">

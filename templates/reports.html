@@ -61,7 +61,7 @@
                 <tbody>
                     {% for r in reports %}
                     <tr>
-                        <td>{{ r.title or r.student_name or 'Report' }}</td>
+                        <td>{{ r.title or ((r.student_name|to_initials) if r.student_name else 'Report') }}</td>
                         <td><span class="badge badge-blue">{{ r.report_type or 'N/A' }}</span></td>
                         <td style="color:#6b7280; font-size:13px;">{{ r.created_at or r.date_generated or '' }}</td>
                         <td>{{ r.generated_by or '' }}</td>

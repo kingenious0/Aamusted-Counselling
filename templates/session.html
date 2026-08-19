@@ -36,7 +36,7 @@
                             <option value="">choose appointment...</option>
                             {% for appointment in appointments %}
                             <option value="{{ appointment.id }}">
-                                {{ appointment.date }} - {{ appointment.student_name }}
+                                {{ appointment.date }} - {{ appointment.student_name|to_initials }}
                             </option>
                             {% endfor %}
                         </select>
