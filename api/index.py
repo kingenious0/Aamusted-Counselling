@@ -2394,14 +2394,14 @@ def manage_appointments():
         conn = get_db()
         cur = dict_cursor(conn)
         cur.execute('''
-            SELECT a.id, a.appointment_date as date, a.appointment_time as time,
-                   a.appointment_type as type, a.status, a.counsellor, a.notes,
-                   a.booking_ref, a.student_id, a.global_id,
-                   COALESCE(s.name, 'Unknown') as student_name,
-                   s.case_number, s.index_number
+            SELECT a.id, a.appointment_date as "date", a.appointment_time as "time",
+                   a.appointment_type as "type", a.status, a.counsellor, a.notes,
+                   a.booking_ref, a.student_id, a.global_id, a.student_name as display_name,
+                   COALESCE(s.name, a.student_name, 'Unknown') as student_name,
+                   s.case_number
             FROM "Appointment" a
-            LEFT JOIN "Student" s ON a.student_id = s.id
-            WHERE a.is_deleted = FALSE
+            LEFT JOIN "Student" s ON a.student_id::bigint = s.id
+            WHERE COALESCE(a.is_deleted, FALSE) = FALSE
             ORDER BY a.appointment_date DESC, a.appointment_time DESC
             LIMIT 500
         ''')
@@ -2414,7 +2414,8 @@ def manage_appointments():
         cur.close()
         conn.close()
     except Exception as e:
-        logger.error(f"manage_appointments: {e}")
+        logger.error(f"manage_appointments ERROR: {e}", exc_info=True)
+        flash(f"Error loading appointments: {e}", "error")
     return render_template('manage_appointments.html', appointments=appointments)
 
 
