@@ -1442,49 +1442,9 @@ def portal_booking():
         ref = cur.fetchone()[0]
         conn.commit()
 
-        DEFAULT_COUNSELLOR = 'Mrs. Gertrude Effeh Brew'
-
-        cur.execute(
-            'SELECT id FROM "Student" WHERE index_number = %s AND is_deleted = FALSE',
-            (index_number,),
-        )
-        existing = cur.fetchone()
-
-        if existing:
-            student_id = existing[0] if isinstance(existing, tuple) else existing.get('id')
-        else:
-            case_number = generate_case_number(conn)
-            cur.execute(
-                '''INSERT INTO "Student"
-                   (name, case_number, index_number, department, programme, contact,
-                    email, hall_of_residence, gender, age, global_id, created_at, updated_at)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
-                   RETURNING id''',
-                (full_name, case_number, index_number, department, programme,
-                 phone, email, hall_of_residence, gender,
-                 int(age) if age else None, str(uuid.uuid4())),
-            )
-            student_id = cur.fetchone()[0]
-            conn.commit()
-
-        cur.execute(
-            '''INSERT INTO "Appointment"
-               (student_name, student_id, appointment_date, appointment_time,
-                counsellor, purpose, status, booking_ref, urgency, global_id,
-                created_at, updated_at)
-               VALUES (%s, %s, %s, %s, %s, %s, 'Scheduled', %s, 'Normal', %s, NOW(), NOW())''',
-            (full_name, str(student_id),
-             preferred_date or datetime.now().strftime('%Y-%m-%d'),
-             preferred_time or '09:00',
-             DEFAULT_COUNSELLOR,
-             f"[Portal Booking] {reason or 'Counselling session'}",
-             ref, str(uuid.uuid4())),
-        )
-        conn.commit()
-
         fire_staff_notifications(
             conn,
-            f"New booking {ref} from {name_to_initials(full_name)} ({index_number}) — auto-accepted & scheduled",
+            f"New booking {ref} from {name_to_initials(full_name)} ({index_number}) — Pending review",
             '/admin/bookings',
         )
 
