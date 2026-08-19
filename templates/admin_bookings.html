@@ -10,16 +10,22 @@
 </nav>
 {% endblock %}
 {% block extra_css %}
-        .nav-tabs { border-bottom: 1px solid #e2d9c8; }
-        .nav-tabs .nav-link { color: #6b7280; border: none; padding: 10px 20px; font-size: 14px; border-radius: 8px 8px 0 0; }
-        .nav-tabs .nav-link:hover { color: #1a202c; background: rgba(37,99,235,0.05); }
-        .nav-tabs .nav-link.active { color: #2563eb; background: rgba(37,99,235,0.1); border: none; }
-        .spinner-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 9999; align-items: center; justify-content: center; }
-        .spinner-overlay.show { display: flex; }
-        .spinner-box { background: #ffffff; padding: 32px 48px; border-radius: 16px; text-align: center; border: 1px solid #e2d9c8; }
+.nav-tabs { border-bottom: 1px solid #e2d9c8; }
+.nav-tabs .nav-link { color: #6b7280; border: none; padding: 10px 20px; font-size: 14px; border-radius: 8px 8px 0 0; }
+.nav-tabs .nav-link:hover { color: #1a202c; background: rgba(37,99,235,0.05); }
+.nav-tabs .nav-link.active { color: #2563eb; background: rgba(37,99,235,0.1); border: none; }
+.initials-avatar {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 12px; color: #fff; flex-shrink: 0;
+}
+.client-cell { display: flex; align-items: center; gap: 8px; }
+.client-name { font-weight: 600; font-size: 13px; }
+.client-idx { font-size: 12px; color: var(--color-text-muted); font-family: monospace; }
+.table td, .table th { vertical-align: middle; }
 {% endblock %}
 {% block content %}
-        <div class="card-dark p-0">
+        <div class="card-dark">
             <div class="px-4 pt-3">
                 <ul class="nav nav-tabs">
                     <li class="nav-item">
@@ -40,13 +46,17 @@
                 </ul>
             </div>
             <div class="p-4">
+                <div class="mb-3">
+                    <input type="text" id="bookingSearch" class="form-control"
+                           placeholder="Type to search by reference, name, index number..." autocomplete="off">
+                </div>
                 {% if bookings %}
                 <div class="table-responsive">
-                    <table class="table">
+                    <table class="table" id="bookingTable">
                         <thead>
                             <tr>
                                 <th>Reference</th>
-                                <th>Name</th>
+                                <th>Student</th>
                                 <th>Index No.</th>
                                 <th>Department</th>
                                 <th>Date</th>
@@ -57,13 +67,24 @@
                         </thead>
                         <tbody>
                             {% for b in bookings %}
-                            <tr id="row-{{ b.reference }}">
+                            {% set name_parts = (b.full_name or 'N N').split() %}
+                            {% set initials = (name_parts[0][0] ~ name_parts[-1][0])|upper %}
+                            {% set colors = ['#16a34a','#2563eb','#9333ea','#ea580c','#0891b2','#dc2626'] %}
+                            <tr id="row-{{ b.reference }}"
+                                data-search="{{ (b.full_name ~ ' ' ~ b.reference ~ ' ' ~ b.index_number ~ ' ' ~ b.department)|lower }}">
                                 <td><code style="color:#2563eb;">{{ b.reference }}</code></td>
-                                <td>{{ b.masked_name }}</td>
-                                <td>{{ b.index_number or '-' }}</td>
-                                <td>{{ b.department or '-' }}</td>
-                                <td>{{ b.preferred_date or '-' }}</td>
-                                <td>{{ b.preferred_time or '-' }}</td>
+                                <td>
+                                    <div class="client-cell">
+                                        <div class="initials-avatar" style="background:{{ colors[loop.index0 % 6] }}">{{ initials }}</div>
+                                        <div>
+                                            <div class="client-name">{{ b.full_name }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td style="font-family:monospace; font-size:13px;">{{ b.index_number or '-' }}</td>
+                                <td style="font-size:13px;">{{ b.department or '-' }}</td>
+                                <td style="font-size:13px;">{{ b.preferred_date or '-' }}</td>
+                                <td style="font-size:13px;">{{ b.preferred_time or '-' }}</td>
                                 <td>
                                     {% if b.status == 'Pending' %}
                                     <span class="badge bg-warning">Pending</span>
@@ -76,17 +97,17 @@
                                 <td>
                                     {% if b.status != 'Declined' %}
                                         {% if not b.is_registered %}
-                                        <button class="btn btn-sm btn-success" onclick="handleRegister('{{ b.reference }}')" id="btn-reg-{{ b.reference }}">
+                                        <button class="btn btn-sm btn-success rounded-pill" onclick="handleRegister('{{ b.reference }}')" id="btn-reg-{{ b.reference }}">
                                             <i class="fas fa-user-plus me-1"></i>Register
                                         </button>
-                                        <button class="btn btn-sm btn-outline-danger ms-1" onclick="handleDecline('{{ b.reference }}')">
+                                        <button class="btn btn-sm btn-outline-danger ms-1 rounded-pill" onclick="handleDecline('{{ b.reference }}')" title="Decline">
                                             <i class="fas fa-times"></i>
                                         </button>
                                         {% else %}
-                                        <span class="text-success"><i class="fas fa-check-circle me-1"></i>Registered</span>
+                                        <span class="text-success small"><i class="fas fa-check-circle me-1"></i>Registered</span>
                                         {% endif %}
                                     {% else %}
-                                    <span class="text-muted"><i class="fas fa-ban me-1"></i>Declined</span>
+                                    <span class="text-muted small"><i class="fas fa-ban me-1"></i>Declined</span>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -158,5 +179,23 @@
         })
         .catch(e => { hideLoading(); alert('Network error: ' + e); });
     }
+
+    // Auto-search
+    (function() {
+        var input = document.getElementById('bookingSearch');
+        var rows = document.querySelectorAll('#bookingTable tbody tr');
+        var timer;
+        if (!input) return;
+        input.addEventListener('input', function() {
+            clearTimeout(timer);
+            timer = setTimeout(function() {
+                var q = input.value.toLowerCase().trim();
+                rows.forEach(function(row) {
+                    var s = row.dataset.search || '';
+                    row.style.display = (!q || s.includes(q)) ? '' : 'none';
+                });
+            }, 120);
+        });
+    })();
 </script>
 {% endblock %}

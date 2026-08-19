@@ -21,8 +21,8 @@
         <div class="input-group">
             <span class="input-group-text bg-light border-0"><i class="bi bi-search text-muted"></i></span>
             <input type="text" class="form-control bg-light border-0" id="appointmentSearch" 
-                   placeholder="Search by student name, index number, or booking reference...">
-            <button class="btn btn-light border-start-0 border-0 text-muted" type="button" onclick="document.getElementById('appointmentSearch').value=''; filterAppointments()">
+                   placeholder="Type to search..." autocomplete="off">
+            <button class="btn btn-light border-0 text-muted" type="button" id="clearSearch" style="display:none;">
                 <i class="bi bi-x-circle"></i>
             </button>
         </div>
@@ -33,27 +33,25 @@
 <div class="row g-3 mb-4">
     <div class="col-auto">
         <div class="d-flex align-items-center bg-white rounded-pill px-3 py-2 shadow-sm border">
-            <span class="badge bg-primary rounded-circle p-1 me-2"><span class="visually-hidden">New</span></span>
+            <span class="badge bg-primary rounded-circle p-1 me-2"></span>
             <span class="small fw-bold text-muted text-uppercase">Scheduled</span>
         </div>
     </div>
     <div class="col-auto">
         <div class="d-flex align-items-center bg-white rounded-pill px-3 py-2 shadow-sm border">
-            <span class="badge bg-warning text-dark rounded-circle p-1 me-2"><span
-                    class="visually-hidden">Progress</span></span>
+            <span class="badge bg-warning text-dark rounded-circle p-1 me-2"></span>
             <span class="small fw-bold text-muted text-uppercase">In Session</span>
         </div>
     </div>
     <div class="col-auto">
         <div class="d-flex align-items-center bg-white rounded-pill px-3 py-2 shadow-sm border">
-            <span class="badge bg-info text-white rounded-circle p-1 me-2"><span
-                    class="visually-hidden">Sent</span></span>
+            <span class="badge bg-info text-white rounded-circle p-1 me-2"></span>
             <span class="small fw-bold text-muted text-uppercase">Sent to Counsellor</span>
         </div>
     </div>
     <div class="col-auto">
         <div class="d-flex align-items-center bg-white rounded-pill px-3 py-2 shadow-sm border">
-            <span class="badge bg-success rounded-circle p-1 me-2"><span class="visually-hidden">Done</span></span>
+            <span class="badge bg-success rounded-circle p-1 me-2"></span>
             <span class="small fw-bold text-muted text-uppercase">Completed</span>
         </div>
     </div>
@@ -62,16 +60,12 @@
 <!-- Appointments Table Card -->
 <div class="card card-glass border-0 shadow-lg">
     <div class="card-body p-0">
-        <form id="status-update-form" method="POST" action="">
-            <input type="hidden" name="status" id="status-input">
-        </form>
-
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" style="min-height: 400px;">
+            <table class="table table-hover align-middle mb-0" id="appointmentsTable" style="min-height: 400px;">
                 <thead class="bg-light">
                     <tr>
                         <th class="ps-4 text-uppercase small fw-bold text-muted border-0">Date & Time</th>
-                        <th class="text-uppercase small fw-bold text-muted border-0">Student / Index</th>
+                        <th class="text-uppercase small fw-bold text-muted border-0">Student</th>
                         <th class="text-uppercase small fw-bold text-muted border-0">Counsellor</th>
                         <th class="text-uppercase small fw-bold text-muted border-0">Ref / Case</th>
                         <th class="text-uppercase small fw-bold text-muted border-0">Status</th>
@@ -80,21 +74,20 @@
                 </thead>
                 <tbody class="border-top-0">
                     {% for appointment in appointments %}
-                    <tr>
+                    {% set name_parts = (appointment.student_name or 'N N').split() %}
+                    {% set initials = (name_parts[0][0] ~ name_parts[-1][0])|upper %}
+                    <tr data-search="{{ (appointment.student_name ~ ' ' ~ appointment.index_number ~ ' ' ~ appointment.booking_ref ~ ' ' ~ appointment.case_number ~ ' ' ~ appointment.Counsellor_name)|lower }}">
                         <td class="ps-4">
                             <div class="d-flex flex-column">
                                 <span class="fw-bold text-dark">{{ appointment.date }}</span>
                                 <span class="small text-muted">{{ appointment.time }}</span>
                             </div>
                         </td>
-                        <td class="appt-search-field">
+                        <td>
                             <div class="d-flex align-items-center">
-                                <div class="avatar-circle bg-primary bg-opacity-10 text-primary me-2">
-                                    {% set clinical_id = {'name': appointment.student_name, 'id': appointment.student_record_id, 'created_at': appointment.student_created_at}|to_clinical_id %}
-                                    {{ clinical_id[0] }}
-                                </div>
+                                <div class="avatar-circle bg-primary bg-opacity-10 text-primary me-2">{{ initials }}</div>
                                 <div class="d-flex flex-column">
-                                    <span class="fw-bold text-dark">{{ clinical_id }}</span>
+                                    <span class="fw-bold text-dark">{{ appointment.student_name }}</span>
                                     <span class="small text-muted font-monospace">{{ appointment.index_number }}</span>
                                 </div>
                             </div>
@@ -102,7 +95,7 @@
                         <td>
                             <span class="text-secondary">{{ appointment.Counsellor_name or 'Unassigned' }}</span>
                         </td>
-                        <td class="appt-search-field">
+                        <td>
                             <div class="d-flex flex-column">
                                 <span class="badge bg-light text-dark border font-monospace mb-1">{{ appointment.booking_ref or 'NO-REF' }}</span>
                                 <span class="small text-muted text-truncate" style="max-width:120px;" data-bs-toggle="tooltip" title="{{ appointment.case_number }}">
@@ -124,94 +117,87 @@
                             </span>
                         </td>
                         <td class="text-end pe-4">
-                            <div class="d-flex justify-content-end gap-2 align-items-center">
-                                <!-- Primary Workflow Action Buttons -->
-                                {% if (session.get('role') == 'Secretary' or session.get('role') == 'Admin') and
-                                appointment.status == 'Scheduled' %}
-                                <a href="{{ url_for('update_appt_status', appt_id=appointment.id, new_status='Sent to Counsellor') }}"
-                                    class="btn btn-sm btn-primary btn-hover-lift px-3 shadow-sm rounded-pill"
-                                    title="Handover to Counsellor">
-                                    Send <i class="bi bi-arrow-right list-inline-item ms-1"></i>
-                                </a>
-                                {% elif (session.get('role') == 'Counsellor' or session.get('role') == 'Admin') and
-                                appointment.status == 'Sent to Counsellor' %}
-                                <a href="{{ url_for('update_appt_status', appt_id=appointment.id, new_status='In Session') }}"
-                                    class="btn btn-sm btn-success btn-hover-lift px-3 shadow-sm rounded-pill"
-                                    title="Accept Case">
-                                    Accept <i class="bi bi-check2 list-inline-item ms-1"></i>
-                                </a>
+                            <div class="d-flex justify-content-end gap-1 align-items-center flex-wrap">
+                                {% if appointment.status not in ['Completed', 'Cancelled'] %}
+                                    {# Primary action: the most logical next step #}
+                                    {% if (session.get('role') in ['Secretary', 'Admin']) and appointment.status == 'Scheduled' %}
+                                    <a href="{{ url_for('update_appt_status', appt_id=appointment.id, new_status='Sent to Counsellor') }}"
+                                       class="btn btn-sm btn-primary px-3 rounded-pill" title="Send to Counsellor">
+                                        Send <i class="bi bi-arrow-right ms-1"></i>
+                                    </a>
+                                    {% elif (session.get('role') in ['Counsellor', 'Admin']) and appointment.status == 'Sent to Counsellor' %}
+                                    <a href="{{ url_for('update_appt_status', appt_id=appointment.id, new_status='In Session') }}"
+                                       class="btn btn-sm btn-success px-3 rounded-pill" title="Start Session">
+                                        Accept <i class="bi bi-check2 ms-1"></i>
+                                    </a>
+                                    {% elif (session.get('role') in ['Counsellor', 'Admin']) and appointment.status == 'In Session' %}
+                                    <a href="{{ url_for('update_appt_status', appt_id=appointment.id, new_status='Completed') }}"
+                                       class="btn btn-sm btn-success px-3 rounded-pill" title="Mark Completed">
+                                        Complete <i class="bi bi-check-circle ms-1"></i>
+                                    </a>
+                                    {% endif %}
+
+                                    {# Dropdown: all available transitions for this role/status #}
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-light border rounded-circle" type="button"
+                                                data-bs-toggle="dropdown" aria-expanded="false" style="width:32px;height:32px;">
+                                            <i class="bi bi-three-dots-vertical text-muted"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg p-2" style="min-width:200px;">
+                                            <li><h6 class="dropdown-header text-uppercase small fw-bold text-muted">Change Status</h6></li>
+
+                                            {% if session.get('role') in ['Secretary', 'Admin'] %}
+                                                {% if appointment.status != 'Scheduled' %}
+                                                <li><a class="dropdown-item rounded-2 py-2 small" href="{{ url_for('update_appt_status', appt_id=appointment.id, new_status='Scheduled') }}">
+                                                    <i class="bi bi-calendar-check me-2 text-primary"></i> Scheduled
+                                                </a></li>
+                                                {% endif %}
+                                                {% if appointment.status not in ['Checked In', 'Sent to Counsellor'] %}
+                                                <li><a class="dropdown-item rounded-2 py-2 small" href="{{ url_for('update_appt_status', appt_id=appointment.id, new_status='Checked In') }}">
+                                                    <i class="bi bi-person-check me-2 text-primary"></i> Checked In
+                                                </a></li>
+                                                {% endif %}
+                                                {% if appointment.status not in ['Sent to Counsellor'] %}
+                                                <li><a class="dropdown-item rounded-2 py-2 small" href="{{ url_for('update_appt_status', appt_id=appointment.id, new_status='Sent to Counsellor') }}">
+                                                    <i class="bi bi-send me-2 text-info"></i> Sent to Counsellor
+                                                </a></li>
+                                                {% endif %}
+                                            {% endif %}
+
+                                            {% if session.get('role') in ['Counsellor', 'Admin'] %}
+                                                {% if appointment.status not in ['In Session', 'Completed'] %}
+                                                <li><a class="dropdown-item rounded-2 py-2 small" href="{{ url_for('update_appt_status', appt_id=appointment.id, new_status='In Session') }}">
+                                                    <i class="bi bi-clock me-2 text-warning"></i> In Session
+                                                </a></li>
+                                                {% endif %}
+                                                {% if appointment.status not in ['Completed'] %}
+                                                <li><a class="dropdown-item rounded-2 py-2 small" href="{{ url_for('update_appt_status', appt_id=appointment.id, new_status='Completed') }}">
+                                                    <i class="bi bi-check-circle-fill me-2 text-success"></i> Completed
+                                                </a></li>
+                                                {% endif %}
+                                            {% endif %}
+
+                                            {% if appointment.status != 'Cancelled' %}
+                                            <li><hr class="dropdown-divider my-1"></li>
+                                            <li><a class="dropdown-item rounded-2 py-2 small text-danger fw-bold" href="{{ url_for('update_appt_status', appt_id=appointment.id, new_status='Cancelled') }}">
+                                                <i class="bi bi-x-circle me-2"></i> Cancelled
+                                            </a></li>
+                                            {% endif %}
+
+                                            <li><hr class="dropdown-divider my-1"></li>
+                                            <li>
+                                                <form action="/delete_appointment/{{ appointment.id }}" method="POST"
+                                                      onsubmit="return GCC.confirmForm(event, 'Delete this appointment?', 'warning', 'Yes, Delete');">
+                                                    <button type="submit" class="dropdown-item rounded-2 py-2 text-danger fw-bold small">
+                                                        <i class="bi bi-trash me-2"></i> Delete
+                                                    </button>
+                                                </form>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted small"><i class="bi bi-dash"></i></span>
                                 {% endif %}
-
-                                <!-- Secondary Actions Dropdown -->
-                                <div class="dropdown">
-                                    <button class="btn btn-icon btn-light rounded-circle shadow-sm" type="button"
-                                        data-bs-toggle="dropdown" aria-expanded="false">
-                                        <i class="bi bi-three-dots-vertical text-muted"></i>
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg p-2"
-                                        style="min-width: 200px;">
-                                        <li>
-                                            <h6
-                                                class="dropdown-header text-uppercase small fw-bold text-muted letter-spacing-1">
-                                                Change Status</h6>
-                                        </li>
-                                        <li><button type="button" data-status="Scheduled"
-                                                data-appointment-id="{{ appointment.id }}"
-                                                class="dropdown-item rounded-2 py-2 status-update-btn d-flex align-items-center small">
-                                                <i class="bi bi-calendar-check me-2 text-primary"></i> Mark Scheduled
-                                            </button>
-                                        </li>
-
-                                        {% if session.get('role') in ['Secretary', 'Admin'] %}
-                                        <li><button type="button" data-status="Checked In"
-                                                data-appointment-id="{{ appointment.id }}"
-                                                class="dropdown-item rounded-2 py-2 status-update-btn d-flex align-items-center small">
-                                                <i class="bi bi-person-check me-2 text-primary"></i> Checked In
-                                            </button>
-                                        </li>
-                                        <li><button type="button" data-status="Sent to Counsellor"
-                                                data-appointment-id="{{ appointment.id }}"
-                                                class="dropdown-item rounded-2 py-2 status-update-btn d-flex align-items-center small">
-                                                <i class="bi bi-send me-2 text-info"></i> Sent to Counsellor
-                                            </button>
-                                        </li>
-                                        {% endif %}
-
-                                        {% if session.get('role') in ['Counsellor', 'Counselor', 'Admin'] %}
-                                        <li><button type="button" data-status="In Session"
-                                                data-appointment-id="{{ appointment.id }}"
-                                                class="dropdown-item rounded-2 py-2 status-update-btn d-flex align-items-center small">
-                                                <i class="bi bi-clock me-2 text-warning"></i> In Session
-                                            </button>
-                                        </li>
-                                        <li><button type="button" data-status="Completed"
-                                                data-appointment-id="{{ appointment.id }}"
-                                                class="dropdown-item rounded-2 py-2 status-update-btn d-flex align-items-center small">
-                                                <i class="bi bi-check-circle-fill me-2 text-success"></i> Completed
-                                            </button>
-                                        </li>
-                                        {% endif %}
-
-                                        <li><button type="button" data-status="Cancelled"
-                                                data-appointment-id="{{ appointment.id }}"
-                                                class="dropdown-item rounded-2 py-2 status-update-btn d-flex align-items-center small">
-                                                <i class="bi bi-x-circle me-2 text-danger"></i> Cancelled
-                                            </button>
-                                        </li>
-                                        <li>
-                                            <hr class="dropdown-divider my-2 opacity-10">
-                                        </li>
-                                        <li>
-                                            <form action="/delete_appointment/{{ appointment.id }}" method="POST"
-                                                onsubmit="return GCC.confirmForm(event, 'Are you sure you want to delete this appointment for {{ clinical_id }}?', 'warning', 'Yes, Delete');">
-                                                <button type="submit"
-                                                    class="dropdown-item rounded-2 py-2 text-danger fw-bold d-flex align-items-center small">
-                                                    <i class="bi bi-trash me-2"></i> Delete
-                                                </button>
-                                            </form>
-                                        </li>
-                                    </ul>
-                                </div>
                             </div>
                         </td>
                     </tr>
@@ -220,7 +206,7 @@
                         <td colspan="6" class="text-center py-5 text-muted">
                             <div class="d-flex flex-column align-items-center">
                                 <i class="bi bi-calendar-x fs-1 opacity-50 mb-3"></i>
-                                <p class="mb-0">No appointments found matching your criteria.</p>
+                                <p class="mb-0">No appointments found.</p>
                             </div>
                         </td>
                     </tr>
@@ -234,37 +220,33 @@
 
 {% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const statusUpdateButtons = document.querySelectorAll('.status-update-btn');
+(function() {
+    const input = document.getElementById('appointmentSearch');
+    const clearBtn = document.getElementById('clearSearch');
+    const rows = document.querySelectorAll('#appointmentsTable tbody tr');
+    let timer;
 
-        statusUpdateButtons.forEach(button => {
-            button.addEventListener('click', function () {
-                const status = this.dataset.status;
-                const appointmentId = this.dataset.appointmentId;
+    if (!input) return;
 
-                // Use the GET route defined in app.py
-                // @app.route('/appointment/update_status/<int:appt_id>/<new_status>')
-                const encodedStatus = encodeURIComponent(status);
-                window.location.href = `/appointment/update_status/${appointmentId}/${encodedStatus}`;
-            });
-        });
-
-        // Search functionality
-        const searchInput = document.getElementById('appointmentSearch');
-        if (searchInput) {
-            searchInput.addEventListener('input', filterAppointments);
-        }
-
-        function filterAppointments() {
-            const searchTerm = searchInput.value.toLowerCase();
-            const rows = document.querySelectorAll('tbody tr:not(.text-center)');
-
-            rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(searchTerm) ? '' : 'none';
-            });
-        }
-        window.filterAppointments = filterAppointments;
+    input.addEventListener('input', function() {
+        clearTimeout(timer);
+        clearBtn.style.display = this.value ? '' : 'none';
+        timer = setTimeout(doFilter, 100);
     });
+
+    clearBtn.addEventListener('click', function() {
+        input.value = '';
+        clearBtn.style.display = 'none';
+        doFilter();
+    });
+
+    function doFilter() {
+        const q = input.value.toLowerCase().trim();
+        rows.forEach(row => {
+            const search = row.dataset.search || '';
+            row.style.display = (!q || search.includes(q)) ? '' : 'none';
+        });
+    }
+})();
 </script>
 {% endblock %}
