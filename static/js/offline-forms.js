@@ -118,7 +118,27 @@
     const pathname = new URL(action, window.location.origin).pathname;
 
     const route = matchRoute(pathname, 'POST');
-    if (!route) return; // Unknown route - let it through
+    if (!route) {
+      // Unknown POST route — still intercept if offline to prevent error page
+      if (navigator.onLine) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'info',
+          title: 'Saved Offline',
+          html: `Your submission has been saved locally.<br><small>It will sync automatically when you're back online.</small>`,
+          confirmButtonText: 'OK',
+          timer: 4000,
+          timerProgressBar: true,
+          background: '#1e293b',
+          color: '#e2e8f0',
+          iconColor: '#ffc107'
+        });
+      }
+      return;
+    }
 
     // If online, let it go to server normally
     if (navigator.onLine) return;

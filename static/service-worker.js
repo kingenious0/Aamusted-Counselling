@@ -147,10 +147,11 @@ async function handleMutation(request) {
     try { return await fetch(request); } catch (e) {}
   }
 
-  // Offline: queue + return JSON (JS will handle it)
+  // Offline: queue + respond based on request type
   let body = null;
   try { body = await request.clone().text(); } catch (e) {}
 
+  // Notify client to save to IndexedDB
   const clients = await self.clients.matchAll();
   for (const client of clients) {
     client.postMessage({
@@ -162,13 +163,43 @@ async function handleMutation(request) {
     });
   }
 
-  return new Response(JSON.stringify({
-    status: 'queued',
-    message: 'Saved offline. Will sync when online.',
-    offline: true
-  }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' }
+  // If it's a fetch/XHR (has X-Requested-With or Accept: json), return JSON
+  const accept = request.headers.get('accept') || '';
+  const xhrHeader = request.headers.get('x-requested-with');
+  if (xhrHeader === 'XMLHttpRequest' || accept.includes('application/json')) {
+    return new Response(JSON.stringify({
+      status: 'queued',
+      message: 'Saved offline. Will sync when online.',
+      offline: true
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  // Browser form POST — redirect to the list page (avoids raw JSON / error page)
+  const url = new URL(request.url);
+  return offlinePostRedirect(url.pathname);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// OFFLINE POST REDIRECT — send user back to the list page
+// ═══════════════════════════════════════════════════════════════
+function offlinePostRedirect(pathname) {
+  let redirect = '/dashboard';
+  if (pathname.includes('student')) redirect = '/students';
+  else if (pathname.includes('appointment')) redirect = '/manage_appointments';
+  else if (pathname.includes('session') || pathname.includes('case_note')) redirect = '/sessions';
+  else if (pathname.includes('referral')) redirect = '/all_referrals';
+  else if (pathname.includes('booking')) redirect = '/admin/bookings';
+  else if (pathname.includes('dass21')) redirect = '/dass21_list';
+  else if (pathname.includes('outcome')) redirect = '/outcome_questionnaire';
+  else if (pathname.includes('user')) redirect = '/admin/users';
+  else if (pathname.includes('setting') || pathname.includes('workflow')) redirect = '/admin/settings';
+
+  return new Response(null, {
+    status: 302,
+    headers: { 'Location': redirect }
   });
 }
 
