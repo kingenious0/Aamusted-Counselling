@@ -328,6 +328,8 @@ def init_db():
         ('student_id', 'ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS student_id TEXT'),
         ('program', 'ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS program TEXT'),
         ('level', 'ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS level TEXT'),
+        ('gender', 'ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS gender TEXT'),
+        ('age', 'ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS age INTEGER'),
     ]
     try:
         for col_name, alter_sql in _booking_alter_cols:
@@ -428,6 +430,9 @@ def init_db():
         """)
         cur.execute("""
             ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS decline_reason TEXT;
+
+            ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS gender TEXT;
+            ALTER TABLE "BookingRequest" ADD COLUMN IF NOT EXISTS age INTEGER;
         """)
         cur.execute("""
             ALTER TABLE "Appointment" ADD COLUMN IF NOT EXISTS urgency TEXT DEFAULT 'Normal';
@@ -1226,6 +1231,8 @@ def portal_booking():
         preferred_date = data.get('preferred_date', '').strip()
         preferred_time = data.get('preferred_time', 'Any')
         reason = data.get('reason', '').strip()
+        gender = data.get('gender', '').strip()
+        age = data.get('age', '').strip()
 
         missing_fields = []
         if not full_name: missing_fields.append("Full Name")
@@ -1249,11 +1256,13 @@ def portal_booking():
         cur.execute(
             '''INSERT INTO "BookingRequest"
                (reference, full_name, index_number, department, programme, phone,
-                preferred_date, preferred_time, reason, status, email, hall_of_residence, global_id, created_at, updated_at)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pending', %s, %s, %s, NOW(), NOW())
+                preferred_date, preferred_time, reason, status, email, hall_of_residence,
+                gender, age, global_id, created_at, updated_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pending', %s, %s, %s, %s, %s, NOW(), NOW())
                RETURNING reference''',
             (data['reference'], full_name, index_number, department, programme, phone,
-             preferred_date, preferred_time, reason, email, hall_of_residence, data['global_id']),
+             preferred_date, preferred_time, reason, email, hall_of_residence,
+             gender, age if age else None, data['global_id']),
         )
         ref = cur.fetchone()[0]
         conn.commit()
