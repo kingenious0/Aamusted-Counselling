@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}AAMUSTED Counselling{% endblock %}</title>
+    <meta name="theme-color" content="#1e3a5f">
+    <link rel="manifest" href="/static/manifest.json">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
         * { box-sizing: border-box; }
         body { background: #f5f0e8; color: #1a202c; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; }
@@ -52,6 +55,14 @@
         .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 12px; }
         .logout-btn { background: none; border: none; color: #dc2626; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px; text-decoration: none; }
         .logout-btn:hover { color: #ef4444; }
+        /* Offline status badge */
+        #connection-badge { position: fixed; bottom: 20px; right: 20px; z-index: 9999; padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s; cursor: default; }
+        #connection-badge.online { background: #16a34a; color: #fff; }
+        #connection-badge.offline { background: #f59e0b; color: #000; }
+        #connection-badge.syncing { background: #3b82f6; color: #fff; }
+        #connection-badge i { font-size: 14px; }
+        /* Sync pending counter */
+        .sync-pending-count { background: #ef4444; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 10px; margin-left: 4px; }
         {% block extra_css %}{% endblock %}
     </style>
 </head>
@@ -67,6 +78,11 @@
                 <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i></a>
             </div>
         </div>
+        <div id="connection-badge" class="online" style="display:none;">
+            <i class="bi bi-wifi"></i>
+            <span id="connection-text">Online</span>
+        </div>
+        <div id="sync-status-badge" style="display:none; position:fixed; bottom:60px; right:20px; z-index:9999; padding:6px 14px; border-radius:16px; font-size:11px; font-weight:600; color:#fff; background:#3b82f6;"></div>
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         {% for cat, msg in messages %}
@@ -80,6 +96,11 @@
         {% block content %}{% endblock %}
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/static/js/db.js"></script>
+    <script src="/static/js/offline-sync.js"></script>
+    <script src="/static/js/offline-forms.js"></script>
+    <script src="/static/js/precache.js"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

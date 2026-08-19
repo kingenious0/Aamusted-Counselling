@@ -675,6 +675,12 @@ def logout():
     return redirect(url_for('login'))
 
 
+@app.route('/sw.js')
+def service_worker():
+    return send_from_directory(os.path.join(basedir, 'static'), 'service-worker.js',
+                               mimetype='application/javascript')
+
+
 @app.route('/')
 def index():
     if 'user_id' in session:
@@ -1370,11 +1376,11 @@ def check_alerts():
 @login_required
 def offline_pull():
     data = request.get_json(silent=True) or {}
-    last_sync = data.get('last_sync')
+    last_sync = data.get('last_sync_timestamp') or data.get('last_sync')
     tables = [
-        'Student', 'Appointment', 'Referral', 'CaseManagement',
+        'Student', 'Appointment', 'session', 'Referral', 'CaseManagement',
         'OutcomeQuestionnaire', 'DASS21', 'Feedback', 'SessionIssue',
-        'Notification', 'Counsellor',
+        'Notification', 'Counsellor', 'BookingRequest',
     ]
     result = {}
     try:
@@ -1399,7 +1405,112 @@ def offline_pull():
     except Exception:
         for t in tables:
             result[t] = []
+    result['server_time'] = datetime.now().isoformat()
     return jsonify(result)
+
+
+@app.route("/api/offline/sync", methods=["POST"])
+@login_required
+def offline_sync():
+    """Accept offline changes from clients and apply to database"""
+    data = request.get_json(silent=True) or {}
+    changes = data.get('changes', {})
+    results = {}
+    
+    conn = get_db()
+    cur = conn.cursor()
+    
+    TABLE_MAP = {
+        'Student': '"Student"',
+        'Appointment': '"Appointment"',
+        'session': '"session"',
+        'Referral': '"Referral"',
+        'CaseManagement': '"CaseManagement"',
+        'OutcomeQuestionnaire': '"OutcomeQuestionnaire"',
+        'DASS21': '"DASS21"',
+        'BookingRequest': '"BookingRequest"',
+        'Feedback': '"Feedback"',
+        'SessionIssue': '"SessionIssue"',
+        'Notification': '"Notification"',
+        'Counsellor': '"Counsellor"',
+        'app_settings': 'app_settings',
+        'users': 'users',
+        'audit_logs': 'audit_logs',
+    }
+    
+    for table_name, records in changes.items():
+        pg_table = TABLE_MAP.get(table_name)
+        if not pg_table or not isinstance(records, list):
+            continue
+        
+        synced = 0
+        for rec in records:
+            try:
+                if not rec.get('id'):
+                    continue
+                    
+                is_deleted = rec.get('is_deleted', False)
+                
+                if is_deleted:
+                    cur.execute(f'UPDATE {pg_table} SET is_deleted = TRUE, updated_at = NOW() WHERE id = %s', (rec['id'],))
+                else:
+                    # Build upsert from record fields
+                    fields = {k: v for k, v in rec.items() if not k.startswith('_') and v is not None}
+                    if not fields.get('global_id'):
+                        fields['global_id'] = str(fields.get('id', ''))
+                    
+                    fields['updated_at'] = datetime.now()
+                    fields['is_deleted'] = False
+                    
+                    cols = list(fields.keys())
+                    vals = list(fields.values())
+                    placeholders = ', '.join(['%s'] * len(cols))
+                    col_str = ', '.join([f'"{c}"' for c in cols])
+                    update_str = ', '.join([f'"{c}" = EXCLUDED."{c}"' for c in cols])
+                    
+                    cur.execute(
+                        f'INSERT INTO {pg_table} ({col_str}) VALUES ({placeholders}) '
+                        f'ON CONFLICT (id) DO UPDATE SET {update_str}',
+                        vals
+                    )
+                synced += 1
+            except Exception as e:
+                logger.warning(f"offline_sync: {table_name} rec {rec.get('id')}: {e}")
+        
+        results[table_name] = synced
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+    
+    return jsonify({"status": "ok", "synced": results, "server_time": datetime.now().isoformat()})
+
+
+@app.route("/api/offline/status")
+@login_required
+def offline_status():
+    """Return sync status info for the client"""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        tables_status = {}
+        for t in ['Student', 'Appointment', 'session', 'Referral', 'CaseManagement', 'DASS21', 'OutcomeQuestionnaire']:
+            try:
+                cur.execute(f'SELECT COUNT(*) FROM "{t}" WHERE is_deleted = FALSE')
+                count = cur.fetchone()[0]
+                tables_status[t] = count
+            except:
+                tables_status[t] = 0
+        cur.close()
+        conn.close()
+        return jsonify({
+            "status": "ok",
+            "server_time": datetime.now().isoformat(),
+            "tables": tables_status,
+            "user": session.get('full_name', session.get('username', ''))
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route("/admin/settings")

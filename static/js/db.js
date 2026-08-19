@@ -312,15 +312,18 @@ async function setMeta(key, value) {
 
 function updateStatusBadge() {
   const b = document.getElementById('connection-badge');
+  const icon = b ? b.querySelector('i') : null;
+  const txt = b ? b.querySelector('#connection-text') : null;
   if (!b) return;
+  b.style.display = 'flex';
   if (navigator.onLine) {
-    b.textContent = 'Online';
-    b.style.background = '#28a745';
-    b.style.color = '#fff';
+    b.className = 'online';
+    if (icon) icon.className = 'bi bi-wifi';
+    if (txt) txt.textContent = 'Online';
   } else {
-    b.textContent = 'Offline';
-    b.style.background = '#ffc107';
-    b.style.color = '#000';
+    b.className = 'offline';
+    if (icon) icon.className = 'bi bi-wifi-off';
+    if (txt) txt.textContent = 'Offline';
   }
 }
 
@@ -335,9 +338,14 @@ window.addEventListener('load', async () => {
   }
   updateStatusBadge();
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js')
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
       .then(r => console.log('[PWA] Service worker registered:', r.scope))
-      .catch(e => console.error('[PWA] SW registration failed:', e));
+      .catch(e => {
+        console.error('[PWA] SW registration failed:', e);
+        navigator.serviceWorker.register('/sw.js')
+          .then(r => console.log('[PWA] SW registered (default scope):', r.scope))
+          .catch(e2 => console.error('[PWA] SW fallback failed:', e2));
+      });
   }
 });
 
