@@ -1,9 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
-// AAMUSTED GCC - Local-First IndexedDB Data Layer
+// USTED GCC - Local-First IndexedDB Data Layer
 // All data lives here. Syncs to cloud when online.
 // ═══════════════════════════════════════════════════════════════
 
-const DB_NAME = 'AAMUSTED_GCC_DB';
+const DB_NAME = 'USTED_GCC_DB';
 const DB_VERSION = 2;
 let db = null;
 

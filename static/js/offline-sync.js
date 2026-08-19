@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// AAMUSTED GCC - Background Sync Manager
+// USTED GCC - Background Sync Manager
 // Pushes pending offline changes to server when online.
 // Pulls latest data from server to keep IndexedDB fresh.
 // ═══════════════════════════════════════════════════════════════

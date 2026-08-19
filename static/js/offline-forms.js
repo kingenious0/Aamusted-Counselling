@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// AAMUSTED GCC - Offline Form Interceptor
+// USTED GCC - Offline Form Interceptor
 // Intercepts form POSTs. When offline, saves to IndexedDB
 // instead of posting to server. Shows user feedback.
 // ═══════════════════════════════════════════════════════════════

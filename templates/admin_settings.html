@@ -1,6 +1,6 @@
 {% set active_page = 'admin_settings' %}
 {% extends 'base.html' %}
-{% block title %}Settings - AAMUSTED Counselling{% endblock %}
+{% block title %}Settings - USTED Counselling{% endblock %}
 {% block heading %}<i class="fas fa-cog me-2" style="color:#60a5fa"></i>System Settings{% endblock %}
 {% block extra_css %}
         .theme-option { display: inline-block; width: 36px; height: 36px; border-radius: 50%; margin: 4px; cursor: pointer; border: 3px solid transparent; transition: all 0.2s; }
@@ -23,7 +23,7 @@
                         <div class="mb-3">
                             <label class="form-label">System Name</label>
                             <input type="text" class="form-control" name="system_name"
-                                   value="{{ settings.get('system_name', 'AAMUSTED Guidance & Counselling') }}">
+                                   value="{{ settings.get('system_name', 'USTED Guidance & Counselling') }}">
                         </div>
 
                         <div class="mb-3">

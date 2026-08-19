@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// AAMUSTED GCC - Offline-First Service Worker v4
+// USTED GCC - Offline-First Service Worker v4
 // ═══════════════════════════════════════════════════════════════
 
 const CACHE_VERSION = 'aamusted-v8';
@@ -244,7 +244,7 @@ function offlinePage(pathname) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Offline - AAMUSTED GCC</title>
+<title>Offline - USTED GCC</title>
 <link href="/static/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="/static/css/bootstrap-icons.css">
 <style>

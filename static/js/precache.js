@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// AAMUSTED GCC - Background Page Pre-Cache v2
+// USTED GCC - Background Page Pre-Cache v2
 // After login, quietly fetches and caches ALL important pages.
 // Only caches HTML responses (skips redirects/errors).
 // ═══════════════════════════════════════════════════════════════

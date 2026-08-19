@@ -1307,13 +1307,13 @@ def get_theme():
         settings = {r['setting_name']: r['setting_value'] for r in rows}
         return jsonify({
             'theme': settings.get('active_theme') or settings.get('theme_color') or 'default',
-            'system_name': settings.get('system_name') or 'AAMUSTED Guidance & Counselling',
+            'system_name': settings.get('system_name') or 'USTED Guidance & Counselling',
             'logo_url': settings.get('logo_url') or '/static/aamusted system_logo.png',
         })
     except Exception:
         return jsonify({
             'theme': 'default',
-            'system_name': 'AAMUSTED Guidance & Counselling',
+            'system_name': 'USTED Guidance & Counselling',
             'logo_url': '/static/aamusted system_logo.png',
         })
 
@@ -2769,7 +2769,7 @@ def health_check():
         "status": "online",
         "database": db_status,
         "database_error": db_error,
-        "service": "AAMUSTED Counselling System",
+        "service": "USTED Counselling System",
     })
 
 
@@ -3378,7 +3378,7 @@ def generate_docx_report(report_type='manual', date_from=None, date_to=None):
     font.name = 'Calibri'
     font.size = Pt(11)
 
-    title = document.add_heading(f'AAMUSTED Guidance & Counselling Centre: {period_name} Activity Report', 0)
+    title = document.add_heading(f'USTED Guidance & Counselling Centre: {period_name} Activity Report', 0)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     for run in title.runs:
         run.font.size = Pt(20)
@@ -3388,7 +3388,7 @@ def generate_docx_report(report_type='manual', date_from=None, date_to=None):
     document.add_paragraph()
     date_para = document.add_paragraph(f'Date of Submission: {now.strftime("%B %d, %Y")}')
     date_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    recipient_para = document.add_paragraph('Prepared for: AAMUSTED Administration')
+    recipient_para = document.add_paragraph('Prepared for: USTED Administration')
     recipient_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
     conf_para = document.add_paragraph('CONFIDENTIAL - INTERNAL USE ONLY')
     conf_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -3497,13 +3497,13 @@ def generate_docx_report(report_type='manual', date_from=None, date_to=None):
     h = document.add_heading('4. Conclusion', 1)
     for run in h.runs:
         run.font.color.rgb = RGBColor(13, 110, 253)
-    document.add_paragraph(f"This report presents a comprehensive analysis of the AAMUSTED Guidance & Counselling Centre's activities from {start_date.strftime('%B %d, %Y')} to {end_date.strftime('%B %d, %Y')}. The data demonstrates that the Centre {'is actively serving' if total_appointments > 0 else 'has capacity to serve'} the student population and maintains effective engagement.")
+    document.add_paragraph(f"This report presents a comprehensive analysis of the USTED Guidance & Counselling Centre's activities from {start_date.strftime('%B %d, %Y')} to {end_date.strftime('%B %d, %Y')}. The data demonstrates that the Centre {'is actively serving' if total_appointments > 0 else 'has capacity to serve'} the student population and maintains effective engagement.")
 
     document.add_page_break()
     h = document.add_heading('Appendices', 1)
     for run in h.runs:
         run.font.color.rgb = RGBColor(13, 110, 253)
-    document.add_paragraph(f"Report Generated: {now.strftime('%B %d, %Y at %I:%M %p')}\nReport Type: {report_type.title()}\nDate Range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}\nData Source: AAMUSTED Counselling Management System")
+    document.add_paragraph(f"Report Generated: {now.strftime('%B %d, %Y at %I:%M %p')}\nReport Type: {report_type.title()}\nDate Range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}\nData Source: USTED Counselling Management System")
 
     import io as _io
     buffer = _io.BytesIO()
@@ -3512,7 +3512,7 @@ def generate_docx_report(report_type='manual', date_from=None, date_to=None):
 
     return {
         'buffer': buffer,
-        'title': f"AAMUSTED Guidance & Counselling Centre: {period_name} Activity Report",
+        'title': f"USTED Guidance & Counselling Centre: {period_name} Activity Report",
         'executive_summary': exec_summary,
         'report_type': report_type,
         'stats': {
