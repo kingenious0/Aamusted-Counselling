@@ -120,17 +120,148 @@
             border-right: 1px solid #2d4a6f;
             padding: 20px 0;
             overflow-y: auto;
+            overflow-x: hidden;
             z-index: 1000;
-            transition: transform var(--transition-slow);
+            transition: width 0.3s cubic-bezier(0.4,0,0.2,1), transform var(--transition-slow);
             scrollbar-width: thin;
             scrollbar-color: #2d4a6f transparent;
+            display: flex;
+            flex-direction: column;
         }
         .sidebar::-webkit-scrollbar { width: 6px; }
         .sidebar::-webkit-scrollbar-thumb { background: #2d4a6f; border-radius: 3px; }
 
+        /* ═══════════════════════════════════════════
+           SIDEBAR COLLAPSE TOGGLE
+           ═══════════════════════════════════════════ */
+        .sidebar-collapse-toggle {
+            position: absolute;
+            top: 22px; right: -14px;
+            width: 28px; height: 28px;
+            background: #1e3a5f;
+            border: 2px solid #2d4a6f;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1002;
+            color: #94a3b8;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        .sidebar-collapse-toggle:hover {
+            background: #2d4a6f;
+            color: #fff;
+            transform: scale(1.1);
+        }
+        .sidebar-collapse-toggle i {
+            transition: transform 0.3s ease;
+        }
+
+        /* ═══════════════════════════════════════════
+           SIDEBAR COLLAPSED STATE
+           ═══════════════════════════════════════════ */
+        .sidebar-collapsed {
+            width: 70px;
+        }
+        .sidebar-collapsed .sidebar-brand h4 span,
+        .sidebar-collapsed .sidebar-brand small,
+        .sidebar-collapsed .sidebar-nav .section-label span,
+        .sidebar-collapsed .sidebar-nav a span,
+        .sidebar-collapsed .sidebar-nav .badge,
+        .sidebar-collapsed .sidebar-nav .sr-only {
+            display: none;
+        }
+        .sidebar-collapsed .sidebar-brand {
+            padding: 0 10px 16px;
+            text-align: center;
+        }
+        .sidebar-collapsed .sidebar-brand h4 {
+            justify-content: center;
+            font-size: 0;
+        }
+        .sidebar-collapsed .sidebar-brand h4 i {
+            font-size: 22px;
+            margin-right: 0;
+        }
+        .sidebar-collapsed .sidebar-nav a {
+            padding: 12px 0;
+            justify-content: center;
+            border-left: none;
+            position: relative;
+        }
+        .sidebar-collapsed .sidebar-nav a i {
+            margin-right: 0;
+            font-size: 18px;
+            width: auto;
+        }
+        .sidebar-collapsed .sidebar-nav a.active::after {
+            display: none;
+        }
+        .sidebar-collapsed .sidebar-nav a.active {
+            border-left: none;
+            border-radius: 0;
+        }
+        .sidebar-collapsed .sidebar-nav .section-label {
+            padding: 10px 0 4px;
+            justify-content: center;
+            font-size: 0;
+        }
+        .sidebar-collapsed .sidebar-nav .section-label i {
+            font-size: 14px;
+        }
+        .sidebar-collapsed .sidebar-collapse-toggle i {
+            transform: rotate(180deg);
+        }
+        .sidebar-collapsed ~ .main-content {
+            margin-left: 70px;
+        }
+
+        /* Tooltip on collapsed sidebar hover */
+        .sidebar-collapsed .sidebar-nav a {
+            position: relative;
+        }
+        .sidebar-collapsed .sidebar-nav a::before {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: calc(100% + 12px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: #1a202c;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            z-index: 1010;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .sidebar-collapsed .sidebar-nav a::after {
+            content: '';
+            position: absolute;
+            left: calc(100% + 6px);
+            top: 50%;
+            transform: translateY(-50%);
+            border: 5px solid transparent;
+            border-right-color: #1a202c;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            z-index: 1010;
+        }
+        .sidebar-collapsed .sidebar-nav a:hover::before,
+        .sidebar-collapsed .sidebar-nav a:hover::after {
+            opacity: 1;
+        }
+
         .sidebar-brand {
             padding: 0 20px 20px;
             border-bottom: 1px solid #2d4a6f;
+            flex-shrink: 0;
         }
         .sidebar-brand h4 {
             color: #ffffff; font-size: 16px; margin: 0; font-weight: 700;
@@ -209,7 +340,7 @@
             margin-left: var(--sidebar-width);
             padding: 24px 32px;
             min-height: 100vh;
-            transition: margin-left var(--transition-slow);
+            transition: margin-left 0.3s cubic-bezier(0.4,0,0.2,1);
         }
 
         /* ═══════════════════════════════════════════
@@ -557,14 +688,16 @@
            RESPONSIVE
            ═══════════════════════════════════════════ */
         @media (max-width: 768px) {
-            .sidebar { transform: translateX(-100%); }
+            .sidebar { transform: translateX(-100%); width: var(--sidebar-width); }
             .sidebar.open { transform: translateX(0); }
+            .sidebar-collapse-toggle { display: none; }
             .sidebar-toggle { display: flex; }
             .sidebar-overlay { display: block; }
             .main-content {
                 margin-left: 0;
                 padding: 70px 16px 24px;
             }
+            .sidebar-collapsed ~ .main-content { margin-left: 0; }
             .topbar { flex-direction: column; align-items: flex-start; gap: 8px; }
             .topbar h2 { font-size: 18px; }
             .card-dark { padding: 16px; }
@@ -828,13 +961,43 @@
     });
 
     /* ═══════════════════════════════════════════
-       HCI: Sidebar — Mobile Toggle
+       HCI: Sidebar — Desktop Collapse + Mobile Toggle
        User Control & Freedom
        ═══════════════════════════════════════════ */
     const sidebar = document.querySelector('.sidebar');
     const toggle = document.getElementById('sidebarToggle');
     const overlay = document.getElementById('sidebarOverlay');
+    const collapseBtn = document.getElementById('sidebarCollapseBtn');
 
+    // Desktop collapse
+    if (collapseBtn) {
+        const savedCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+        if (savedCollapsed) sidebar.classList.add('sidebar-collapsed');
+        updateCollapseIcon();
+
+        collapseBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('sidebar-collapsed');
+            localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('sidebar-collapsed'));
+            updateCollapseIcon();
+        });
+
+        function updateCollapseIcon() {
+            const icon = collapseBtn.querySelector('i');
+            if (sidebar.classList.contains('sidebar-collapsed')) {
+                icon.classList.remove('fa-chevron-left');
+                icon.classList.add('fa-chevron-right');
+                collapseBtn.setAttribute('title', 'Expand sidebar');
+                collapseBtn.setAttribute('aria-label', 'Expand sidebar');
+            } else {
+                icon.classList.remove('fa-chevron-right');
+                icon.classList.add('fa-chevron-left');
+                collapseBtn.setAttribute('title', 'Collapse sidebar');
+                collapseBtn.setAttribute('aria-label', 'Collapse sidebar');
+            }
+        }
+    }
+
+    // Mobile toggle
     if (toggle) {
         toggle.addEventListener('click', () => {
             const open = sidebar.classList.toggle('open');
