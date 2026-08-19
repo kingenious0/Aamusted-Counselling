@@ -173,6 +173,8 @@ def init_db():
                 case_number TEXT, index_number TEXT, email TEXT, phone TEXT,
                 gender TEXT, program TEXT, programme TEXT, department TEXT,
                 level TEXT, reason_for_visit TEXT,
+                faculty TEXT, contact TEXT, parent_contact TEXT,
+                hall_of_residence TEXT, age INTEGER,
                 is_deleted BOOLEAN DEFAULT FALSE,
                 global_id UUID DEFAULT gen_random_uuid(),
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -457,6 +459,12 @@ def init_db():
         """)
         cur.execute("""
             ALTER TABLE "Student" ADD COLUMN IF NOT EXISTS parent_contact TEXT;
+        """)
+        cur.execute("""
+            ALTER TABLE "Student" ADD COLUMN IF NOT EXISTS faculty TEXT;
+        """)
+        cur.execute("""
+            ALTER TABLE "Student" ADD COLUMN IF NOT EXISTS contact TEXT;
         """)
     except Exception as e:
         logger.error(f"init_db alter columns: {e}")
