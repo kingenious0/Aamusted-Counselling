@@ -1,129 +1,228 @@
-{# Role-based sidebar partial. Expects: session, latest_booking_count, unread_count #}
+{# ═══════════════════════════════════════════════════════
+   SIDEBAR — HCI Principles Applied
+   - WCAG 2.4.1: Bypass Blocks (skip-nav in base.html)
+   - WCAG 1.3.1: Info and Relationships (ARIA landmarks)
+   - WCAG 2.1: Keyboard accessible (tabindex, role)
+   - Consistency and Standards (consistent nav pattern)
+   - Visibility of System Status (active indicators, badges)
+   - Recognition over Recall (icons + labels)
+   ═══════════════════════════════════════════════════════ #}
 {% set role = session.get('role', '') %}
 {% set is_admin = (role == 'Admin') %}
 {% set is_secretary = (role == 'Secretary') %}
 {% set is_counsellor = (role in ['Counsellor', 'Counselor']) %}
 
-<div class="sidebar">
+<aside class="sidebar" id="sidebar-nav" role="navigation" aria-label="Main navigation">
+    {# ── Brand ── #}
     <div class="sidebar-brand">
-        <h4><i class="fas fa-graduation-cap me-2"></i>USTED GCC</h4>
+        <h4>
+            <i class="fas fa-graduation-cap" aria-hidden="true"></i>
+            USTED GCC
+        </h4>
         <small>Counselling Centre</small>
     </div>
 
-    {# ── Dashboard (ALL roles) ── #}
-    <nav class="sidebar-nav">
-        <a href="/dashboard" class="{{ 'active' if active_page == 'dashboard' }}">
-            <i class="fas fa-tachometer-alt"></i>Dashboard
+    {# ═══ Dashboard (ALL roles) ═══ #}
+    <nav class="sidebar-nav" aria-label="Dashboard">
+        <a href="/dashboard"
+           class="{{ 'active' if active_page == 'dashboard' }}"
+           aria-current="{{ 'page' if active_page == 'dashboard' else 'false' }}">
+            <i class="fas fa-tachometer-alt" aria-hidden="true"></i>
+            <span>Dashboard</span>
+            <span class="sr-only">(Alt+D)</span>
         </a>
     </nav>
 
-    {# ── Clients section (Admin, Secretary, Counsellor) ── #}
-    <nav class="sidebar-nav">
-        <div class="px-3 py-1" style="font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Clients</div>
-        <a href="/students" class="{{ 'active' if active_page == 'students' }}">
-            <i class="fas fa-users"></i>Client Registry
+    {# ═══ Clients ═══ #}
+    <nav class="sidebar-nav" aria-label="Client management">
+        <div class="section-label" role="presentation">
+            <i class="fas fa-users" aria-hidden="true" style="font-size:10px;"></i>
+            Clients
+        </div>
+        <a href="/students"
+           class="{{ 'active' if active_page == 'students' }}"
+           aria-current="{{ 'page' if active_page == 'students' else 'false' }}">
+            <i class="fas fa-users" aria-hidden="true"></i>
+            <span>Client Registry</span>
         </a>
-        <a href="/intake" class="{{ 'active' if active_page == 'intake' }}">
-            <i class="fas fa-user-plus"></i>New Client Intake
+        <a href="/intake"
+           class="{{ 'active' if active_page == 'intake' }}"
+           aria-current="{{ 'page' if active_page == 'intake' else 'false' }}">
+            <i class="fas fa-user-plus" aria-hidden="true"></i>
+            <span>New Client Intake</span>
+            <span class="sr-only">(Alt+C)</span>
         </a>
     </nav>
 
-    {# ── Appointments section (Admin, Secretary, Counsellor) ── #}
-    <nav class="sidebar-nav">
-        <div class="px-3 py-1" style="font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Appointments</div>
-        <a href="/appointment" class="{{ 'active' if active_page == 'appointment' }}">
-            <i class="fas fa-calendar-plus"></i>Schedule Appointment
+    {# ═══ Appointments ═══ #}
+    <nav class="sidebar-nav" aria-label="Appointments">
+        <div class="section-label" role="presentation">
+            <i class="fas fa-calendar" aria-hidden="true" style="font-size:10px;"></i>
+            Appointments
+        </div>
+        <a href="/appointment"
+           class="{{ 'active' if active_page == 'appointment' }}"
+           aria-current="{{ 'page' if active_page == 'appointment' else 'false' }}">
+            <i class="fas fa-calendar-plus" aria-hidden="true"></i>
+            <span>Schedule Appointment</span>
+            <span class="sr-only">(Alt+A)</span>
         </a>
-        <a href="/manage_appointments" class="{{ 'active' if active_page == 'manage_appointments' }}">
-            <i class="fas fa-calendar-alt"></i>Manage Appointments
+        <a href="/manage_appointments"
+           class="{{ 'active' if active_page == 'manage_appointments' }}"
+           aria-current="{{ 'page' if active_page == 'manage_appointments' else 'false' }}">
+            <i class="fas fa-calendar-alt" aria-hidden="true"></i>
+            <span>Manage Appointments</span>
         </a>
-        <a href="/admin/bookings" class="{{ 'active' if active_page == 'bookings' }}">
-            <i class="fas fa-calendar-check"></i>Booking Requests
+        <a href="/admin/bookings"
+           class="{{ 'active' if active_page == 'bookings' }}"
+           aria-current="{{ 'page' if active_page == 'bookings' else 'false' }}">
+            <i class="fas fa-calendar-check" aria-hidden="true"></i>
+            <span>Booking Requests</span>
             {% if latest_booking_count is defined and latest_booking_count > 0 %}
-            <span class="badge bg-warning">{{ latest_booking_count }}</span>
+            <span class="badge bg-warning" role="status" aria-label="{{ latest_booking_count }} pending bookings">{{ latest_booking_count }}</span>
             {% endif %}
         </a>
     </nav>
 
-    {# ── Clinical section (Admin, Counsellor ONLY) ── #}
+    {# ═══ Clinical (Admin, Counsellor) ═══ #}
     {% if is_admin or is_counsellor %}
-    <nav class="sidebar-nav">
-        <div class="px-3 py-1" style="font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Clinical</div>
-        <a href="/sessions" class="{{ 'active' if active_page == 'sessions' }}">
-            <i class="fas fa-notes-medical"></i>Session Log
+    <nav class="sidebar-nav" aria-label="Clinical tools">
+        <div class="section-label" role="presentation">
+            <i class="fas fa-heartbeat" aria-hidden="true" style="font-size:10px;"></i>
+            Clinical
+        </div>
+        <a href="/sessions"
+           class="{{ 'active' if active_page == 'sessions' }}"
+           aria-current="{{ 'page' if active_page == 'sessions' else 'false' }}">
+            <i class="fas fa-notes-medical" aria-hidden="true"></i>
+            <span>Session Log</span>
         </a>
-        <a href="/create_session" class="{{ 'active' if active_page == 'create_session' }}">
-            <i class="fas fa-plus-circle"></i>Create Session
+        <a href="/create_session"
+           class="{{ 'active' if active_page == 'create_session' }}"
+           aria-current="{{ 'page' if active_page == 'create_session' else 'false' }}">
+            <i class="fas fa-plus-circle" aria-hidden="true"></i>
+            <span>Create Session</span>
         </a>
-        <a href="/case_notes_list" class="{{ 'active' if active_page == 'case_notes' }}">
-            <i class="fas fa-file-medical"></i>Case Notes
+        <a href="/case_notes_list"
+           class="{{ 'active' if active_page == 'case_notes' }}"
+           aria-current="{{ 'page' if active_page == 'case_notes' else 'false' }}">
+            <i class="fas fa-file-medical" aria-hidden="true"></i>
+            <span>Case Notes</span>
         </a>
-        <a href="/dass21_list" class="{{ 'active' if active_page == 'dass21' }}">
-            <i class="fas fa-clipboard-check"></i>Assessments (DASS-21)
+        <a href="/dass21_list"
+           class="{{ 'active' if active_page == 'dass21' }}"
+           aria-current="{{ 'page' if active_page == 'dass21' else 'false' }}">
+            <i class="fas fa-clipboard-check" aria-hidden="true"></i>
+            <span>Assessments (DASS-21)</span>
         </a>
-        <a href="/all_referrals" class="{{ 'active' if active_page == 'referrals' }}">
-            <i class="fas fa-share-square"></i>Referrals
+        <a href="/all_referrals"
+           class="{{ 'active' if active_page == 'referrals' }}"
+           aria-current="{{ 'page' if active_page == 'referrals' else 'false' }}">
+            <i class="fas fa-share-square" aria-hidden="true"></i>
+            <span>Referrals</span>
         </a>
-        <a href="/reports" class="{{ 'active' if active_page == 'reports' }}">
-            <i class="fas fa-chart-bar"></i>Reports
+        <a href="/reports"
+           class="{{ 'active' if active_page == 'reports' }}"
+           aria-current="{{ 'page' if active_page == 'reports' else 'false' }}">
+            <i class="fas fa-chart-bar" aria-hidden="true"></i>
+            <span>Reports</span>
         </a>
-        <a href="/statistics" class="{{ 'active' if active_page == 'statistics' }}">
-            <i class="fas fa-chart-pie"></i>Statistics
+        <a href="/statistics"
+           class="{{ 'active' if active_page == 'statistics' }}"
+           aria-current="{{ 'page' if active_page == 'statistics' else 'false' }}">
+            <i class="fas fa-chart-pie" aria-hidden="true"></i>
+            <span>Statistics</span>
         </a>
     </nav>
     {% endif %}
 
-    {# ── Secretary statistics (if they don't see clinical section) ── #}
+    {# ═══ Secretary: Statistics only ═══ #}
     {% if is_secretary %}
-    <nav class="sidebar-nav">
-        <a href="/statistics" class="{{ 'active' if active_page == 'statistics' }}">
-            <i class="fas fa-chart-pie"></i>Statistics
+    <nav class="sidebar-nav" aria-label="Analytics">
+        <a href="/statistics"
+           class="{{ 'active' if active_page == 'statistics' }}"
+           aria-current="{{ 'page' if active_page == 'statistics' else 'false' }}">
+            <i class="fas fa-chart-pie" aria-hidden="true"></i>
+            <span>Statistics</span>
         </a>
     </nav>
     {% endif %}
 
-    {# ── Configuration (Secretary, Counsellor) ── #}
+    {# ═══ Configuration ═══ #}
     {% if is_secretary or is_counsellor %}
-    <nav class="sidebar-nav">
-        <div class="px-3 py-1" style="font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Configuration</div>
-        <a href="/import_csv" class="{{ 'active' if active_page == 'import' }}">
-            <i class="fas fa-file-import"></i>Import Data
+    <nav class="sidebar-nav" aria-label="Configuration">
+        <div class="section-label" role="presentation">
+            <i class="fas fa-sliders-h" aria-hidden="true" style="font-size:10px;"></i>
+            Configuration
+        </div>
+        <a href="/import_csv"
+           class="{{ 'active' if active_page == 'import' }}"
+           aria-current="{{ 'page' if active_page == 'import' else 'false' }}">
+            <i class="fas fa-file-import" aria-hidden="true"></i>
+            <span>Import Data</span>
         </a>
-        <a href="/admin/settings" class="{{ 'active' if active_page == 'settings' }}">
-            <i class="fas fa-cog"></i>Settings
+        <a href="/admin/settings"
+           class="{{ 'active' if active_page == 'settings' }}"
+           aria-current="{{ 'page' if active_page == 'settings' else 'false' }}">
+            <i class="fas fa-cog" aria-hidden="true"></i>
+            <span>Settings</span>
         </a>
     </nav>
     {% endif %}
 
-    {# ── Governance (Admin ONLY) ── #}
+    {# ═══ Governance (Admin) ═══ #}
     {% if is_admin %}
-    <nav class="sidebar-nav">
-        <div class="px-3 py-1" style="font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Governance</div>
-        <a href="/admin/users" class="{{ 'active' if active_page == 'users' }}">
-            <i class="fas fa-users-cog"></i>Access Control
+    <nav class="sidebar-nav" aria-label="Administration">
+        <div class="section-label" role="presentation">
+            <i class="fas fa-shield-alt" aria-hidden="true" style="font-size:10px;"></i>
+            Governance
+        </div>
+        <a href="/admin/users"
+           class="{{ 'active' if active_page == 'users' }}"
+           aria-current="{{ 'page' if active_page == 'users' else 'false' }}">
+            <i class="fas fa-users-cog" aria-hidden="true"></i>
+            <span>Access Control</span>
         </a>
-        <a href="/admin/cloud_sync" class="{{ 'active' if active_page == 'cloud_sync' }}">
-            <i class="fas fa-cloud"></i>Cloud Lookout
+        <a href="/admin/cloud_sync"
+           class="{{ 'active' if active_page == 'cloud_sync' }}"
+           aria-current="{{ 'page' if active_page == 'cloud_sync' else 'false' }}">
+            <i class="fas fa-cloud" aria-hidden="true"></i>
+            <span>Cloud Lookout</span>
         </a>
-        <a href="/audit_logs" class="{{ 'active' if active_page == 'audit' }}">
-            <i class="fas fa-history"></i>Audit Trails
+        <a href="/audit_logs"
+           class="{{ 'active' if active_page == 'audit' }}"
+           aria-current="{{ 'page' if active_page == 'audit' else 'false' }}">
+            <i class="fas fa-history" aria-hidden="true"></i>
+            <span>Audit Trails</span>
         </a>
-        <a href="/admin_workflow" class="{{ 'active' if active_page == 'workflow' }}">
-            <i class="fas fa-project-diagram"></i>Workflow Rules
+        <a href="/admin_workflow"
+           class="{{ 'active' if active_page == 'workflow' }}"
+           aria-current="{{ 'page' if active_page == 'workflow' else 'false' }}">
+            <i class="fas fa-project-diagram" aria-hidden="true"></i>
+            <span>Workflow Rules</span>
         </a>
-        <a href="/admin/settings" class="{{ 'active' if active_page == 'settings' }}">
-            <i class="fas fa-cog"></i>System Settings
+        <a href="/admin/settings"
+           class="{{ 'active' if active_page == 'settings' }}"
+           aria-current="{{ 'page' if active_page == 'settings' else 'false' }}">
+            <i class="fas fa-cog" aria-hidden="true"></i>
+            <span>System Settings</span>
         </a>
     </nav>
     {% endif %}
 
-    {# ── Footer ── #}
-    <nav class="sidebar-nav" style="border-top: 1px solid #2d4a6f; margin-top: 12px; padding-top: 12px;">
-        <a href="/profile" class="{{ 'active' if active_page == 'profile' }}">
-            <i class="fas fa-user-circle"></i>My Profile
+    {# ═══ Footer: Profile + Logout ═══ #}
+    <nav class="sidebar-nav" aria-label="Account" style="border-top: 1px solid #2d4a6f; margin-top: 12px; padding-top: 12px;">
+        <a href="/profile"
+           class="{{ 'active' if active_page == 'profile' }}"
+           aria-current="{{ 'page' if active_page == 'profile' else 'false' }}">
+            <i class="fas fa-user-circle" aria-hidden="true"></i>
+            <span>My Profile</span>
         </a>
-        <a href="/logout">
-            <i class="fas fa-sign-out-alt"></i>Logout
+        <a href="/logout"
+           onclick="Loading.show('Signing out...');"
+           aria-label="Sign out of your account">
+            <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+            <span>Logout</span>
         </a>
     </nav>
-</div>
+</aside>

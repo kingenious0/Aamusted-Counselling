@@ -2,6 +2,14 @@
 
 {% block title %}View Report - {{ report['title'] }}{% endblock %}
 
+{% block breadcrumbs %}
+<nav class="breadcrumb-bar" aria-label="Breadcrumb">
+    <a href="/dashboard"><i class="fas fa-home"></i></a>
+    <span class="sep">/</span>
+    <span aria-current="page">Reports</span>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">

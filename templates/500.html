@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}Server Error - USTED Counselling{% endblock %}
+{% block heading %}<i class="fas fa-server me-2" style="color:#dc2626"></i>Server Error{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6 text-center" style="padding:60px 20px;">
+        <div style="font-size:100px; color:var(--color-text-muted); opacity:0.2; line-height:1;">
+            <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
+        </div>
+        <h2 style="font-size:48px; font-weight:800; color:var(--color-text-secondary); margin:16px 0 8px;">500</h2>
+        <h3 style="font-size:20px; color:var(--color-text); margin-bottom:12px;">Something Went Wrong</h3>
+        <p style="color:var(--color-text-secondary); margin-bottom:32px; max-width:400px; margin-left:auto; margin-right:auto;">
+            An unexpected error occurred. Our team has been notified. Please try again in a moment.
+        </p>
+        <div class="d-flex gap-3 justify-content-center">
+            <a href="/dashboard" class="btn btn-primary">
+                <i class="fas fa-home me-1" aria-hidden="true"></i> Go to Dashboard
+            </a>
+            <button onclick="location.reload()" class="btn btn-outline">
+                <i class="fas fa-redo me-1" aria-hidden="true"></i> Try Again
+            </button>
+        </div>
+        <p style="margin-top:40px; font-size:12px; color:var(--color-text-muted);">
+            Error reference: {{ error_id or 'N/A' }} — If this persists, contact your administrator.
+        </p>
+    </div>
+</div>
+{% endblock %}

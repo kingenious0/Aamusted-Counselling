@@ -2,6 +2,15 @@
 {% extends 'base.html' %}
 {% block title %}Clinical Profile: {{ student.case_number or student.id }} - USTED Counselling{% endblock %}
 {% block heading %}<i class="fas fa-user me-2" style="color:#2563eb;"></i>Student Profile{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-bar" aria-label="Breadcrumb">
+    <a href="/dashboard"><i class="fas fa-home"></i></a>
+    <span class="sep">/</span>
+    <a href="/students">Clients</a>
+    <span class="sep">/</span>
+    <span aria-current="page">Profile</span>
+</nav>
+{% endblock %}
 {% block content %}
 <div class="mb-3">
     <a href="/students" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;">

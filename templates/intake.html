@@ -2,67 +2,127 @@
 {% extends 'base.html' %}
 {% block title %}New Client Intake - USTED Counselling{% endblock %}
 {% block heading %}<i class="fas fa-user-plus me-2" style="color:#4ade80"></i>New Client Intake{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumb-bar" aria-label="Breadcrumb">
+    <a href="/dashboard"><i class="fas fa-home"></i></a>
+    <span class="sep">/</span>
+    <a href="/students">Clients</a>
+    <span class="sep">/</span>
+    <span aria-current="page">New Intake</span>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-8">
+        <div class="flash-alert flash-info mb-3" role="note">
+            <i class="fas fa-info-circle" aria-hidden="true"></i>
+            <span>New clients will receive an auto-generated case number. All fields marked <strong style="color:var(--color-danger)">*</strong> are required.</span>
+        </div>
+
         <div class="card-dark">
-            <form method="POST" action="/intake">
-                <h3 style="margin-bottom:20px;"><i class="fas fa-id-card me-2" style="color:#60a5fa"></i>Personal Information</h3>
-                <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        <label class="form-label">First Name *</label>
-                        <input type="text" name="first_name" class="form-control" required placeholder="First name">
+            <form method="POST" action="/intake" data-validate>
+                <fieldset>
+                    <legend class="sr-only">Personal Information</legend>
+                    <h3 style="margin-bottom:20px;">
+                        <i class="fas fa-id-card me-2" style="color:#60a5fa" aria-hidden="true"></i>
+                        Personal Information
+                    </h3>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label" for="first_name">
+                                First Name <span class="required" aria-label="required">*</span>
+                            </label>
+                            <input type="text" name="first_name" id="first_name" class="form-control"
+                                   required placeholder="e.g. Kwame" autofocus>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="last_name">
+                                Last Name <span class="required" aria-label="required">*</span>
+                            </label>
+                            <input type="text" name="last_name" id="last_name" class="form-control"
+                                   required placeholder="e.g. Mensah">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="student_id">
+                                Student ID <span class="required" aria-label="required">*</span>
+                            </label>
+                            <input type="text" name="student_id" id="student_id" class="form-control"
+                                   required placeholder="e.g. 1023456789"
+                                   aria-describedby="studentIdHelp">
+                            <div class="form-text" id="studentIdHelp">University registration number</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="email">Email</label>
+                            <input type="email" name="email" id="email" class="form-control"
+                                   placeholder="student@usted.edu.gh"
+                                   aria-describedby="emailHelp">
+                            <div class="form-text" id="emailHelp">University or personal email</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="phone">Phone</label>
+                            <input type="text" name="phone" id="phone" class="form-control"
+                                   placeholder="e.g. 024 123 4567">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="gender">
+                                Gender <span class="required" aria-label="required">*</span>
+                            </label>
+                            <select name="gender" id="gender" class="form-select" required>
+                                <option value="">Select Gender...</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="program">
+                                Program <span class="required" aria-label="required">*</span>
+                            </label>
+                            <input type="text" name="program" id="program" class="form-control"
+                                   required placeholder="e.g. B.Sc. Information Technology">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="level">
+                                Level <span class="required" aria-label="required">*</span>
+                            </label>
+                            <select name="level" id="level" class="form-select" required>
+                                <option value="">Select Level...</option>
+                                <option value="100">Level 100</option>
+                                <option value="200">Level 200</option>
+                                <option value="300">Level 300</option>
+                                <option value="400">Level 400</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Last Name *</label>
-                        <input type="text" name="last_name" class="form-control" required placeholder="Last name">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Student ID *</label>
-                        <input type="text" name="student_id" class="form-control" required placeholder="10-digit ID">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Email</label>
-                        <input type="email" name="email" class="form-control" placeholder="student@email.com">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Phone</label>
-                        <input type="text" name="phone" class="form-control" placeholder="Phone number">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Gender *</label>
-                        <select name="gender" class="form-select" required>
-                            <option value="">Select...</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Program *</label>
-                        <input type="text" name="program" class="form-control" required placeholder="e.g. B.Sc. IT">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Level *</label>
-                        <select name="level" class="form-select" required>
-                            <option value="">Select Level...</option>
-                            <option value="100">100</option>
-                            <option value="200">200</option>
-                            <option value="300">300</option>
-                            <option value="400">400</option>
-                        </select>
-                    </div>
-                </div>
+                </fieldset>
 
-                <h3 style="margin-bottom:20px;"><i class="fas fa-comment-medical me-2" style="color:#fbbf24"></i>Reason for Visit</h3>
-                <div class="mb-4">
-                    <label class="form-label">Reason for Visit *</label>
-                    <textarea name="reason_for_visit" class="form-control" rows="4" required placeholder="Describe the reason for this visit..."></textarea>
-                </div>
+                <fieldset>
+                    <legend class="sr-only">Visit Details</legend>
+                    <h3 style="margin-bottom:20px;">
+                        <i class="fas fa-comment-medical me-2" style="color:#fbbf24" aria-hidden="true"></i>
+                        Reason for Visit
+                    </h3>
+                    <div class="mb-4">
+                        <label class="form-label" for="reason_for_visit">
+                            Reason for Visit <span class="required" aria-label="required">*</span>
+                        </label>
+                        <textarea name="reason_for_visit" id="reason_for_visit" class="form-control"
+                                  rows="4" required
+                                  placeholder="Describe the primary reason for this client's visit..."
+                                  aria-describedby="reasonHelp"></textarea>
+                        <div class="form-text" id="reasonHelp">This information helps us match the client with the appropriate counsellor</div>
+                    </div>
+                </fieldset>
 
-                <div class="d-flex justify-content-end gap-2">
-                    <a href="/dashboard" class="btn btn-outline-secondary">Cancel</a>
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Register Client</button>
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="/students" class="btn btn-outline">
+                        <i class="fas fa-arrow-left me-1" aria-hidden="true"></i> Back to Registry
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1" aria-hidden="true"></i> Register Client
+                    </button>
                 </div>
             </form>
         </div>

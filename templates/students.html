@@ -2,78 +2,115 @@
 {% extends 'base.html' %}
 {% block title %}Client Registry - USTED Counselling{% endblock %}
 {% block heading %}<i class="fas fa-users me-2" style="color:#16a34a"></i>Client Registry{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumb-bar" aria-label="Breadcrumb">
+    <a href="/dashboard"><i class="fas fa-home"></i></a>
+    <span class="sep">/</span>
+    <span aria-current="page">Client Registry</span>
+</nav>
+{% endblock %}
+
 {% block content %}
+{# ═══ Search & Actions ═══ #}
 <div class="card-dark p-4 mb-4">
-    <div class="d-flex justify-content-between align-items-center">
-        <form method="GET" class="row g-3 align-items-end flex-grow-1">
-            <div class="col-md-8">
-                <label class="form-label" style="font-size:13px;">Search clients</label>
-                <input type="text" name="search" class="form-control" placeholder="Search by name, case number, index number, or department..." value="{{ search }}">
+    <form method="GET" role="search" aria-label="Search clients">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-7 col-lg-8">
+                <label class="form-label" for="searchInput">Search clients</label>
+                <input type="text" name="search" id="searchInput" class="form-control"
+                       placeholder="Search by name, case number, index number, or department..."
+                       value="{{ search }}"
+                       aria-label="Search clients by name, case number, or department">
             </div>
-            <div class="col-md-4 d-flex gap-2">
-                <button type="submit" class="btn btn-primary"><i class="fas fa-search me-1"></i>Search</button>
+            <div class="col-md-5 col-lg-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search me-1" aria-hidden="true"></i> Search
+                </button>
                 {% if search %}
-                <a href="/students" class="btn btn-outline-secondary"><i class="fas fa-times me-1"></i>Clear</a>
+                <a href="/students" class="btn btn-outline">
+                    <i class="fas fa-times me-1" aria-hidden="true"></i> Clear
+                </a>
                 {% endif %}
+                <div class="dropdown ms-auto">
+                    <button class="btn btn-outline-success dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" aria-expanded="false"
+                            aria-label="Export options">
+                        <i class="fas fa-download me-1" aria-hidden="true"></i> Export
+                    </button>
+                    <ul class="dropdown-menu" role="menu">
+                        <li><a class="dropdown-item" href="/export_students?format=csv" role="menuitem">
+                            <i class="fas fa-file-csv me-2" aria-hidden="true"></i>CSV
+                        </a></li>
+                        <li><a class="dropdown-item" href="/export_students?format=xlsx" role="menuitem">
+                            <i class="fas fa-file-excel me-2" aria-hidden="true"></i>Excel
+                        </a></li>
+                    </ul>
+                </div>
+                <a href="/add_student" class="btn btn-success">
+                    <i class="fas fa-plus me-1" aria-hidden="true"></i> Add Client
+                </a>
             </div>
-        </form>
-        <div class="ms-3 d-flex gap-2">
-            <div class="dropdown">
-                <button class="btn btn-outline-success dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="fas fa-download me-1"></i>Export</button>
-                <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="/export_students?format=csv"><i class="fas fa-file-csv me-2"></i>CSV</a></li>
-                    <li><a class="dropdown-item" href="/export_students?format=xlsx"><i class="fas fa-file-excel me-2"></i>Excel</a></li>
-                </ul>
-            </div>
-            <a href="/add_student" class="btn btn-success" style="border-radius:10px; font-weight:600; white-space:nowrap;">
-                <i class="fas fa-plus me-1"></i>Add Student
-            </a>
         </div>
-    </div>
+    </form>
 </div>
 
+{# ═══ Client Table ═══ #}
 <div class="card-dark p-0">
-    <div class="p-4 pb-0">
-        <span style="color:#6b7280; font-size:13px;">{{ students|length }} student{{ 's' if students|length != 1 }} found</span>
+    <div class="p-4 pb-0 d-flex justify-content-between align-items-center">
+        <span style="color:var(--color-text-muted); font-size:13px;" role="status" aria-live="polite">
+            {{ students|length }} client{{ 's' if students|length != 1 }} found
+        </span>
     </div>
     <div class="p-4">
         {% if students %}
         <div class="table-responsive">
-            <table class="table">
+            <table class="table" aria-label="Client list">
                 <thead>
                     <tr>
-                        <th>Case No.</th>
-                        <th>Name</th>
-                        <th>Index No.</th>
-                        <th>Department</th>
-                        <th>Programme</th>
-                        <th>Gender</th>
-                        <th>Sessions</th>
-                        <th>ACTIONS</th>
+                        <th scope="col">Case No.</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Index No.</th>
+                        <th scope="col">Department</th>
+                        <th scope="col">Programme</th>
+                        <th scope="col">Gender</th>
+                        <th scope="col">Sessions</th>
+                        <th scope="col" class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for s in students %}
-                    <tr>
-                        <td><code style="color:#2563eb;">{{ s.case_number or s.get('id', '-') }}</code></td>
-                        <td style="font-weight:500;">{{ s.name or '-' }}</td>
-                        <td>{{ s.index_number or s.student_id or '-' }}</td>
-                        <td>{{ s.department or s.program or '-' }}</td>
-                        <td>{{ s.programme or s.level or '-' }}</td>
-                        <td>{{ s.gender or '-' }}</td>
+                    <tr tabindex="0" aria-label="Client: {{ s.name }}">
+                        <td><code style="color:var(--color-primary);">{{ s.case_number or s.get('id', '—') }}</code></td>
+                        <td><strong>{{ s.name or '—' }}</strong></td>
+                        <td>{{ s.index_number or s.student_id or '—' }}</td>
+                        <td>{{ s.department or s.program or '—' }}</td>
+                        <td>{{ s.programme or s.level or '—' }}</td>
+                        <td>{{ s.gender or '—' }}</td>
                         <td>
-                            <span class="badge badge-blue" style="padding:4px 10px; border-radius:20px;">{{ s.session_count or 0 }}</span>
+                            <span class="badge badge-blue">{{ s.session_count or 0 }}</span>
                         </td>
-                        <td>
-                            <div class="d-flex gap-1">
-                                <a href="/student_profile/{{ s.id }}" class="btn btn-sm btn-outline-primary" style="border-radius:8px;" title="View Profile">
-                                    <i class="fas fa-eye"></i>
+                        <td class="text-end">
+                            <div class="d-flex gap-1 justify-content-end">
+                                <a href="/student_profile/{{ s.id }}"
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="View profile for {{ s.name }}"
+                                   aria-label="View profile of {{ s.name }}">
+                                    <i class="fas fa-eye" aria-hidden="true"></i>
                                 </a>
-                                <a href="/edit_student/{{ s.id }}" class="btn btn-sm btn-outline-warning" style="border-radius:8px;" title="Edit">
-                                    <i class="fas fa-edit"></i>
+                                <a href="/edit_student/{{ s.id }}"
+                                   class="btn btn-sm btn-outline-warning"
+                                   title="Edit {{ s.name }}"
+                                   aria-label="Edit client {{ s.name }}">
+                                    <i class="fas fa-edit" aria-hidden="true"></i>
                                 </a>
-                                <form action="/delete_student/{{ s.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Delete this client?')">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" style="border-radius:8px;" title="Delete"><i class="fas fa-trash"></i></button>
+                                <form action="/delete_student/{{ s.id }}" method="POST" style="display:inline;"
+                                      onsubmit="event.preventDefault(); confirmAction('Delete Client', 'Are you sure you want to permanently delete {{ s.name }}? This action cannot be undone and will remove all associated records.', '<i class=&quot;fas fa-trash-alt&quot; style=&quot;color:var(--color-danger)&quot;></i>', function() { Loading.show('Deleting client...'); this.closest('form').submit(); }.bind(this));">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                            title="Delete {{ s.name }}"
+                                            aria-label="Delete client {{ s.name }}">
+                                        <i class="fas fa-trash" aria-hidden="true"></i>
+                                    </button>
                                 </form>
                             </div>
                         </td>
@@ -84,10 +121,25 @@
         </div>
         {% else %}
         <div class="empty-state">
-            <i class="fas fa-user-slash"></i>
-            <p>No clients found.</p>
+            <div class="empty-icon">
+                {% if search %}
+                <i class="fas fa-search" aria-hidden="true"></i>
+                {% else %}
+                <i class="fas fa-user-plus" aria-hidden="true"></i>
+                {% endif %}
+            </div>
             {% if search %}
-            <a href="/students" class="btn btn-outline-primary btn-sm">Clear search</a>
+            <h4>No clients match "{{ search }}"</h4>
+            <p>Try a different search term or clear the search to see all clients.</p>
+            <a href="/students" class="btn btn-primary">
+                <i class="fas fa-times me-1" aria-hidden="true"></i> Clear Search
+            </a>
+            {% else %}
+            <h4>No clients registered yet</h4>
+            <p>Register your first client to start managing counselling sessions and cases.</p>
+            <a href="/intake" class="btn btn-primary">
+                <i class="fas fa-plus me-1" aria-hidden="true"></i> Register First Client
+            </a>
             {% endif %}
         </div>
         {% endif %}

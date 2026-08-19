@@ -2,6 +2,15 @@
 {% extends 'base.html' %}
 {% block title %}Create Session - USTED Counselling{% endblock %}
 {% block heading %}<i class="fas fa-plus-circle me-2" style="color:#4ade80"></i>Create Session{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-bar" aria-label="Breadcrumb">
+    <a href="/dashboard"><i class="fas fa-home"></i></a>
+    <span class="sep">/</span>
+    <span>Clinical</span>
+    <span class="sep">/</span>
+    <span aria-current="page">Create Session</span>
+</nav>
+{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-8">

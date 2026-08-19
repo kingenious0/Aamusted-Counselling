@@ -2,6 +2,13 @@
 {% extends 'base.html' %}
 {% block title %}Access Control - USTED Counselling{% endblock %}
 {% block heading %}<i class="fas fa-users-cog me-2" style="color:#60a5fa"></i>Access Control{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-bar" aria-label="Breadcrumb">
+    <a href="/dashboard"><i class="fas fa-home"></i></a>
+    <span class="sep">/</span>
+    <span aria-current="page">Access Control</span>
+</nav>
+{% endblock %}
 {% block content %}
 <div class="card-dark p-0">
     <div class="p-4 pb-0 d-flex justify-content-between align-items-center">

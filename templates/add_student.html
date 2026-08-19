@@ -2,6 +2,15 @@
 {% extends 'base.html' %}
 {% block title %}{% if student %}Edit Client{% else %}Register Client{% endif %} - USTED Counselling{% endblock %}
 {% block heading %}<i class="fas fa-user-plus me-2" style="color:#16a34a"></i>{% if student %}Edit Client Record{% else %}Client Registration{% endif %}{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-bar" aria-label="Breadcrumb">
+    <a href="/dashboard"><i class="fas fa-home"></i></a>
+    <span class="sep">/</span>
+    <a href="/students">Clients</a>
+    <span class="sep">/</span>
+    <span aria-current="page">{% if student %}Edit Client{% else %}New Client{% endif %}</span>
+</nav>
+{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-8 mb-4">

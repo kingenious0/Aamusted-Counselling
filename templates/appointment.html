@@ -2,75 +2,136 @@
 {% extends 'base.html' %}
 {% block title %}Schedule Appointment - USTED Counselling{% endblock %}
 {% block heading %}<i class="fas fa-calendar-plus me-2" style="color:#60a5fa"></i>Schedule Appointment{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumb-bar" aria-label="Breadcrumb">
+    <a href="/dashboard"><i class="fas fa-home"></i></a>
+    <span class="sep">/</span>
+    <a href="/manage_appointments">Appointments</a>
+    <span class="sep">/</span>
+    <span aria-current="page">Schedule New</span>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-8">
+        {# ═══ Help Text ═══ #}
+        <div class="flash-alert flash-info mb-3" role="note">
+            <i class="fas fa-info-circle" aria-hidden="true"></i>
+            <span>Fields marked with <strong style="color:var(--color-danger)">*</strong> are required. All times should be in local time (GMT).</span>
+        </div>
+
         <div class="card-dark">
-            <form method="POST" action="/appointment">
-                <h3 style="margin-bottom:20px;"><i class="fas fa-calendar-day me-2" style="color:#60a5fa"></i>Appointment Details</h3>
-                <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        <label class="form-label">Student Name *</label>
-                        <select name="student_name" class="form-select" required>
-                            <option value="">Select Student...</option>
-                            {% for student in students %}
-                            <option value="{{ student.name }}" data-id="{{ student.id }}">{{ student.name }}{% if student.case_number %} ({{ student.case_number }}){% endif %}</option>
-                            {% endfor %}
-                        </select>
+            <form method="POST" action="/appointment" data-validate>
+                <fieldset>
+                    <legend class="sr-only">Appointment Details</legend>
+                    <h3 style="margin-bottom:20px;">
+                        <i class="fas fa-calendar-day me-2" style="color:#60a5fa" aria-hidden="true"></i>
+                        Appointment Details
+                    </h3>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label" for="student_name">
+                                Student Name <span class="required" aria-label="required">*</span>
+                            </label>
+                            <select name="student_name" id="student_name" class="form-select" required
+                                    aria-describedby="studentHelp">
+                                <option value="">Select Student...</option>
+                                {% for student in students %}
+                                <option value="{{ student.name }}" data-id="{{ student.id }}"
+                                        {% if student.case_number %}data-case="{{ student.case_number }}"{% endif %}>
+                                    {{ student.name }}{% if student.case_number %} — {{ student.case_number }}{% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text" id="studentHelp">Choose the client from the registry</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="student_id">Student ID</label>
+                            <input type="text" name="student_id" id="student_id" class="form-control"
+                                   placeholder="Auto-filled from selection" readonly
+                                   aria-describedby="studentIdHelp">
+                            <div class="form-text" id="studentIdHelp">Automatically populated</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="appt_date">
+                                Date <span class="required" aria-label="required">*</span>
+                            </label>
+                            <input type="date" name="date" id="appt_date" class="form-control" required
+                                   min="{{ now_date if now_date else '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="appt_time">
+                                Time <span class="required" aria-label="required">*</span>
+                            </label>
+                            <input type="time" name="time" id="appt_time" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="appt_type">
+                                Appointment Type <span class="required" aria-label="required">*</span>
+                            </label>
+                            <select name="type" id="appt_type" class="form-select" required
+                                    aria-describedby="typeHelp">
+                                <option value="">Select Type...</option>
+                                <option value="Initial">Initial Consultation</option>
+                                <option value="Follow-up">Follow-up Session</option>
+                                <option value="Crisis">Crisis Intervention</option>
+                            </select>
+                            <div class="form-text" id="typeHelp">Select the nature of this appointment</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="counsellor">
+                                Counsellor <span class="required" aria-label="required">*</span>
+                            </label>
+                            <select name="counsellor" id="counsellor" class="form-select" required>
+                                <option value="">Select Counsellor...</option>
+                                {% for c in counsellors %}
+                                <option value="{{ c.name }}">{{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Student ID</label>
-                        <input type="text" name="student_id" class="form-control" placeholder="Student ID">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Date *</label>
-                        <input type="date" name="date" class="form-control" required>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Time *</label>
-                        <input type="time" name="time" class="form-control" required>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Type *</label>
-                        <select name="type" class="form-select" required>
-                            <option value="">Select Type...</option>
-                            <option value="Initial">Initial</option>
-                            <option value="Follow-up">Follow-up</option>
-                            <option value="Crisis">Crisis</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Counsellor *</label>
-                        <select name="counsellor" class="form-select" required>
-                            <option value="">Select Counsellor...</option>
-                            {% for c in counsellors %}
-                            <option value="{{ c.name }}">{{ c.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
+                </fieldset>
 
-                <h3 style="margin-bottom:20px;"><i class="fas fa-sticky-note me-2" style="color:#fbbf24"></i>Notes</h3>
-                <div class="mb-4">
-                    <label class="form-label">Additional Notes</label>
-                    <textarea name="notes" class="form-control" rows="3" placeholder="Any additional information..."></textarea>
-                </div>
+                <fieldset>
+                    <legend class="sr-only">Additional Notes</legend>
+                    <h3 style="margin-bottom:20px;">
+                        <i class="fas fa-sticky-note me-2" style="color:#fbbf24" aria-hidden="true"></i>
+                        Notes
+                    </h3>
+                    <div class="mb-4">
+                        <label class="form-label" for="notes">Additional Notes</label>
+                        <textarea name="notes" id="notes" class="form-control" rows="3"
+                                  placeholder="Any additional information about this appointment..."
+                                  aria-describedby="notesHelp"></textarea>
+                        <div class="form-text" id="notesHelp">Optional — include any relevant context</div>
+                    </div>
+                </fieldset>
 
-                <div class="d-flex justify-content-end gap-2">
-                    <a href="/dashboard" class="btn btn-outline-secondary">Cancel</a>
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-calendar-check me-1"></i>Schedule Appointment</button>
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="/manage_appointments" class="btn btn-outline">
+                        <i class="fas fa-arrow-left me-1" aria-hidden="true"></i> Back to Appointments
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-calendar-check me-1" aria-hidden="true"></i> Schedule Appointment
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 {% endblock %}
+
 {% block scripts %}
 <script>
-document.querySelector('select[name="student_name"]').addEventListener('change', function() {
+document.querySelector('#student_name').addEventListener('change', function() {
     var opt = this.options[this.selectedIndex];
-    var sidInput = document.querySelector('input[name="student_id"]');
+    var sidInput = document.querySelector('#student_id');
     sidInput.value = opt.dataset.id || '';
+    if (opt.dataset.case) {
+        Toast.info('Selected: ' + this.value + ' (' + opt.dataset.case + ')');
+    }
 });
 </script>
 {% endblock %}

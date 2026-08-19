@@ -2,6 +2,13 @@
 {% extends 'base.html' %}
 {% block title %}Cloud Sync - USTED Counselling{% endblock %}
 {% block heading %}<i class="fas fa-cloud me-2" style="color:#60a5fa"></i>Cloud Sync{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-bar" aria-label="Breadcrumb">
+    <a href="/dashboard"><i class="fas fa-home"></i></a>
+    <span class="sep">/</span>
+    <span aria-current="page">Cloud Lookout</span>
+</nav>
+{% endblock %}
 {% block extra_css %}
         .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e2d9c8; }
         .stat-row:last-child { border-bottom: none; }

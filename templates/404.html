@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}Page Not Found - USTED Counselling{% endblock %}
+{% block heading %}<i class="fas fa-exclamation-triangle me-2" style="color:#f59e0b"></i>Page Not Found{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6 text-center" style="padding:60px 20px;">
+        <div style="font-size:100px; color:var(--color-text-muted); opacity:0.2; line-height:1;">
+            <i class="fas fa-compass" aria-hidden="true"></i>
+        </div>
+        <h2 style="font-size:48px; font-weight:800; color:var(--color-text-secondary); margin:16px 0 8px;">404</h2>
+        <h3 style="font-size:20px; color:var(--color-text); margin-bottom:12px;">Page Not Found</h3>
+        <p style="color:var(--color-text-secondary); margin-bottom:32px; max-width:400px; margin-left:auto; margin-right:auto;">
+            The page you're looking for doesn't exist or has been moved. Check the URL or navigate using the sidebar.
+        </p>
+        <div class="d-flex gap-3 justify-content-center">
+            <a href="/dashboard" class="btn btn-primary">
+                <i class="fas fa-home me-1" aria-hidden="true"></i> Go to Dashboard
+            </a>
+            <button onclick="history.back()" class="btn btn-outline">
+                <i class="fas fa-arrow-left me-1" aria-hidden="true"></i> Go Back
+            </button>
+        </div>
+        <p style="margin-top:40px; font-size:12px; color:var(--color-text-muted);">
+            If this persists, please contact your system administrator.
+        </p>
+    </div>
+</div>
+{% endblock %}

@@ -5,102 +5,922 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}USTED Counselling{% endblock %}</title>
     <meta name="theme-color" content="#1e3a5f">
+    <meta name="description" content="USTED Guidance & Counselling Management System">
     <link rel="manifest" href="/static/manifest.json">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
-        * { box-sizing: border-box; }
-        body { background: #f5f0e8; color: #1a202c; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; }
-        .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: #1e3a5f; border-right: 1px solid #2d4a6f; padding: 20px 0; overflow-y: auto; z-index: 100; }
-        .sidebar-brand { padding: 0 20px 20px; border-bottom: 1px solid #2d4a6f; }
-        .sidebar-brand h4 { color: #ffffff; font-size: 16px; margin: 0; font-weight: 700; }
-        .sidebar-brand small { color: #94a3b8; font-size: 12px; display: block; }
-        .sidebar-nav { padding: 12px 0; }
-        .sidebar-nav a { display: flex; align-items: center; padding: 10px 20px; color: #e2e8f0; text-decoration: none; font-size: 14px; transition: all 0.2s; }
-        .sidebar-nav a:hover, .sidebar-nav a.active { background: rgba(96,165,250,0.15); color: #60a5fa; }
-        .sidebar-nav a i { width: 20px; margin-right: 10px; text-align: center; }
-        .sidebar-nav .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; padding: 16px 20px 6px; font-weight: 600; }
+        /* ═══════════════════════════════════════════
+           CSS CUSTOM PROPERTIES (Design Tokens)
+           ═══════════════════════════════════════════ */
+        :root {
+            --color-primary: #2563eb;
+            --color-primary-dark: #1d4ed8;
+            --color-primary-light: rgba(37,99,235,0.08);
+            --color-success: #16a34a;
+            --color-success-light: rgba(34,197,94,0.08);
+            --color-warning: #f59e0b;
+            --color-warning-light: rgba(245,158,11,0.08);
+            --color-danger: #dc2626;
+            --color-danger-light: rgba(239,68,68,0.08);
+            --color-info: #0891b2;
+            --color-bg: #f5f0e8;
+            --color-surface: #ffffff;
+            --color-border: #e2d9c8;
+            --color-text: #1a202c;
+            --color-text-secondary: #6b7280;
+            --color-text-muted: #9ca3af;
+            --color-focus: #2563eb;
+            --radius-sm: 8px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+            --transition-fast: 0.15s ease;
+            --transition-normal: 0.2s ease;
+            --transition-slow: 0.3s ease;
+            --sidebar-width: 260px;
+        }
+
+        /* ═══════════════════════════════════════════
+           RESET & BASE
+           ═══════════════════════════════════════════ */
+        *, *::before, *::after { box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            background: var(--color-bg);
+            color: var(--color-text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            margin: 0;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ═══════════════════════════════════════════
+           ACCESSIBILITY: Skip Navigation
+           WCAG 2.4.1 — Bypass Blocks
+           ═══════════════════════════════════════════ */
+        .skip-nav {
+            position: absolute;
+            top: -100%;
+            left: 16px;
+            z-index: 100000;
+            background: var(--color-primary);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            text-decoration: none;
+            box-shadow: var(--shadow-lg);
+            transition: top var(--transition-fast);
+        }
+        .skip-nav:focus {
+            top: 16px;
+            outline: 3px solid #fff;
+            outline-offset: 2px;
+        }
+
+        /* ═══════════════════════════════════════════
+           ACCESSIBILITY: Focus Indicators
+           WCAG 2.4.7 — Focus Visible
+           ═══════════════════════════════════════════ */
+        :focus-visible {
+            outline: 3px solid var(--color-focus);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+        :focus:not(:focus-visible) { outline: none; }
+
+        /* ═══════════════════════════════════════════
+           SCREEN READER ONLY
+           ═══════════════════════════════════════════ */
+        .sr-only {
+            position: absolute; width: 1px; height: 1px;
+            padding: 0; margin: -1px; overflow: hidden;
+            clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+        }
+
+        /* ═══════════════════════════════════════════
+           SIDEBAR
+           ═══════════════════════════════════════════ */
+        .sidebar {
+            position: fixed; top: 0; left: 0;
+            width: var(--sidebar-width); height: 100vh;
+            background: #1e3a5f;
+            border-right: 1px solid #2d4a6f;
+            padding: 20px 0;
+            overflow-y: auto;
+            z-index: 1000;
+            transition: transform var(--transition-slow);
+            scrollbar-width: thin;
+            scrollbar-color: #2d4a6f transparent;
+        }
+        .sidebar::-webkit-scrollbar { width: 6px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #2d4a6f; border-radius: 3px; }
+
+        .sidebar-brand {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid #2d4a6f;
+        }
+        .sidebar-brand h4 {
+            color: #ffffff; font-size: 16px; margin: 0; font-weight: 700;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .sidebar-brand small { color: #94a3b8; font-size: 12px; display: block; margin-top: 2px; }
+
+        .sidebar-nav { padding: 8px 0; }
+        .sidebar-nav a {
+            display: flex; align-items: center;
+            padding: 10px 20px;
+            color: #e2e8f0; text-decoration: none;
+            font-size: 14px;
+            transition: all var(--transition-normal);
+            border-left: 3px solid transparent;
+            position: relative;
+        }
+        .sidebar-nav a:hover {
+            background: rgba(96,165,250,0.12);
+            color: #60a5fa;
+            border-left-color: rgba(96,165,250,0.3);
+        }
+        .sidebar-nav a.active {
+            background: rgba(96,165,250,0.18);
+            color: #60a5fa;
+            border-left-color: #60a5fa;
+            font-weight: 600;
+        }
+        .sidebar-nav a.active::after {
+            content: '';
+            position: absolute;
+            right: 0; top: 50%;
+            transform: translateY(-50%);
+            width: 3px; height: 60%;
+            background: #60a5fa;
+            border-radius: 3px 0 0 3px;
+        }
+        .sidebar-nav a i { width: 20px; margin-right: 10px; text-align: center; font-size: 15px; }
+
+        .sidebar-nav .section-label {
+            font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+            color: #94a3b8; padding: 14px 20px 6px; font-weight: 600;
+            display: flex; align-items: center; gap: 6px;
+        }
         .sidebar-nav .badge { margin-left: auto; font-size: 11px; }
-        .main-content { margin-left: 260px; padding: 24px 32px; min-height: 100vh; }
-        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
-        .topbar h2 { font-size: 22px; font-weight: 700; margin: 0; color: #1a202c; }
-        .user-badge { display: flex; align-items: center; gap: 8px; color: #6b7280; font-size: 14px; }
-        .card-dark { background: #ffffff; border: 1px solid #e2d9c8; border-radius: 14px; padding: 24px; margin-bottom: 20px; }
-        .card-dark h3 { font-size: 18px; font-weight: 600; margin: 0 0 16px; color: #1a202c; }
-        .form-control, .form-select { background: #f5f0e8; border: 1px solid #d4c5a9; color: #1a202c; border-radius: 10px; padding: 10px 14px; }
-        .form-control:focus, .form-select:focus { background: #fff; border-color: #2563eb; color: #1a202c; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
-        .form-control::placeholder { color: #9ca3af; }
-        .form-label { color: #4b5563; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
-        .btn-primary { background: #2563eb; border: none; border-radius: 10px; padding: 10px 24px; font-weight: 600; }
-        .btn-primary:hover { background: #1d4ed8; }
-        .btn-danger { background: #dc2626; border: none; border-radius: 10px; }
-        .btn-success { background: #16a34a; border: none; border-radius: 10px; }
-        .table { color: #1a202c; }
-        .table th { color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; border-color: #e2d9c8; font-weight: 600; }
-        .table td { border-color: #e2d9c8; vertical-align: middle; font-size: 14px; color: #1a202c; }
-        .table tbody tr:hover { background: rgba(37,99,235,0.05); }
-        .empty-state { text-align: center; padding: 60px 20px; color: #9ca3af; }
-        .empty-state i { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
-        .empty-state p { font-size: 15px; margin: 0; }
-        .badge-blue { background: rgba(37,99,235,0.15); color: #60a5fa; }
-        .badge-green { background: rgba(34,197,94,0.15); color: #4ade80; }
-        .badge-amber { background: rgba(245,158,11,0.15); color: #fbbf24; }
-        .badge-red { background: rgba(239,68,68,0.15); color: #f87171; }
-        .badge-purple { background: rgba(139,92,246,0.15); color: #a78bfa; }
-        .stat-card { background: #ffffff; border: 1px solid #e2d9c8; border-radius: 14px; padding: 24px; transition: transform 0.2s; }
-        .stat-card:hover { transform: translateY(-2px); }
-        .stat-card h3 { font-size: 32px; font-weight: 700; margin: 0; color: #1a202c; }
-        .stat-card p { color: #6b7280; margin: 4px 0 0; font-size: 13px; }
-        .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 12px; }
-        .logout-btn { background: none; border: none; color: #dc2626; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px; text-decoration: none; }
-        .logout-btn:hover { color: #ef4444; }
-        /* Offline status badge */
-        #connection-badge { position: fixed; bottom: 20px; right: 20px; z-index: 9999; padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s; cursor: default; }
-        #connection-badge.online { background: #16a34a; color: #fff; }
-        #connection-badge.offline { background: #f59e0b; color: #000; }
-        #connection-badge.syncing { background: #3b82f6; color: #fff; }
-        #connection-badge i { font-size: 14px; }
-        /* Sync pending counter */
-        .sync-pending-count { background: #ef4444; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 10px; margin-left: 4px; }
+
+        /* Mobile sidebar toggle */
+        .sidebar-toggle {
+            display: none;
+            position: fixed; top: 16px; left: 16px;
+            z-index: 1001;
+            width: 42px; height: 42px;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            align-items: center; justify-content: center;
+            box-shadow: var(--shadow-md);
+            color: var(--color-text);
+            font-size: 18px;
+        }
+        .sidebar-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity var(--transition-slow);
+        }
+        .sidebar-overlay.active { opacity: 1; }
+
+        /* ═══════════════════════════════════════════
+           MAIN CONTENT
+           ═══════════════════════════════════════════ */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 24px 32px;
+            min-height: 100vh;
+            transition: margin-left var(--transition-slow);
+        }
+
+        /* ═══════════════════════════════════════════
+           TOP BAR
+           ═══════════════════════════════════════════ */
+        .topbar {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap; gap: 12px;
+        }
+        .topbar h2 { font-size: 22px; font-weight: 700; margin: 0; color: var(--color-text); }
+        .user-badge {
+            display: flex; align-items: center; gap: 8px;
+            color: var(--color-text-secondary); font-size: 14px;
+        }
+
+        /* ═══════════════════════════════════════════
+           BREADCRUMBS — Wayfinding
+           WCAG 2.4.8 — Location
+           ═══════════════════════════════════════════ */
+        .breadcrumb-bar {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 13px; color: var(--color-text-muted);
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .breadcrumb-bar a {
+            color: var(--color-primary); text-decoration: none;
+            transition: color var(--transition-fast);
+        }
+        .breadcrumb-bar a:hover { color: var(--color-primary-dark); text-decoration: underline; }
+        .breadcrumb-bar .sep { color: var(--color-text-muted); }
+
+        /* ═══════════════════════════════════════════
+           CARDS
+           ═══════════════════════════════════════════ */
+        .card-dark {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-sm);
+        }
+        .card-dark h3 { font-size: 18px; font-weight: 600; margin: 0 0 16px; color: var(--color-text); }
+
+        /* ═══════════════════════════════════════════
+           FORMS — Error Prevention & Feedback
+           WCAG 3.3.1/3.3.3 — Error Identification/Suggestions
+           ═══════════════════════════════════════════ */
+        .form-label {
+            color: var(--color-text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            display: flex; align-items: center; gap: 4px;
+        }
+        .form-label .required { color: var(--color-danger); font-weight: 700; }
+        .form-control, .form-select, textarea {
+            background: var(--color-bg);
+            border: 1.5px solid var(--color-border);
+            color: var(--color-text);
+            border-radius: var(--radius-md);
+            padding: 10px 14px;
+            font-size: 14px;
+            transition: all var(--transition-fast);
+            width: 100%;
+        }
+        .form-control:focus, .form-select:focus, textarea:focus {
+            background: #fff;
+            border-color: var(--color-focus);
+            color: var(--color-text);
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+        }
+        .form-control::placeholder { color: var(--color-text-muted); }
+        .form-control.is-invalid, .form-select.is-invalid {
+            border-color: var(--color-danger);
+            box-shadow: 0 0 0 3px rgba(220,38,38,0.1);
+        }
+        .form-control.is-valid, .form-select.is-valid {
+            border-color: var(--color-success);
+            box-shadow: 0 0 0 3px rgba(22,163,74,0.1);
+        }
+        .form-text { font-size: 12px; color: var(--color-text-muted); margin-top: 4px; }
+        .invalid-feedback { font-size: 12px; color: var(--color-danger); margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+        .valid-feedback { font-size: 12px; color: var(--color-success); margin-top: 4px; }
+
+        /* ═══════════════════════════════════════════
+           BUTTONS
+           ═══════════════════════════════════════════ */
+        .btn {
+            font-weight: 600;
+            border-radius: var(--radius-md);
+            padding: 10px 20px;
+            font-size: 14px;
+            transition: all var(--transition-fast);
+            display: inline-flex; align-items: center; gap: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            border: none;
+            line-height: 1.4;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-primary { background: var(--color-primary); color: #fff; }
+        .btn-primary:hover { background: var(--color-primary-dark); box-shadow: 0 2px 8px rgba(37,99,235,0.3); }
+        .btn-danger { background: var(--color-danger); color: #fff; }
+        .btn-danger:hover { background: #b91c1c; box-shadow: 0 2px 8px rgba(220,38,38,0.3); }
+        .btn-success { background: var(--color-success); color: #fff; }
+        .btn-success:hover { background: #15803d; }
+        .btn-warning { background: var(--color-warning); color: #000; }
+        .btn-outline {
+            background: transparent; border: 1.5px solid var(--color-border);
+            color: var(--color-text-secondary);
+        }
+        .btn-outline:hover { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-light); }
+        .btn-outline-success { background: transparent; border: 1.5px solid var(--color-success); color: var(--color-success); }
+        .btn-outline-success:hover { background: var(--color-success-light); }
+        .btn-outline-danger { background: transparent; border: 1.5px solid var(--color-danger); color: var(--color-danger); }
+        .btn-outline-danger:hover { background: var(--color-danger-light); }
+
+        /* Loading spinner on button */
+        .btn .spinner-border { width: 16px; height: 16px; border-width: 2px; }
+
+        /* ═══════════════════════════════════════════
+           TABLES
+           ═══════════════════════════════════════════ */
+        .table { color: var(--color-text); margin-bottom: 0; }
+        .table th {
+            color: var(--color-text-secondary);
+            font-size: 11px; text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-color: var(--color-border);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .table td {
+            border-color: var(--color-border);
+            vertical-align: middle;
+            font-size: 14px;
+            color: var(--color-text);
+        }
+        .table tbody tr { transition: background var(--transition-fast); }
+        .table tbody tr:hover { background: var(--color-primary-light); }
+        .table tbody tr:focus-within { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+
+        /* ═══════════════════════════════════════════
+           EMPTY STATES
+           ═══════════════════════════════════════════ */
+        .empty-state {
+            text-align: center; padding: 60px 20px;
+            color: var(--color-text-muted);
+        }
+        .empty-state .empty-icon {
+            width: 80px; height: 80px;
+            margin: 0 auto 20px;
+            background: var(--color-bg);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 32px; color: var(--color-text-muted);
+        }
+        .empty-state h4 { font-size: 18px; color: var(--color-text-secondary); margin-bottom: 8px; }
+        .empty-state p { font-size: 14px; margin: 0 0 20px; max-width: 400px; margin-left: auto; margin-right: auto; }
+
+        /* ═══════════════════════════════════════════
+           BADGES
+           ═══════════════════════════════════════════ */
+        .badge {
+            display: inline-flex; align-items: center;
+            padding: 4px 10px;
+            border-radius: 100px;
+            font-size: 12px; font-weight: 600;
+        }
+        .badge-blue { background: var(--color-primary-light); color: var(--color-primary); }
+        .badge-green { background: var(--color-success-light); color: var(--color-success); }
+        .badge-amber { background: var(--color-warning-light); color: #b45309; }
+        .badge-red { background: var(--color-danger-light); color: var(--color-danger); }
+        .badge-purple { background: rgba(139,92,246,0.12); color: #7c3aed; }
+
+        /* ═══════════════════════════════════════════
+           STAT CARDS
+           ═══════════════════════════════════════════ */
+        .stat-card {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            transition: all var(--transition-normal);
+        }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+        .stat-card h3 { font-size: 32px; font-weight: 700; margin: 0; color: var(--color-text); }
+        .stat-card p { color: var(--color-text-secondary); margin: 4px 0 0; font-size: 13px; }
+        .stat-icon {
+            width: 48px; height: 48px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; margin-bottom: 12px;
+        }
+
+        /* ═══════════════════════════════════════════
+           TOAST NOTIFICATIONS
+           ═══════════════════════════════════════════ */
+        #toast-container {
+            position: fixed; top: 20px; right: 20px;
+            z-index: 100000;
+            display: flex; flex-direction: column; gap: 10px;
+            pointer-events: none;
+        }
+        .toast-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 14px 20px;
+            background: var(--color-surface);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            font-size: 14px; font-weight: 500;
+            pointer-events: auto;
+            animation: toastIn 0.3s ease forwards;
+            max-width: 420px;
+            border-left: 4px solid;
+        }
+        .toast-item.toast-success { border-left-color: var(--color-success); color: #166534; }
+        .toast-item.toast-error   { border-left-color: var(--color-danger);  color: #991b1b; }
+        .toast-item.toast-warning { border-left-color: var(--color-warning); color: #92400e; }
+        .toast-item.toast-info    { border-left-color: var(--color-info);    color: #155e75; }
+        .toast-item .toast-icon { font-size: 18px; flex-shrink: 0; }
+        .toast-item .toast-close {
+            margin-left: auto; background: none; border: none;
+            cursor: pointer; color: inherit; opacity: 0.5;
+            font-size: 16px; padding: 0 4px;
+        }
+        .toast-item .toast-close:hover { opacity: 1; }
+        .toast-item.toast-exit { animation: toastOut 0.3s ease forwards; }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(40px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes toastOut {
+            from { opacity: 1; transform: translateX(0); }
+            to   { opacity: 0; transform: translateX(40px); }
+        }
+
+        /* ═══════════════════════════════════════════
+           LOADING OVERLAY
+           ═══════════════════════════════════════════ */
+        #loading-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(245,240,232,0.85);
+            z-index: 99999;
+            align-items: center; justify-content: center;
+            flex-direction: column; gap: 16px;
+            backdrop-filter: blur(4px);
+        }
+        #loading-overlay.active { display: flex; }
+        #loading-overlay .spinner-border { width: 40px; height: 40px; color: var(--color-primary); }
+        #loading-overlay p { font-size: 14px; color: var(--color-text-secondary); font-weight: 500; }
+
+        /* ═══════════════════════════════════════════
+           FLASH ALERTS (Legacy — wraps into toasts)
+           ═══════════════════════════════════════════ */
+        .flash-alert {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 16px;
+            border-radius: var(--radius-md);
+            font-size: 14px; font-weight: 500;
+            margin-bottom: 16px;
+            animation: slideDown 0.3s ease;
+        }
+        .flash-alert.flash-success { background: var(--color-success-light); color: #166534; border: 1px solid rgba(34,197,94,0.25); }
+        .flash-alert.flash-error   { background: var(--color-danger-light);  color: #991b1b;  border: 1px solid rgba(239,68,68,0.25); }
+        .flash-alert.flash-warning { background: var(--color-warning-light); color: #92400e; border: 1px solid rgba(245,158,11,0.25); }
+        .flash-alert.flash-info    { background: var(--color-primary-light); color: #1e40af; border: 1px solid rgba(37,99,235,0.25); }
+        .flash-alert .flash-close { margin-left: auto; cursor: pointer; opacity: 0.6; background: none; border: none; font-size: 18px; color: inherit; }
+        .flash-alert .flash-close:hover { opacity: 1; }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ═══════════════════════════════════════════
+           CONFIRMATION DIALOG
+           ═══════════════════════════════════════════ */
+        .confirm-dialog {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 99998;
+            display: none; align-items: center; justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+        .confirm-dialog.active { display: flex; }
+        .confirm-box {
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            max-width: 420px; width: 90%;
+            box-shadow: var(--shadow-lg);
+            text-align: center;
+        }
+        .confirm-box .confirm-icon { font-size: 40px; margin-bottom: 16px; }
+        .confirm-box h3 { font-size: 18px; margin-bottom: 8px; }
+        .confirm-box p { font-size: 14px; color: var(--color-text-secondary); margin-bottom: 24px; }
+        .confirm-box .confirm-actions { display: flex; gap: 12px; justify-content: center; }
+
+        /* ═══════════════════════════════════════════
+           OFFLINE STATUS
+           ═══════════════════════════════════════════ */
+        #connection-badge {
+            position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+            padding: 8px 16px; border-radius: 20px;
+            font-size: 12px; font-weight: 600;
+            display: flex; align-items: center; gap: 6px;
+            box-shadow: var(--shadow-md);
+            transition: all var(--transition-slow);
+        }
+        #connection-badge.online  { background: var(--color-success); color: #fff; }
+        #connection-badge.offline { background: var(--color-warning); color: #000; }
+        #connection-badge.syncing { background: var(--color-primary); color: #fff; }
+
+        /* ═══════════════════════════════════════════
+           KEYBOARD SHORTCUT HINT
+           ═══════════════════════════════════════════ */
+        kbd {
+            background: var(--color-bg);
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-family: monospace;
+            color: var(--color-text-secondary);
+            box-shadow: 0 1px 0 var(--color-border);
+        }
+
+        /* ═══════════════════════════════════════════
+           PRINT STYLES
+           ═══════════════════════════════════════════ */
+        @media print {
+            .sidebar, .topbar, .sidebar-toggle, #connection-badge,
+            #toast-container, .btn, .skip-nav { display: none !important; }
+            .main-content { margin-left: 0 !important; padding: 0 !important; }
+            body { background: #fff; }
+        }
+
+        /* ═══════════════════════════════════════════
+           RESPONSIVE
+           ═══════════════════════════════════════════ */
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .sidebar-toggle { display: flex; }
+            .sidebar-overlay { display: block; }
+            .main-content {
+                margin-left: 0;
+                padding: 70px 16px 24px;
+            }
+            .topbar { flex-direction: column; align-items: flex-start; gap: 8px; }
+            .topbar h2 { font-size: 18px; }
+            .card-dark { padding: 16px; }
+            .stat-card { padding: 16px; }
+            .stat-card h3 { font-size: 24px; }
+        }
+
+        @media (max-width: 480px) {
+            .main-content { padding: 66px 12px 16px; }
+            .topbar h2 { font-size: 16px; }
+        }
+
         {% block extra_css %}{% endblock %}
     </style>
 </head>
 <body>
+    {# ═══ ACCESSIBILITY: Skip to main content ═══ #}
+    <a href="#main-content" class="skip-nav">Skip to main content</a>
+
+    {# ═══ MOBILE: Sidebar toggle button ═══ #}
+    <button class="sidebar-toggle" id="sidebarToggle"
+            aria-label="Toggle navigation menu"
+            aria-expanded="false"
+            aria-controls="sidebar-nav">
+        <i class="fas fa-bars"></i>
+    </button>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    {# ═══ SIDEBAR ═══ #}
     {% include '_sidebar.html' %}
-    <div class="main-content">
-        <div class="topbar">
+
+    {# ═══ MAIN CONTENT ═══ #}
+    <div class="main-content" id="main-content" role="main" aria-label="Main content">
+        {# ═══ TOP BAR ═══ #}
+        <header class="topbar" role="banner">
             <h2>{% block heading %}{% endblock %}</h2>
             <div class="user-badge">
-                <i class="fas fa-user-circle"></i>
+                <i class="fas fa-user-circle" aria-hidden="true"></i>
+                <span class="sr-only">Logged in as</span>
                 {{ session.get('full_name', session.get('username', '')) }}
-                <span class="badge badge-blue">{{ session.get('role', '') }}</span>
-                <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i></a>
+                <span class="badge badge-blue" role="status">{{ session.get('role', '') }}</span>
+                <a href="/logout" class="logout-btn" aria-label="Sign out of your account">
+                    <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+                </a>
             </div>
-        </div>
-        <div id="connection-badge" class="online" style="display:none;">
-            <i class="bi bi-wifi"></i>
-            <span id="connection-text">Online</span>
-        </div>
-        <div id="sync-status-badge" style="display:none; position:fixed; bottom:60px; right:20px; z-index:9999; padding:6px 14px; border-radius:16px; font-size:11px; font-weight:600; color:#fff; background:#3b82f6;"></div>
+        </header>
+
+        {# ═══ BREADCRUMBS ═══ #}
+        {% block breadcrumbs %}{% endblock %}
+
+        {# ═══ FLASH MESSAGES → Auto-convert to toasts ═══ #}
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         {% for cat, msg in messages %}
-        <div class="alert alert-{{ 'danger' if cat == 'error' else cat }} d-flex align-items-center mb-3" role="alert" style="background:{{ 'rgba(239,68,68,0.08)' if cat == 'error' else 'rgba(37,99,235,0.08)' }}; border:1px solid {{ 'rgba(239,68,68,0.2)' if cat == 'error' else 'rgba(37,99,235,0.2)' }}; color:{{ '#dc2626' if cat == 'error' else '#2563eb' }};">
-            <i class="fas {{ 'fa-exclamation-circle' if cat == 'error' else 'fa-check-circle' }} me-2"></i>
-            {{ msg }}
+        <div class="flash-alert flash-{{ 'danger' if cat == 'error' else cat }}"
+             role="alert" aria-live="polite"
+             data-auto-dismiss="5000">
+            <i class="fas {{ 'fa-exclamation-circle' if cat == 'error' else ('fa-check-circle' if cat == 'success' else 'fa-info-circle') }}" aria-hidden="true"></i>
+            <span>{{ msg }}</span>
+            <button class="flash-close" aria-label="Dismiss">&times;</button>
         </div>
         {% endfor %}
         {% endif %}
         {% endwith %}
+
+        {# ═══ PAGE CONTENT ═══ #}
         {% block content %}{% endblock %}
     </div>
+
+    {# ═══ TOAST CONTAINER ═══ #}
+    <div id="toast-container" role="status" aria-live="polite" aria-label="Notifications"></div>
+
+    {# ═══ LOADING OVERLAY ═══ #}
+    <div id="loading-overlay" role="alert" aria-live="assertive" aria-label="Loading">
+        <div class="spinner-border"></div>
+        <p>Loading, please wait...</p>
+    </div>
+
+    {# ═══ CONFIRMATION DIALOG ═══ #}
+    <div class="confirm-dialog" id="confirmDialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+        <div class="confirm-box">
+            <div class="confirm-icon" id="confirmIcon"></div>
+            <h3 id="confirmTitle"></h3>
+            <p id="confirmMessage"></p>
+            <div class="confirm-actions">
+                <button class="btn btn-outline" id="confirmCancel">Cancel</button>
+                <button class="btn btn-danger" id="confirmOk">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    {# ═══ CONNECTION BADGE ═══ #}
+    <div id="connection-badge" class="online" style="display:none;" role="status" aria-live="polite">
+        <i class="bi bi-wifi" aria-hidden="true"></i>
+        <span id="connection-text">Online</span>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="/static/js/db.js"></script>
     <script src="/static/js/offline-sync.js"></script>
     <script src="/static/js/offline-forms.js"></script>
     <script src="/static/js/precache.js"></script>
+
+    <script>
+    /* ═══════════════════════════════════════════
+       HCI: Toast Notification System
+       Visibility of System Status
+       ═══════════════════════════════════════════ */
+    const Toast = {
+        _container: null,
+        _init() {
+            if (!this._container) this._container = document.getElementById('toast-container');
+        },
+        show(message, type = 'info', duration = 4000) {
+            this._init();
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+            const el = document.createElement('div');
+            el.className = `toast-item toast-${type}`;
+            el.innerHTML = `
+                <i class="fas ${icons[type] || icons.info} toast-icon" aria-hidden="true"></i>
+                <span>${message}</span>
+                <button class="toast-close" aria-label="Dismiss">&times;</button>
+            `;
+            el.querySelector('.toast-close').addEventListener('click', () => this._dismiss(el));
+            this._container.appendChild(el);
+            if (duration > 0) setTimeout(() => this._dismiss(el), duration);
+            return el;
+        },
+        success(msg, dur) { return this.show(msg, 'success', dur); },
+        error(msg, dur)   { return this.show(msg, 'error', dur || 6000); },
+        warning(msg, dur) { return this.show(msg, 'warning', dur); },
+        info(msg, dur)    { return this.show(msg, 'info', dur); },
+        _dismiss(el) {
+            el.classList.add('toast-exit');
+            setTimeout(() => el.remove(), 300);
+        }
+    };
+
+    /* ═══════════════════════════════════════════
+       HCI: Flash Messages → Toasts
+       ═══════════════════════════════════════════ */
+    document.querySelectorAll('.flash-alert').forEach(el => {
+        const text = el.querySelector('span')?.textContent || el.textContent;
+        const cls = el.className;
+        let type = 'info';
+        if (cls.includes('flash-success')) type = 'success';
+        else if (cls.includes('flash-danger') || cls.includes('flash-error')) type = 'error';
+        else if (cls.includes('flash-warning')) type = 'warning';
+        Toast.show(text.trim(), type);
+        el.remove();
+    });
+
+    /* ═══════════════════════════════════════════
+       HCI: Loading Overlay
+       Visibility of System Status
+       ═══════════════════════════════════════════ */
+    const Loading = {
+        show(msg) {
+            const el = document.getElementById('loading-overlay');
+            if (msg) el.querySelector('p').textContent = msg;
+            el.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        },
+        hide() {
+            document.getElementById('loading-overlay').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    };
+
+    /* ═══════════════════════════════════════════
+       HCI: Confirmation Dialog
+       Error Prevention — confirm destructive actions
+       ═══════════════════════════════════════════ */
+    function confirmAction(title, message, icon, onConfirm) {
+        const dialog = document.getElementById('confirmDialog');
+        document.getElementById('confirmTitle').textContent = title;
+        document.getElementById('confirmMessage').textContent = message;
+        document.getElementById('confirmIcon').innerHTML = icon || '<i class="fas fa-exclamation-triangle" style="color:var(--color-warning)"></i>';
+        dialog.classList.add('active');
+        document.getElementById('confirmCancel').onclick = () => dialog.classList.remove('active');
+        document.getElementById('confirmOk').onclick = () => {
+            dialog.classList.remove('active');
+            onConfirm();
+        };
+        document.getElementById('confirmOk').focus();
+    }
+
+    /* ═══════════════════════════════════════════
+       HCI: Form Validation — Inline
+       Error Prevention & Error Identification
+       ═══════════════════════════════════════════ */
+    function validateField(input) {
+        const val = input.value.trim();
+        let valid = true;
+        let msg = '';
+
+        if (input.hasAttribute('required') && !val) {
+            valid = false;
+            msg = 'This field is required';
+        } else if (input.type === 'email' && val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+            valid = false;
+            msg = 'Please enter a valid email address';
+        } else if (input.minLength > 0 && val.length < input.minLength) {
+            valid = false;
+            msg = `Minimum ${input.minLength} characters required`;
+        }
+
+        input.classList.remove('is-valid', 'is-invalid');
+        let feedback = input.parentNode.querySelector('.invalid-feedback, .valid-feedback');
+        if (feedback) feedback.remove();
+
+        if (!valid) {
+            input.classList.add('is-invalid');
+            const fb = document.createElement('div');
+            fb.className = 'invalid-feedback';
+            fb.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${msg}`;
+            input.parentNode.appendChild(fb);
+        } else if (val) {
+            input.classList.add('is-valid');
+        }
+        return valid;
+    }
+
+    /* Attach live validation to forms */
+    document.querySelectorAll('form[data-validate]').forEach(form => {
+        form.querySelectorAll('input, select, textarea').forEach(input => {
+            input.addEventListener('blur', () => validateField(input));
+            input.addEventListener('input', () => {
+                if (input.classList.contains('is-invalid')) validateField(input);
+            });
+        });
+        form.addEventListener('submit', function(e) {
+            let allValid = true;
+            this.querySelectorAll('input[required], select[required], textarea[required]').forEach(input => {
+                if (!validateField(input)) allValid = false;
+            });
+            if (!allValid) {
+                e.preventDefault();
+                Toast.warning('Please fix the highlighted errors before submitting');
+                const firstInvalid = this.querySelector('.is-invalid');
+                if (firstInvalid) firstInvalid.focus();
+                return false;
+            }
+            /* Show loading on submit */
+            const btn = this.querySelector('[type="submit"]');
+            if (btn) {
+                btn.disabled = true;
+                const origHTML = btn.innerHTML;
+                btn.dataset.origHtml = origHTML;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+                /* Reset after 10s safety */
+                setTimeout(() => { btn.disabled = false; btn.innerHTML = origHTML; }, 10000);
+            }
+        });
+    });
+
+    /* ═══════════════════════════════════════════
+       HCI: Sidebar — Mobile Toggle
+       User Control & Freedom
+       ═══════════════════════════════════════════ */
+    const sidebar = document.querySelector('.sidebar');
+    const toggle = document.getElementById('sidebarToggle');
+    const overlay = document.getElementById('sidebarOverlay');
+
+    if (toggle) {
+        toggle.addEventListener('click', () => {
+            const open = sidebar.classList.toggle('open');
+            toggle.setAttribute('aria-expanded', open);
+            overlay.classList.toggle('active', open);
+        });
+        overlay.addEventListener('click', () => {
+            sidebar.classList.remove('open');
+            toggle.setAttribute('aria-expanded', 'false');
+            overlay.classList.remove('active');
+        });
+    }
+
+    /* ═══════════════════════════════════════════
+       HCI: Keyboard Shortcuts
+       Flexibility & Efficiency of Use
+       ═══════════════════════════════════════════ */
+    document.addEventListener('keydown', function(e) {
+        /* Alt+D → Dashboard */
+        if (e.altKey && e.key === 'd') { e.preventDefault(); window.location.href = '/dashboard'; }
+        /* Alt+C → New Client */
+        if (e.altKey && e.key === 'c') { e.preventDefault(); window.location.href = '/intake'; }
+        /* Alt+A → New Appointment */
+        if (e.altKey && e.key === 'a') { e.preventDefault(); window.location.href = '/appointment'; }
+        /* Alt+S → Search (focus first search input) */
+        if (e.altKey && e.key === 's') {
+            e.preventDefault();
+            const search = document.querySelector('#searchInput, input[type="search"], .search-input');
+            if (search) search.focus();
+        }
+        /* Escape → Close sidebar on mobile */
+        if (e.key === 'Escape') {
+            sidebar.classList.remove('open');
+            toggle?.setAttribute('aria-expanded', 'false');
+            overlay.classList.remove('active');
+            document.getElementById('confirmDialog')?.classList.remove('active');
+        }
+    });
+
+    /* ═══════════════════════════════════════════
+       HCI: Auto-dismiss Flash Alerts
+       ═══════════════════════════════════════════ */
+    document.querySelectorAll('.flash-alert[data-auto-dismiss]').forEach(el => {
+        setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, parseInt(el.dataset.autoDismiss));
+    });
+
+    /* ═══════════════════════════════════════════
+       HCI: Connection Status Badge
+       ═══════════════════════════════════════════ */
+    function updateConnectionBadge() {
+        const badge = document.getElementById('connection-badge');
+        if (!badge) return;
+        const text = document.getElementById('connection-text');
+        if (navigator.onLine) {
+            badge.className = 'online';
+            if (text) text.textContent = 'Online';
+        } else {
+            badge.className = 'offline';
+            if (text) text.textContent = 'Offline — changes saved locally';
+        }
+        badge.style.display = 'flex';
+    }
+    window.addEventListener('online', updateConnectionBadge);
+    window.addEventListener('offline', updateConnectionBadge);
+    updateConnectionBadge();
+
+    /* ═══════════════════════════════════════════
+       HCI: Smooth Page Transitions
+       ═══════════════════════════════════════════ */
+    document.querySelectorAll('a[href]:not([href^="#"]):not([href^="javascript"]):not([target="_blank"])').forEach(link => {
+        link.addEventListener('click', function(e) {
+            const href = this.getAttribute('href');
+            if (href && href !== window.location.pathname) {
+                Loading.show('Loading...');
+            }
+        });
+    });
+    window.addEventListener('load', () => Loading.hide());
+
+    /* ═══════════════════════════════════════════
+       HCI: Remember scroll position on back nav
+       ═══════════════════════════════════════════ */
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    window.addEventListener('beforeunload', () => {
+        sessionStorage.setItem('scrollPos_' + location.pathname, window.scrollY);
+    });
+    const savedScroll = sessionStorage.getItem('scrollPos_' + location.pathname);
+    if (savedScroll) window.scrollTo(0, parseInt(savedScroll));
+
     {% block scripts %}{% endblock %}
+    </script>
 </body>
 </html>

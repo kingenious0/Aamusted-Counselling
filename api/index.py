@@ -2778,7 +2778,7 @@ def health_check():
 def page_not_found(e):
     if request.path.startswith('/api/') or request.path.startswith('/sync/') or request.path.startswith('/static/'):
         return jsonify({"error": "Not found"}), 404
-    return redirect(url_for('dashboard'))
+    return render_template('404.html'), 404
 
 
 @app.route("/export_referrals")
@@ -4138,16 +4138,19 @@ def reset_password():
 
 @app.errorhandler(500)
 def internal_error(e):
-    logger.error(f"500 error: {e}")
+    import uuid
+    error_id = str(uuid.uuid4())[:8]
+    logger.error(f"500 error [{error_id}]: {e}")
     if request.path.startswith('/api/'):
-        return jsonify({"error": "Internal server error"}), 500
-    flash("An internal error occurred. Please try again.", "error")
-    return redirect(url_for('dashboard'))
+        return jsonify({"error": "Internal server error", "error_id": error_id}), 500
+    return render_template('500.html', error_id=error_id), 500
 
 
 @app.errorhandler(Exception)
 def handle_exception(e):
-    logger.error(f"Unhandled exception: {e}")
+    import uuid
+    error_id = str(uuid.uuid4())[:8]
+    logger.error(f"Unhandled exception [{error_id}]: {e}", exc_info=True)
     if request.path.startswith('/api/'):
-        return jsonify({"error": str(e)}), 500
-    return redirect(url_for('dashboard'))
+        return jsonify({"error": str(e), "error_id": error_id}), 500
+    return render_template('500.html', error_id=error_id), 500

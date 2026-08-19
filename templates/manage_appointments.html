@@ -2,55 +2,97 @@
 {% extends 'base.html' %}
 {% block title %}Manage Appointments - USTED Counselling{% endblock %}
 {% block heading %}<i class="fas fa-calendar-alt me-2" style="color:#a78bfa"></i>Manage Appointments{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumb-bar" aria-label="Breadcrumb">
+    <a href="/dashboard"><i class="fas fa-home"></i></a>
+    <span class="sep">/</span>
+    <span aria-current="page">Manage Appointments</span>
+</nav>
+{% endblock %}
+
 {% block content %}
+{# ═══ Search & Actions ═══ #}
 <div class="card-dark p-4 mb-4">
     <div class="row g-3 align-items-center">
-        <div class="col-md-9">
+        <div class="col-md-8 col-lg-9">
             <div class="position-relative">
-                <i class="fas fa-search position-absolute" style="left:14px; top:50%; transform:translateY(-50%); color:#64748b;"></i>
-                <input type="text" id="searchInput" class="form-control" style="padding-left:38px;" placeholder="Search by student, counsellor, or type...">
+                <i class="fas fa-search position-absolute" style="left:14px; top:50%; transform:translateY(-50%); color:var(--color-text-muted);"></i>
+                <input type="text" id="searchInput" class="form-control" style="padding-left:40px;"
+                       placeholder="Search by student, counsellor, type, or status..."
+                       aria-label="Search appointments"
+                       aria-describedby="searchHelp">
+                <div class="form-text" id="searchHelp" style="position:absolute; right:14px; top:50%; transform:translateY(-50%); font-size:11px;">
+                    <kbd>Alt</kbd>+<kbd>S</kbd>
+                </div>
             </div>
         </div>
-        <div class="col-md-3 text-end">
-            <a href="/appointment" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Schedule New</a>
+        <div class="col-md-4 col-lg-3 text-end">
+            <a href="/appointment" class="btn btn-primary w-100">
+                <i class="fas fa-plus me-1" aria-hidden="true"></i> Schedule New
+            </a>
         </div>
     </div>
 </div>
+
+{# ═══ Results Count ═══ #}
 <div class="card-dark p-0">
-    <div class="p-4 pb-0">
-        <span style="color:#94a3b8; font-size:13px;">{{ appointments|length }} appointment{{ 's' if appointments|length != 1 }} found</span>
+    <div class="p-4 pb-0 d-flex justify-content-between align-items-center">
+        <span style="color:var(--color-text-muted); font-size:13px;" id="resultCount" role="status" aria-live="polite">
+            {{ appointments|length }} appointment{{ 's' if appointments|length != 1 }} found
+        </span>
     </div>
     <div class="p-4">
         {% if appointments %}
         <div class="table-responsive">
-            <table class="table" id="dataTable">
+            <table class="table" id="dataTable" aria-label="Appointments list">
                 <thead>
                     <tr>
-                        <th>DATE</th>
-                        <th>TIME</th>
-                        <th>STUDENT</th>
-                        <th>TYPE</th>
-                        <th>COUNSELLOR</th>
-                        <th>STATUS</th>
-                        <th>ACTIONS</th>
+                        <th scope="col">Date</th>
+                        <th scope="col">Time</th>
+                        <th scope="col">Student</th>
+                        <th scope="col">Type</th>
+                        <th scope="col">Counsellor</th>
+                        <th scope="col">Status</th>
+                        <th scope="col" class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for a in appointments %}
-                    <tr>
+                    <tr tabindex="0" aria-label="Appointment with {{ a.student_name }} on {{ a.date }}">
                         <td>{{ a.date }}</td>
                         <td>{{ a.time }}</td>
-                        <td>{{ a.student_name }}</td>
-                        <td><span class="badge badge-blue">{{ a.type }}</span></td>
-                        <td>{{ a.counsellor }}</td>
                         <td>
-                            <span class="badge {% if a.status == 'Completed' %}badge-green{% elif a.status == 'Scheduled' %}badge-amber{% else %}badge-red{% endif %}">
+                            <strong>{{ a.student_name }}</strong>
+                            {% if a.case_number %}<br><small style="color:var(--color-text-muted);">{{ a.case_number }}</small>{% endif %}
+                        </td>
+                        <td><span class="badge badge-blue">{{ a.type }}</span></td>
+                        <td>{{ a.counsellor or '—' }}</td>
+                        <td>
+                            <span class="badge {% if a.status == 'Completed' %}badge-green{% elif a.status == 'Scheduled' %}badge-amber{% elif a.status == 'Cancelled' %}badge-red{% else %}badge-blue{% endif %}">
+                                <i class="fas {{ 'fa-check-circle' if a.status == 'Completed' else ('fa-clock' if a.status == 'Scheduled' else ('fa-times-circle' if a.status == 'Cancelled' else 'fa-circle')) }}" style="font-size:10px; margin-right:3px;" aria-hidden="true"></i>
                                 {{ a.status }}
                             </span>
                         </td>
-                        <td>
-                            <a href="/appointment/update_status/{{ a.id }}/Completed" class="btn btn-sm btn-outline-success" title="Complete"><i class="fas fa-check"></i></a>
-                            <a href="/appointment/update_status/{{ a.id }}/Cancelled" class="btn btn-sm btn-outline-danger" title="Cancel" onclick="return confirm('Cancel this appointment?')"><i class="fas fa-times"></i></a>
+                        <td class="text-end">
+                            {% if a.status != 'Completed' and a.status != 'Cancelled' %}
+                            <a href="/appointment/update_status/{{ a.id }}/Completed"
+                               class="btn btn-sm btn-outline-success"
+                               title="Mark as completed"
+                               aria-label="Complete appointment with {{ a.student_name }}"
+                               onclick="event.preventDefault(); confirmAction('Complete Appointment', 'Mark this appointment with {{ a.student_name }} as completed?', '<i class=&quot;fas fa-check-circle&quot; style=&quot;color:var(--color-success)&quot;></i>', function() { Loading.show('Updating...'); window.location.href = '/appointment/update_status/{{ a.id }}/Completed'; });">
+                                <i class="fas fa-check" aria-hidden="true"></i>
+                            </a>
+                            <a href="/appointment/update_status/{{ a.id }}/Cancelled"
+                               class="btn btn-sm btn-outline-danger"
+                               title="Cancel appointment"
+                               aria-label="Cancel appointment with {{ a.student_name }}"
+                               onclick="event.preventDefault(); confirmAction('Cancel Appointment', 'Are you sure you want to cancel this appointment with {{ a.student_name }}? This action cannot be undone.', '<i class=&quot;fas fa-exclamation-triangle&quot; style=&quot;color:var(--color-danger)&quot;></i>', function() { Loading.show('Cancelling...'); window.location.href = '/appointment/update_status/{{ a.id }}/Cancelled'; });">
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </a>
+                            {% else %}
+                            <span style="color:var(--color-text-muted); font-size:12px;">—</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -58,22 +100,35 @@
             </table>
         </div>
         {% else %}
+        {# ═══ Empty State ═══ #}
         <div class="empty-state">
-            <i class="fas fa-calendar-alt d-block"></i>
-            <p>No appointments scheduled</p>
-            <a href="/appointment" class="btn btn-primary btn-sm mt-2"><i class="fas fa-plus me-1"></i>Schedule Appointment</a>
+            <div class="empty-icon">
+                <i class="fas fa-calendar-plus" aria-hidden="true"></i>
+            </div>
+            <h4>No appointments scheduled yet</h4>
+            <p>Schedule your first appointment to start managing student counselling sessions.</p>
+            <a href="/appointment" class="btn btn-primary">
+                <i class="fas fa-plus me-1" aria-hidden="true"></i> Schedule First Appointment
+            </a>
         </div>
         {% endif %}
     </div>
 </div>
 {% endblock %}
+
 {% block scripts %}
 <script>
 document.getElementById('searchInput').addEventListener('keyup', function() {
     const term = this.value.toLowerCase();
+    let visible = 0;
     document.querySelectorAll('#dataTable tbody tr').forEach(row => {
-        row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
+        const match = row.textContent.toLowerCase().includes(term);
+        row.style.display = match ? '' : 'none';
+        if (match) visible++;
     });
+    document.getElementById('resultCount').textContent =
+        visible + ' appointment' + (visible !== 1 ? 's' : '') + ' found' +
+        (term ? ' (filtered)' : '');
 });
 </script>
 {% endblock %}

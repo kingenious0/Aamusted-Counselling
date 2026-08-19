@@ -2,6 +2,13 @@
 {% extends 'base.html' %}
 {% block title %}DASS-21 Assessments - USTED Counselling{% endblock %}
 {% block heading %}<i class="fas fa-clipboard-check me-2" style="color:#fbbf24"></i>DASS-21 Assessments{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-bar" aria-label="Breadcrumb">
+    <a href="/dashboard"><i class="fas fa-home"></i></a>
+    <span class="sep">/</span>
+    <span aria-current="page">Assessments</span>
+</nav>
+{% endblock %}
 {% block content %}
 <div class="card-dark p-4 mb-4">
     <div class="row g-3 align-items-center">
