@@ -977,15 +977,15 @@ def register_booking(ref):
 
         cur.execute(
             """INSERT INTO "Appointment"
-               (student_id, date, time, purpose, status, booking_ref, urgency, global_id)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+               (student_id, appointment_date, appointment_time, appointment_type, status, booking_ref, global_id)
+               VALUES (%s,%s,%s,%s,%s,%s,%s)
                RETURNING id""",
             (
                 student_id,
                 booking.get('preferred_date'),
                 booking.get('preferred_time'),
                 booking.get('reason'),
-                'Scheduled', ref, 'Normal',
+                'Scheduled', ref,
                 str(uuid.uuid4()),
             ),
         )
