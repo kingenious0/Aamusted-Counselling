@@ -977,11 +977,11 @@ def register_booking(ref):
 
         cur.execute(
             """INSERT INTO "Appointment"
-               (student_id, appointment_date, appointment_time, appointment_type, status, booking_ref, global_id)
-               VALUES (%s,%s,%s,%s,%s,%s,%s)
+               (student_id, student_name, appointment_date, appointment_time, appointment_type, status, booking_ref, global_id)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
                RETURNING id""",
             (
-                student_id,
+                student_id, masked_name,
                 booking.get('preferred_date'),
                 booking.get('preferred_time'),
                 booking.get('reason'),
@@ -2389,9 +2389,13 @@ def manage_appointments():
         conn = get_db()
         cur = dict_cursor(conn)
         cur.execute('''
-            SELECT a.*, s.name as student_display_name, s.case_number, s.index_number
+            SELECT a.id, a.appointment_date as date, a.appointment_time as time,
+                   a.appointment_type as type, a.status, a.counsellor, a.notes,
+                   a.booking_ref, a.student_id, a.global_id,
+                   COALESCE(s.name, 'Unknown') as student_name,
+                   s.case_number, s.index_number
             FROM "Appointment" a
-            LEFT JOIN "Student" s ON a.student_id = s.id::text
+            LEFT JOIN "Student" s ON a.student_id = s.id
             WHERE a.is_deleted = FALSE
             ORDER BY a.appointment_date DESC, a.appointment_time DESC
             LIMIT 500
