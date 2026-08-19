@@ -94,6 +94,46 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="card-dark">
+                        <h3><i class="fas fa-sms me-2" style="color:#f472b6"></i>SMS Notifications</h3>
+                        <p class="text-muted mb-3" style="font-size:13px;">Configure Frog (Wigal) SMS to notify students and staff on new bookings.</p>
+
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="sms_enabled" value="true"
+                                       id="smsEnabled" {{ 'checked' if settings.get('sms_enabled') == 'true' }}>
+                                <label class="form-check-label" for="smsEnabled" style="font-weight:600;">Enable SMS Notifications</label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Counsellor Phone Number</label>
+                            <input type="tel" class="form-control" name="sms_counsellor_phone"
+                                   value="{{ settings.get('sms_counsellor_phone', '') }}"
+                                   placeholder="024XXXXXXX">
+                            <small class="text-muted">Mrs. Gertrude Effeh Brew</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Secretary Phone Number</label>
+                            <input type="tel" class="form-control" name="sms_secretary_phone"
+                                   value="{{ settings.get('sms_secretary_phone', '') }}"
+                                   placeholder="024XXXXXXX">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Admin Phone Number</label>
+                            <input type="tel" class="form-control" name="sms_admin_phone"
+                                   value="{{ settings.get('sms_admin_phone', '') }}"
+                                   placeholder="024XXXXXXX">
+                        </div>
+
+                        <div class="alert-box" style="background:rgba(244,114,182,0.08); border-color:rgba(244,114,182,0.2); color:#be185d;">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Frog API credentials are set via environment variables: <code>FROG_API_KEY</code>, <code>FROG_USERNAME</code>, <code>FROG_SENDER_ID</code>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="col-lg-4">

@@ -27,6 +27,9 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 BRIDGE_API_KEY = os.environ.get("BRIDGE_API_KEY", "sb_bridge_AnEpYo_2026")
 DATABASE_URL = os.environ.get("DATABASE_URL")
+FROG_API_KEY = os.environ.get("FROG_API_KEY", "")
+FROG_USERNAME = os.environ.get("FROG_USERNAME", "")
+FROG_SENDER_ID = os.environ.get("FROG_SENDER_ID", "USTED")
 _db_initialized = False
 
 
@@ -527,6 +530,23 @@ def init_db():
         conn.commit()
     except Exception:
         pass
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS "SMSQueue" (
+                id SERIAL PRIMARY KEY,
+                recipient TEXT, message TEXT, status TEXT DEFAULT 'queued',
+                direction TEXT DEFAULT 'outbound', reference TEXT,
+                error_message TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.commit()
+    except Exception as e:
+        logger.error(f"init_db SMSQueue: {e}")
+        conn.rollback()
+    try:
+        conn.commit()
+    except Exception:
+        pass
     cur.close()
     conn.close()
 
@@ -590,6 +610,147 @@ def name_to_initials(name_input):
     if len(parts) >= 2:
         return parts[0][0] + '.' + parts[-1][0] + '.'
     return name_input[0] + '.' if name_input else 'N/A'
+
+
+def get_clinical_id(name, sid, created_at=None):
+    """Generate a professional clinical privacy ID."""
+    if not name:
+        return "N/A"
+    name_str = str(name).strip()
+    import re as _re
+    if _re.match(r'^[A-Z](\.[A-Z])*\.?$', name_str):
+        letters = [c for c in name_str if c.isalpha()]
+        initials = "".join(letters[:2]).upper() if letters else "ST"
+    else:
+        parts = [p.strip() for p in name_str.split() if p.strip()]
+        if len(parts) >= 2:
+            initials = (parts[0][0] + parts[-1][0]).upper()
+        elif len(parts) == 1:
+            initials = parts[0][:2].upper()
+        else:
+            initials = "ST"
+    year = datetime.now().year
+    if created_at:
+        try:
+            year = str(created_at)[:4]
+        except:
+            pass
+    return f"{initials}-{year}-{str(sid).zfill(3)}"
+
+
+@app.template_filter('to_clinical_id')
+def to_clinical_id_filter(student):
+    """Jinja2 filter to convert a student object/row to a professional clinical ID."""
+    if not student:
+        return "N/A"
+    try:
+        s_dict = dict(student) if hasattr(student, 'keys') else student
+        case_num = s_dict.get('case_number')
+        if case_num:
+            return case_num
+        name = s_dict.get('name') or s_dict.get('student_name') or "ST"
+        sid = s_dict.get('id') or s_dict.get('student_record_id') or s_dict.get('student_db_id') or 0
+        created_at = s_dict.get('created_at') or s_dict.get('student_created_at')
+        return get_clinical_id(name, sid, created_at)
+    except (TypeError, KeyError, AttributeError):
+        return "N/A"
+
+
+def send_frog_sms(phone, message, reference=''):
+    """Send SMS via Frog (Wigal) API. Returns (success: bool, error: str|None)."""
+    if not phone or not message:
+        return False, 'No phone or message'
+    if not FROG_API_KEY or not FROG_USERNAME:
+        logger.warning("Frog SMS not configured — skipping send")
+        return False, 'SMS not configured'
+    import urllib.request
+    import urllib.error
+    phone_clean = phone.strip().replace(' ', '').replace('-', '')
+    if phone_clean.startswith('0'):
+        phone_clean = '+233' + phone_clean[1:]
+    elif not phone_clean.startswith('+'):
+        phone_clean = '+233' + phone_clean
+    payload = {
+        "senderid": FROG_SENDER_ID,
+        "destinations": [{"destination": phone_clean, "msgid": f"MSG{uuid.uuid4().hex[:10]}"}],
+        "message": message,
+        "smstype": "text"
+    }
+    try:
+        req = urllib.request.Request(
+            'https://frogapi.wigal.com.gh/api/v3/sms/send',
+            data=__import__('json').dumps(payload).encode('utf-8'),
+            headers={
+                'Content-Type': 'application/json',
+                'API-KEY': FROG_API_KEY,
+                'USERNAME': FROG_USERNAME,
+            },
+            method='POST'
+        )
+        resp = urllib.request.urlopen(req, timeout=10)
+        result = __import__('json').loads(resp.read().decode('utf-8'))
+        status = result.get('status', '')
+        if status == 'ACCEPTD':
+            return True, None
+        return False, result.get('message', 'Unknown error')
+    except Exception as e:
+        logger.error(f"Frog SMS error: {e}")
+        return False, str(e)
+
+
+def log_sms(conn, recipient, message, status='sent', direction='outbound', reference='', error_message=''):
+    """Log an SMS to the SMSQueue table."""
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            '''INSERT INTO "SMSQueue" (recipient, message, status, direction, reference, error_message, created_at)
+               VALUES (%s, %s, %s, %s, %s, %s, NOW())''',
+            (recipient, message, status, direction, reference, error_message)
+        )
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        logger.error(f"log_sms error: {e}")
+        conn.rollback()
+
+
+def get_staff_phones(conn):
+    """Get configured phone numbers for counsellor/secretary from app_settings."""
+    phones = {}
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT setting_name, setting_value FROM app_settings WHERE setting_name LIKE 'sms_%'")
+        for row in cur.fetchall():
+            phones[row[0]] = row[1]
+        cur.close()
+    except Exception:
+        pass
+    return phones
+
+
+def send_booking_sms_notifications(conn, ref, full_name, index_number, phone, preferred_date, preferred_time):
+    """Send SMS to student, counsellor, and secretary after booking."""
+    student_msg = (
+        f"Dear {full_name}, your counselling booking {ref} has been received.\n"
+        f"Date: {preferred_date or 'TBD'}\n"
+        f"Time: {preferred_time or 'TBD'}\n"
+        f"Counsellor: Mrs. Gertrude Effeh Brew\n"
+        f"Please save your reference number."
+    )
+    ok, err = send_frog_sms(phone, student_msg, ref)
+    log_sms(conn, phone, student_msg, 'sent' if ok else 'failed', 'outbound', ref, err or '')
+
+    staff_phones = get_staff_phones(conn)
+    staff_msg = (
+        f"New counselling booking {ref} from {name_to_initials(full_name)} ({index_number}).\n"
+        f"Date: {preferred_date or 'TBD'} at {preferred_time or 'TBD'}\n"
+        f"Please check the system."
+    )
+    for key in ['sms_counsellor_phone', 'sms_secretary_phone', 'sms_admin_phone']:
+        num = staff_phones.get(key, '')
+        if num:
+            ok2, err2 = send_frog_sms(num, staff_msg, ref)
+            log_sms(conn, num, staff_msg, 'sent' if ok2 else 'failed', 'outbound', ref, err2 or '')
 
 
 def fire_staff_notifications(conn, message, link='/admin/bookings'):
@@ -1281,11 +1442,53 @@ def portal_booking():
         ref = cur.fetchone()[0]
         conn.commit()
 
+        DEFAULT_COUNSELLOR = 'Mrs. Gertrude Effeh Brew'
+
+        cur.execute(
+            'SELECT id FROM "Student" WHERE index_number = %s AND is_deleted = FALSE',
+            (index_number,),
+        )
+        existing = cur.fetchone()
+
+        if existing:
+            student_id = existing[0] if isinstance(existing, tuple) else existing.get('id')
+        else:
+            case_number = generate_case_number(conn)
+            cur.execute(
+                '''INSERT INTO "Student"
+                   (name, case_number, index_number, department, programme, contact,
+                    email, hall_of_residence, gender, age, global_id, created_at, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                   RETURNING id''',
+                (full_name, case_number, index_number, department, programme,
+                 phone, email, hall_of_residence, gender,
+                 int(age) if age else None, str(uuid.uuid4())),
+            )
+            student_id = cur.fetchone()[0]
+            conn.commit()
+
+        cur.execute(
+            '''INSERT INTO "Appointment"
+               (student_name, student_id, appointment_date, appointment_time,
+                counsellor, purpose, status, booking_ref, urgency, global_id,
+                created_at, updated_at)
+               VALUES (%s, %s, %s, %s, %s, %s, 'Scheduled', %s, 'Normal', %s, NOW(), NOW())''',
+            (full_name, str(student_id),
+             preferred_date or datetime.now().strftime('%Y-%m-%d'),
+             preferred_time or '09:00',
+             DEFAULT_COUNSELLOR,
+             f"[Portal Booking] {reason or 'Counselling session'}",
+             ref, str(uuid.uuid4())),
+        )
+        conn.commit()
+
         fire_staff_notifications(
             conn,
-            f"New booking request {ref} from {full_name} ({index_number})",
+            f"New booking {ref} from {name_to_initials(full_name)} ({index_number}) — auto-accepted & scheduled",
             '/admin/bookings',
         )
+
+        send_booking_sms_notifications(conn, ref, full_name, index_number, phone, preferred_date, preferred_time)
 
         cur.close()
         conn.close()
@@ -1297,6 +1500,64 @@ def portal_booking():
     except Exception as e:
         logger.error(f"portal_booking error: {e}")
         resp = jsonify({'status': 'error', 'message': 'Something went wrong. Please try again.'})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp, 500
+
+
+@app.route("/api/lookup_booking", methods=["POST", "OPTIONS"])
+def lookup_booking():
+    """Look up booking status by reference or phone number."""
+    if request.method == "OPTIONS":
+        resp = jsonify({"ok": True})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        return resp
+
+    data = request.json or {}
+    reference = data.get('reference', '').strip()
+    phone = data.get('phone', '').strip()
+
+    if not reference and not phone:
+        resp = jsonify({'status': 'error', 'message': 'Please provide a reference number or phone number.'})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp, 400
+
+    try:
+        conn = get_db()
+        cur = dict_cursor(conn)
+        if reference:
+            cur.execute(
+                '''SELECT reference, full_name, department, programme, preferred_date,
+                          preferred_time, reason, status, created_at
+                   FROM "BookingRequest" WHERE reference = %s''',
+                (reference,)
+            )
+        else:
+            cur.execute(
+                '''SELECT reference, full_name, department, programme, preferred_date,
+                          preferred_time, reason, status, created_at
+                   FROM "BookingRequest" WHERE phone = %s ORDER BY created_at DESC LIMIT 5''',
+                (phone,)
+            )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        results = []
+        for r in rows:
+            for k, v in r.items():
+                if isinstance(v, (datetime, date)):
+                    r[k] = v.isoformat()
+            results.append(r)
+
+        resp = jsonify({'status': 'success', 'bookings': results})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp, 200
+
+    except Exception as e:
+        logger.error(f"lookup_booking error: {e}")
+        resp = jsonify({'status': 'error', 'message': 'Lookup failed. Please try again.'})
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp, 500
 
@@ -1571,6 +1832,12 @@ def admin_update_settings():
             'active_theme': active_theme,
             'theme_color': active_theme,
         }
+        sms_fields = ['sms_counsellor_phone', 'sms_secretary_phone', 'sms_admin_phone',
+                       'sms_sender_id', 'sms_enabled']
+        for field in sms_fields:
+            val = request.form.get(field, '')
+            if val is not None:
+                updates[field] = val.strip()
         for key, val in updates.items():
             if val and str(val).strip():
                 cur.execute(
@@ -3720,7 +3987,13 @@ def print_session(session_id):
     try:
         conn = get_db()
         cur = dict_cursor(conn)
-        cur.execute('SELECT * FROM "session" WHERE id = %s', (session_id,))
+        cur.execute('''SELECT ss.*,
+                       st.name AS student_name_full, st.id AS student_record_id,
+                       st.created_at AS student_created_at, st.index_number,
+                       st.programme, st.department, st.case_number
+                       FROM "session" ss
+                       LEFT JOIN "Student" st ON ss.student_id = st.id::text
+                       WHERE ss.id = %s''', (session_id,))
         data = cur.fetchone()
         if data:
             for k, v in data.items():
@@ -3728,8 +4001,8 @@ def print_session(session_id):
                     data[k] = v.isoformat()
         cur.close()
         conn.close()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"print_session error: {e}")
     if not data:
         flash("Session not found", "error")
         return redirect(url_for('sessions_list'))
