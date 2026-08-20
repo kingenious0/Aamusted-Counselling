@@ -113,14 +113,12 @@ Dashboard
                 <div class="list-group-item" style="background:transparent; border-color:#e2d9c8; padding:12px 0;">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
-                            <div style="font-weight:600; font-size:14px;">{{ (b.student_name|to_initials) if b.student_name else (b.get('full_name')|to_initials if b.get('full_name') else '-') }}</div>
-                            <small class="text-muted">Case: {{ b.case_number or '-' }} &middot; {{ b.date or b.get('preferred_date', '-') }}</small>
+                            <div style="font-weight:600; font-size:14px;">{{ (b.full_name|to_initials) if b.get('full_name') else (b.student_name|to_initials if b.get('student_name') else '-') }}</div>
+                            <small class="text-muted">{{ b.department or '' }} {{ ('· ' + b.preferred_date) if b.get('preferred_date') else ('· ' + b.date) if b.get('date') else '' }}</small>
                         </div>
                         {% if is_secretary or is_admin %}
                         <div class="d-flex gap-1">
-                            <form action="/admin/bookings/{{ b.booking_ref }}/register" method="GET" style="display:inline;">
-                                <button type="submit" class="btn btn-sm btn-success" style="border-radius:8px; font-size:12px;"><i class="fas fa-check me-1"></i>Accept</button>
-                            </form>
+                            <a href="/admin/bookings" class="btn btn-sm btn-success" style="border-radius:8px; font-size:12px;"><i class="fas fa-check me-1"></i>Accept</a>
                         </div>
                         {% endif %}
                     </div>

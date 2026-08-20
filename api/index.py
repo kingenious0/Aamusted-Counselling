@@ -95,19 +95,28 @@ def log_audit(action, table_name=None, record_id=None, details=None):
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(
-            '''INSERT INTO audit_logs (action, table_name, record_id, user_id, username, details, created_at)
-               VALUES (%s, %s, %s, %s, %s, %s, NOW())''',
-            (
-                action,
-                table_name,
-                record_id,
-                session.get('user_id'),
-                session.get('username', 'System'),
-                details or '',
-            ),
-        )
-        conn.commit()
+        try:
+            cur.execute(
+                '''INSERT INTO audit_logs (action, table_name, record_id, user_id, username, details, created_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, NOW())''',
+                (
+                    action,
+                    table_name,
+                    record_id,
+                    session.get('user_id'),
+                    session.get('username', 'System'),
+                    details or '',
+                ),
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            cur.execute(
+                '''INSERT INTO audit_logs (action, table_name, record_id, details, created_at)
+                   VALUES (%s, %s, %s, %s, NOW())''',
+                (action, table_name, record_id, details or ''),
+            )
+            conn.commit()
         cur.close()
         conn.close()
     except Exception as e:
@@ -977,11 +986,9 @@ def dashboard():
         if user_role in ('Secretary', 'Admin'):
             try:
                 cur.execute("""
-                    SELECT a.*, s.name AS student_name, s.id AS student_record_id, s.case_number
-                    FROM "Appointment" a
-                    JOIN "Student" s ON a.student_id::bigint = s.id
-                    WHERE a.status = 'Scheduled' AND a.is_deleted = FALSE
-                    ORDER BY a.appointment_date ASC, a.appointment_time ASC
+                    SELECT * FROM "BookingRequest"
+                    WHERE status = 'Pending' AND is_deleted = FALSE
+                    ORDER BY created_at DESC
                 """)
                 pending_bookings = cur.fetchall()
             except Exception:
@@ -3073,6 +3080,28 @@ def health_check():
                 except Exception:
                     conn.rollback()
                     continue
+            try:
+                cur.execute('''CREATE TABLE IF NOT EXISTS audit_logs (
+                    id SERIAL PRIMARY KEY, action TEXT, table_name TEXT,
+                    record_id INTEGER, user_id INTEGER, username TEXT,
+                    details TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )''')
+                conn.commit()
+            except Exception:
+                conn.rollback()
+            try:
+                for col_sql in [
+                    'ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS record_id INTEGER',
+                    'ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS user_id INTEGER',
+                    'ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS username TEXT',
+                ]:
+                    try:
+                        cur.execute(col_sql)
+                    except Exception:
+                        conn.rollback()
+                conn.commit()
+            except Exception:
+                conn.rollback()
             conn.commit()
             cur.close()
             conn.close()
