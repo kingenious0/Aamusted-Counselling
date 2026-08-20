@@ -1098,8 +1098,7 @@
     });
     const savedScroll = sessionStorage.getItem('scrollPos_' + location.pathname);
     if (savedScroll) window.scrollTo(0, parseInt(savedScroll));
-
-    {% block scripts %}{% endblock %}
     </script>
+    {% block scripts %}{% endblock %}
 </body>
 </html>
