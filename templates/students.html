@@ -117,12 +117,14 @@
                                 <a href="/edit_student/{{ s.id }}" class="btn btn-sm btn-outline-warning" title="Edit">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <form action="/delete_student/{{ s.id }}" method="POST" style="display:inline;"
-                                      onsubmit="event.preventDefault(); confirmAction('Delete Client', 'Are you sure you want to permanently delete this client? This action cannot be undone.', '<i class=&quot;fas fa-trash-alt&quot; style=&quot;color:var(--color-danger)&quot;></i>', function() { Loading.show('Deleting client...'); this.closest('form').submit(); }.bind(this));">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </form>
+                                {% if session.get('role') == 'Admin' %}
+                                <button type="button" class="btn btn-sm btn-outline-danger" title="Delete"
+                                        data-action="delete" data-id="{{ s.id }}" data-name="{{ clinical }}"
+                                        onclick="confirmAction('Delete Client', 'Are you sure you want to permanently delete this client and all their records? This action cannot be undone.', '<i class=&quot;fas fa-trash-alt&quot; style=&quot;color:var(--color-danger)&quot;></i>', function() { document.getElementById('deleteForm-' + this.dataset.id).submit(); }.bind(this));">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                <form id="deleteForm-{{ s.id }}" action="/delete_student/{{ s.id }}" method="POST" style="display:none;"></form>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>

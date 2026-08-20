@@ -102,6 +102,7 @@
                                     class="btn btn-sm btn-light border btn-hover-lift" title="Print">
                                     <i class="bi bi-printer text-secondary"></i>
                                 </a>
+                                {% if session.get('role') == 'Admin' %}
                                 <form action="/delete_referral/{{ referral.id }}" method="POST" style="display:inline;"
                                     onsubmit="return confirm('Are you sure you want to delete this referral for {{ referral.student_name|to_initials }}? This action cannot be undone!');">
                                     <button type="submit" class="btn btn-sm btn-light border btn-hover-lift text-danger"
@@ -109,6 +110,7 @@
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </form>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>

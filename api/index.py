@@ -3242,20 +3242,26 @@ def update_appt_status(appt_id, new_status):
 
     TRANSITIONS = {
         'Secretary': {
-            'Scheduled': ['Confirmed', 'Checked In', 'Cancelled'],
-            'Confirmed': ['Checked In', 'Cancelled'],
-        },
-        'Counsellor': {
-            'Sent to Counsellor': ['In Session', 'Cancelled'],
-            'In Session': ['Completed', 'Cancelled'],
-        },
-        'Admin': {
             'Scheduled': ['Confirmed', 'Checked In', 'Sent to Counsellor', 'Cancelled'],
             'Confirmed': ['Checked In', 'Sent to Counsellor', 'Cancelled'],
             'Checked In': ['Sent to Counsellor', 'In Session', 'Cancelled'],
             'Sent to Counsellor': ['In Session', 'Cancelled'],
             'In Session': ['Completed', 'Cancelled'],
-            'Completed': [],
+        },
+        'Counsellor': {
+            'Scheduled': ['Confirmed', 'Checked In', 'Cancelled'],
+            'Confirmed': ['Checked In', 'Cancelled'],
+            'Checked In': ['In Session', 'Cancelled'],
+            'Sent to Counsellor': ['In Session', 'Cancelled'],
+            'In Session': ['Completed', 'Cancelled'],
+        },
+        'Admin': {
+            'Scheduled': ['Confirmed', 'Checked In', 'Sent to Counsellor', 'In Session', 'Completed', 'Cancelled'],
+            'Confirmed': ['Checked In', 'Sent to Counsellor', 'In Session', 'Completed', 'Cancelled'],
+            'Checked In': ['Sent to Counsellor', 'In Session', 'Completed', 'Cancelled'],
+            'Sent to Counsellor': ['In Session', 'Completed', 'Cancelled'],
+            'In Session': ['Completed', 'Cancelled'],
+            'Completed': ['Scheduled'],
             'Cancelled': ['Scheduled'],
         }
     }
@@ -3348,6 +3354,9 @@ def delete_student(student_id):
 @app.route("/delete_appointment/<int:appointment_id>", methods=["POST"])
 @login_required
 def delete_appointment(appointment_id):
+    if session.get('role') != 'Admin':
+        flash("Unauthorized", "error")
+        return redirect(url_for('dashboard'))
     try:
         conn = get_db()
         cur = conn.cursor()
@@ -3383,6 +3392,9 @@ def delete_session(session_id):
 @app.route("/delete_referral/<int:referral_id>", methods=["POST"])
 @login_required
 def delete_referral(referral_id):
+    if session.get('role') != 'Admin':
+        flash("Unauthorized", "error")
+        return redirect(url_for('dashboard'))
     try:
         conn = get_db()
         cur = conn.cursor()
@@ -3940,6 +3952,9 @@ def download_report_csv(report_id):
 @app.route("/delete_report/<int:report_id>", methods=["POST"])
 @login_required
 def delete_report(report_id):
+    if session.get('role') != 'Admin':
+        flash("Unauthorized", "error")
+        return redirect(url_for('dashboard'))
     try:
         conn = get_db()
         cur = conn.cursor()

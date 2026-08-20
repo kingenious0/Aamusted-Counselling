@@ -69,9 +69,11 @@
                             <a href="/view_report/{{ r.id }}" class="btn btn-sm btn-outline-primary" title="View"><i class="fas fa-eye"></i></a>
                             <a href="/download_report/{{ r.id }}" class="btn btn-sm btn-outline-success" title="Download DOCX"><i class="fas fa-file-word"></i></a>
                             <a href="/download_report_csv/{{ r.id }}" class="btn btn-sm btn-outline-info" title="Download CSV"><i class="fas fa-file-csv"></i></a>
+                            {% if session.get('role') == 'Admin' %}
                             <form method="POST" action="/delete_report/{{ r.id }}" style="display:inline;" onsubmit="return confirm('Delete this report?');">
                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete"><i class="fas fa-trash"></i></button>
                             </form>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
