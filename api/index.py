@@ -90,6 +90,30 @@ def roles_required(*allowed_roles):
     return decorator
 
 
+def log_audit(action, table_name=None, record_id=None, details=None):
+    """Log an audit trail entry. Never raises — failures are silently logged."""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            '''INSERT INTO audit_logs (action, table_name, record_id, user_id, username, details, created_at)
+               VALUES (%s, %s, %s, %s, %s, %s, NOW())''',
+            (
+                action,
+                table_name,
+                record_id,
+                session.get('user_id'),
+                session.get('username', 'System'),
+                details or '',
+            ),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        logger.error(f"log_audit failed: {e}")
+
+
 def init_db():
     from werkzeug.security import generate_password_hash
     conn = get_db()
@@ -392,7 +416,12 @@ def init_db():
         cur.execute("""
             CREATE TABLE IF NOT EXISTS audit_logs (
                 id SERIAL PRIMARY KEY,
-                username TEXT, action TEXT, table_name TEXT, details TEXT,
+                action TEXT,
+                table_name TEXT,
+                record_id INTEGER,
+                user_id INTEGER,
+                username TEXT,
+                details TEXT,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -516,6 +545,7 @@ def init_db():
             # audit_logs
             'ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS record_id INTEGER',
             'ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS user_id INTEGER',
+            'ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS username TEXT',
         ]
         for sql in _clinical_alters:
             try:
@@ -853,8 +883,10 @@ def login():
                 session['username'] = user['username']
                 session['full_name'] = user['full_name'] or user['username']
                 session['role'] = user['role']
+                log_audit('LOGIN', 'users', user['id'], f"Successful login by {user['username']} (role: {user['role']})")
                 return redirect(url_for('dashboard'))
             flash('Invalid username or password.', 'error')
+            log_audit('LOGIN_FAILED', 'users', None, f"Failed login attempt for '{username}'")
         except Exception as e:
             logger.error(f"login: {e}")
             flash(f'Login error: {e}', 'error')
@@ -863,6 +895,7 @@ def login():
 
 @app.route('/logout')
 def logout():
+    log_audit('LOGOUT', 'users', session.get('user_id'), f"User {session.get('username', 'unknown')} logged out")
     session.clear()
     return redirect(url_for('login'))
 
@@ -1185,6 +1218,7 @@ def register_booking(ref):
         conn.commit()
         cur.close()
         conn.close()
+        log_audit('BOOKING_REGISTER', 'BookingRequest', None, f"Booking {ref} registered as student {case_number}")
         return jsonify({'status': 'success', 'student_id': student_id, 'case_number': case_number})
 
     except Exception as e:
@@ -1210,6 +1244,7 @@ def decline_booking(ref):
         conn.commit()
         cur.close()
         conn.close()
+        log_audit('BOOKING_DECLINE', 'BookingRequest', None, f"Booking {ref} declined" + (f" — reason: {reason}" if reason else ""))
         return jsonify({'status': 'success'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1465,6 +1500,7 @@ def portal_booking():
         cur.close()
         conn.close()
 
+        log_audit('BOOKING_SUBMIT', 'BookingRequest', None, f"API booking submitted: {ref} by {index_number}")
         resp = jsonify({'status': 'success', 'reference': ref, 'message': 'Booking submitted successfully!'})
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp, 201
@@ -1821,6 +1857,7 @@ def admin_update_settings():
         conn.commit()
         cur.close()
         conn.close()
+        log_audit('UPDATE', 'app_settings', None, f"System settings updated: {', '.join(updates.keys())}")
         flash("Settings saved successfully", "success")
     except Exception as e:
         logger.error(f"admin_update_settings: {e}")
@@ -1911,6 +1948,7 @@ def referral():
             conn.commit()
             cur.close()
             conn.close()
+            log_audit('CREATE', 'Referral', None, f"Referral created for {student_name}: {reason_for_referral[:60]}")
             flash("Referral created successfully", "success")
             return redirect(url_for('all_referrals'))
         except Exception as e:
@@ -1989,26 +2027,29 @@ def case_note():
                          interventions, recommendations, next_visit_date, counsellor_name,
                          counsellor_signature, notes, session_id)
                     )
+                    log_audit('UPDATE', 'CaseManagement', existing['id'], f"Case note updated for session {session_id}")
                 else:
                     cur.execute(
                         '''INSERT INTO "CaseManagement" (student_name, student_id, session_id, client_appearance,
                            presenting_problems, interventions, recommendations, next_visit_date,
                            counsellor_name, counsellor_signature, notes, counsellor, created_at, updated_at)
                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW(),NOW())''',
-                        (student_name, student_id, session_id, client_appearance, presenting_problems,
-                         interventions, recommendations, next_visit_date, counsellor_name,
-                         counsellor_signature, notes, session.get('username', ''))
+                    (student_name, student_id, session_id, client_appearance, presenting_problems,
+                     interventions, recommendations, next_visit_date, counsellor_name,
+                     counsellor_signature, notes, session.get('username', ''))
                     )
+                    log_audit('CREATE', 'CaseManagement', None, f"Case note created for session {session_id}")
             else:
                 cur.execute(
                     '''INSERT INTO "CaseManagement" (student_name, student_id, client_appearance,
                        presenting_problems, interventions, recommendations, next_visit_date,
                        counsellor_name, counsellor_signature, notes, counsellor, created_at, updated_at)
                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW(),NOW())''',
-                    (student_name, student_id, client_appearance, presenting_problems,
-                     interventions, recommendations, next_visit_date, counsellor_name,
-                     counsellor_signature, notes, session.get('username', ''))
+                (student_name, student_id, client_appearance, presenting_problems,
+                 interventions, recommendations, next_visit_date, counsellor_name,
+                 counsellor_signature, notes, session.get('username', ''))
                 )
+                log_audit('CREATE', 'CaseManagement', None, f"Case note created for {student_name}")
             conn.commit()
             cur.close()
             conn.close()
@@ -2089,6 +2130,7 @@ def create_session():
             conn.commit()
             cur.close()
             conn.close()
+            log_audit('CREATE', 'Session', None, f"Counselling session created for {student_name} ({session_type})")
             flash("Session created", "success")
             return redirect(url_for('sessions_list'))
         except Exception as e:
@@ -2196,6 +2238,7 @@ def dass21():
             conn.commit()
             cur.close()
             conn.close()
+            log_audit('CREATE', 'DASS21', None, f"DASS-21 assessment completed: Depression={depression_score}, Anxiety={anxiety_score}, Stress={stress_score}")
             flash(f"DASS-21 complete. Depression: {depression_score} ({depression_severity}), Anxiety: {anxiety_score} ({anxiety_severity}), Stress: {stress_score} ({stress_severity})", "success")
             return redirect(url_for('dass21_list'))
         except Exception as e:
@@ -2249,6 +2292,7 @@ def outcome_questionnaire():
             conn.commit()
             cur.close()
             conn.close()
+            log_audit('CREATE', 'OutcomeQuestionnaire', None, f"OQ-45 submitted with total score: {total_score}")
             flash(f"OQ-45 submitted. Total score: {total_score}", "success")
             return redirect(url_for('reports'))
         except Exception as e:
@@ -2529,6 +2573,7 @@ def intake():
 
             cur.close()
             conn.close()
+            log_audit('CREATE', 'Student,Appointment', student_id, f"Intake: {name_to_initials(full_name)} ({identifier}) registered + appointment created")
             flash("Client registered and appointment scheduled successfully.", "success")
             return redirect(url_for('dashboard'))
 
@@ -2603,6 +2648,7 @@ def appointment():
             conn.commit()
             cur.close()
             conn.close()
+            log_audit('CREATE', 'Appointment', None, f"Appointment scheduled for {student_name} on {appt_date}")
             flash("Appointment scheduled successfully!", "success")
             return redirect(url_for('manage_appointments'))
         except Exception as e:
@@ -2714,6 +2760,7 @@ def admin_user_add():
         conn.commit()
         cur.close()
         conn.close()
+        log_audit('CREATE', 'users', None, f"User account created: {username} (role: {role})")
         flash(f"User '{username}' created successfully", "success")
     except Exception as e:
         flash(f"Error creating user: {e}", "error")
@@ -2735,6 +2782,7 @@ def admin_user_delete(user_id):
             flash("Cannot delete your own account", "error")
         else:
             cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+            log_audit('DELETE', 'users', user_id, f"User account deleted: {row[0]}")
             conn.commit()
             flash("User deleted", "success")
         cur.close()
@@ -2750,14 +2798,30 @@ def audit_logs():
     if session.get('role') != 'Admin':
         flash("Unauthorized", "error")
         return redirect(url_for('dashboard'))
+    search = request.args.get('search', '').strip()
+    action_filter = request.args.get('action', '').strip()
+    table_filter = request.args.get('table', '').strip()
     logs = []
     try:
         conn = get_db()
         cur = dict_cursor(conn)
-        cur.execute('''SELECT a.*, u.username as user_display, u.full_name 
+        where_clauses = ['1=1']
+        params = []
+        if search:
+            where_clauses.append('(a.details ILIKE %s OR a.username ILIKE %s OR u.full_name ILIKE %s)')
+            params.extend([f'%{search}%', f'%{search}%', f'%{search}%'])
+        if action_filter:
+            where_clauses.append('a.action = %s')
+            params.append(action_filter)
+        if table_filter:
+            where_clauses.append('a.table_name ILIKE %s')
+            params.append(f'%{table_filter}%')
+        where_sql = ' AND '.join(where_clauses)
+        cur.execute(f'''SELECT a.*, u.username as user_display, u.full_name 
                        FROM audit_logs a 
                        LEFT JOIN users u ON a.user_id = u.id 
-                       ORDER BY a.created_at DESC LIMIT 200''')
+                       WHERE {where_sql}
+                       ORDER BY a.created_at DESC LIMIT 500''', params)
         rows = cur.fetchall()
         for r in rows:
             for k, v in r.items():
@@ -2768,9 +2832,10 @@ def audit_logs():
         logs = rows
         cur.close()
         conn.close()
-    except Exception:
-        pass
-    return render_template('audit_logs.html', logs=logs)
+    except Exception as e:
+        logger.error(f"audit_logs: {e}")
+    return render_template('audit_logs.html', logs=logs, search=search,
+                         action_filter=action_filter, table_filter=table_filter)
 
 
 @app.route("/admin_workflow")
@@ -2811,6 +2876,7 @@ def admin_workflow_save():
         conn.commit()
         cur.close()
         conn.close()
+        log_audit('UPDATE', 'app_settings', None, f"Workflow settings saved: {', '.join(['auto_notify', 'lock_notes', 'require_approval', 'allow_walkin'])}")
         flash("Workflow settings saved", "success")
     except Exception as e:
         flash(f"Error: {e}", "error")
@@ -2842,6 +2908,7 @@ def profile():
             conn.commit()
             cur.close()
             conn.close()
+            log_audit('UPDATE', 'users', None, f"Profile updated for {session.get('username', 'unknown')}")
             flash("Profile updated", "success")
         except Exception as e:
             flash(f"Error: {e}", "error")
@@ -2925,6 +2992,7 @@ def import_csv():
             conn.commit()
             cur.close()
             conn.close()
+            log_audit('CSV_IMPORT', import_type.title(), None, f"CSV import: {count} {import_type} imported")
             flash(f"Successfully imported {count} {import_type}", "success")
         except Exception as e:
             flash(f"Import error: {e}", "error")
@@ -3293,10 +3361,7 @@ def update_appt_status(appt_id, new_status):
     else:
         cur.execute('UPDATE "Appointment" SET status = %s, updated_at = NOW() WHERE id = %s', (new_status, appt_id))
 
-    cur.execute('''INSERT INTO audit_logs (action, table_name, record_id, user_id, details, created_at)
-                   VALUES (%s, %s, %s, %s, %s, NOW())''',
-                ('status_change', 'Appointment', appt_id, session.get('user_id'),
-                 f'{current_status} -> {new_status} by {username}'))
+    log_audit('STATUS_CHANGE', 'Appointment', appt_id, f'{current_status} -> {new_status}')
 
     if new_status == 'In Session':
         cur.execute('SELECT student_name, student_id FROM "Appointment" WHERE id = %s', (appt_id,))
@@ -3340,9 +3405,7 @@ def delete_student(student_id):
         cur.execute('UPDATE "Referral" SET is_deleted = TRUE WHERE student_id = %s', (str(student_id),))
         cur.execute('UPDATE "CaseManagement" SET is_deleted = TRUE WHERE student_id = %s', (str(student_id),))
         cur.execute('UPDATE "DASS21" SET is_deleted = TRUE WHERE student_id = %s', (str(student_id),))
-        cur.execute('''INSERT INTO audit_logs (action, table_name, record_id, user_id, details, created_at)
-                       VALUES (%s, %s, %s, %s, %s, NOW())''',
-                    ('delete', 'Student', student_id, session.get('user_id'), f'Student {student_id} soft-deleted'))
+        log_audit('DELETE', 'Student', student_id, f"Client {student_id} and related records soft-deleted")
         conn.commit()
         cur.close()
         conn.close()
@@ -3361,6 +3424,7 @@ def delete_appointment(appointment_id):
         conn = get_db()
         cur = conn.cursor()
         cur.execute('UPDATE "Appointment" SET is_deleted = TRUE, updated_at = NOW() WHERE id = %s', (appointment_id,))
+        log_audit('DELETE', 'Appointment', appointment_id, f"Appointment {appointment_id} soft-deleted")
         conn.commit()
         cur.close()
         conn.close()
@@ -3378,9 +3442,7 @@ def delete_session(session_id):
         cur.execute('UPDATE "Referral" SET is_deleted = TRUE WHERE session_id = %s', (session_id,))
         cur.execute('UPDATE "CaseManagement" SET is_deleted = TRUE WHERE session_id = %s', (session_id,))
         cur.execute('UPDATE "session" SET is_deleted = TRUE, updated_at = NOW() WHERE id = %s', (session_id,))
-        cur.execute('''INSERT INTO audit_logs (action, table_name, record_id, user_id, details, created_at)
-                       VALUES (%s, %s, %s, %s, %s, NOW())''',
-                    ('delete', 'Session', session_id, session.get('user_id'), f'Session {session_id} soft-deleted'))
+        log_audit('DELETE', 'Session', session_id, f"Session {session_id} and related records soft-deleted")
         conn.commit()
         cur.close()
         conn.close()
@@ -3399,9 +3461,7 @@ def delete_referral(referral_id):
         conn = get_db()
         cur = conn.cursor()
         cur.execute('UPDATE "Referral" SET is_deleted = TRUE, updated_at = NOW() WHERE id = %s', (referral_id,))
-        cur.execute('''INSERT INTO audit_logs (action, table_name, record_id, user_id, details, created_at)
-                       VALUES (%s, %s, %s, %s, %s, NOW())''',
-                    ('delete', 'Referral', referral_id, session.get('user_id'), f'Referral {referral_id} soft-deleted'))
+        log_audit('DELETE', 'Referral', referral_id, f"Referral {referral_id} soft-deleted")
         conn.commit()
         cur.close()
         conn.close()
@@ -3519,6 +3579,7 @@ def booking():
 
             cur.close()
             conn.close()
+            log_audit('BOOKING_SUBMIT', 'BookingRequest', None, f"Portal booking submitted: {ref} by {index_number}")
             return redirect(url_for('booking_confirm', ref=ref))
 
         except Exception as e:
@@ -3815,6 +3876,7 @@ def generate_report_now():
         session['last_report_path'] = tmp.name
         session['last_report_id'] = report_id
 
+        log_audit('CREATE', 'Report', report_id, f"Report generated: {result['title']}")
         flash(f"Report generated successfully! ({result['stats']['total_appointments']} appointments, {result['stats']['total_sessions']} sessions)", "success")
     except Exception as e:
         logger.error(f"Report generation error: {e}")
@@ -3851,6 +3913,7 @@ def generate_report_manual():
         session['last_report_path'] = tmp.name
         session['last_report_id'] = report_id
 
+        log_audit('CREATE', 'Report', report_id, f"Report generated ({report_type}): {result['title']}")
         flash(f"Report generated successfully! ({result['stats']['total_appointments']} appointments, {result['stats']['total_sessions']} sessions)", "success")
     except Exception as e:
         logger.error(f"Report generation error: {e}")
@@ -3959,6 +4022,7 @@ def delete_report(report_id):
         conn = get_db()
         cur = conn.cursor()
         cur.execute('UPDATE reports SET is_deleted = TRUE WHERE id = %s', (report_id,))
+        log_audit('DELETE', 'Report', report_id, f"Report {report_id} soft-deleted")
         conn.commit()
         cur.close()
         conn.close()
@@ -4246,6 +4310,7 @@ def add_student():
                 conn.commit()
                 cur.close()
                 conn.close()
+                log_audit('CREATE', 'Student', None, f"New client registered: {case_num}")
                 flash(f'Client registered! Case Number: {case_num}', 'success')
                 return redirect(url_for('students'))
             except Exception as e:
@@ -4299,6 +4364,7 @@ def edit_student(id):
                 conn.commit()
                 cur.close()
                 conn.close()
+                log_audit('UPDATE', 'Student', id, f"Client record updated: {name}")
                 flash('Client record updated successfully!', 'success')
                 return redirect(url_for('students'))
             except Exception as e:
@@ -4367,6 +4433,7 @@ def edit_user():
         conn = get_db()
         cur = conn.cursor()
         cur.execute("UPDATE users SET full_name = %s, updated_at = NOW() WHERE id = %s", (full_name, user_id))
+        log_audit('UPDATE', 'users', user_id, f"User {user_id} name updated to '{full_name}'")
         conn.commit()
         cur.close()
         conn.close()
@@ -4393,6 +4460,7 @@ def reset_password():
         cur = conn.cursor()
         cur.execute("UPDATE users SET password_hash = %s, updated_at = NOW() WHERE id = %s",
                     (generate_password_hash(new_password), user_id))
+        log_audit('PASSWORD_RESET', 'users', user_id, f"Password reset for user {user_id}")
         conn.commit()
         cur.close()
         conn.close()
